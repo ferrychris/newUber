@@ -1,3 +1,4 @@
+import { toast } from "react-hot-toast";
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -99,10 +100,29 @@ function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
     { icon: UserGroupIcon, text: "Freters", path: "/admin/freters" },
     { icon: CogIcon, text: "Settings", path: "/admin/settings" },
   ];
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    try {
+      setIsLoggingOut(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+  
+      // Clear any local storage or state
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userProfile');
+      
+      // Show success message
+      toast.success('Déconnexion réussie');
+      
+      // Redirect to login
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Erreur lors de la déconnexion. Veuillez réessayer.');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -146,13 +166,14 @@ function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
           </nav>
 
           <div className="absolute bottom-4 left-0 right-0 px-4">
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-3 px-4 py-2.5 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
-            >
-              <ArrowLeftOnRectangleIcon className="h-6 w-6" />
-              <span>Logout</span>
-            </button>
+          <button
+  onClick={handleLogout}
+  disabled={isLoggingOut}
+  className="flex items-center justify-center space-x-3 px-4 py-3 w-full rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <ArrowLeftOnRectangleIcon className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
+  <span>{isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}</span>
+</button>
           </div>
         </div>
       </div>

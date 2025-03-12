@@ -1,4 +1,7 @@
+import { toast } from "react-hot-toast";
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import supabase from "../../utils/supabase";
 import {
   FaBell,
   FaMoon,
@@ -22,6 +25,18 @@ interface Notification {
 interface DashNavProps {
   isSidebarOpen?: boolean;
 }
+interface Order {
+  id: string;
+  date: string;
+  status: 'active' | 'in-transit' | 'completed';
+  destination: string;
+}
+
+interface Analytics {
+  monthlyOrders: number[];
+  statusCount: Record<string, number>;
+  topDestinations: [string, number][];
+}
 
 const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const { t, i18n } = useTranslation();
@@ -30,6 +45,9 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+
+  const navigate = useNavigate();
   const [notifications] = useState<Notification[]>([
     {
       id: 1,
@@ -52,6 +70,30 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   ]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+const handleLogout = async () => {
+  try {
+    setIsLoggingOut(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
+    // Clear any local storage or state
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userProfile');
+    
+    // Show success message
+    toast.success('Déconnexion réussie');
+    
+    // Redirect to login
+    navigate('/login', { replace: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    toast.error('Erreur lors de la déconnexion. Veuillez réessayer.');
+  } finally {
+    setIsLoggingOut(false);
+  }
+};
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -191,23 +233,22 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                   <div className="absolute right-0 mt-2 w-48 bg-midnight-800 rounded-xl shadow-lg border border-stone-600/10 py-2">
                     <button className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 flex items-center gap-2 text-white transition-colors duration-300">
                       <FaUser className="text-sunset/70" />
-                      <span>{t('profile.profile')}</span>
+                      <span>{t('Profile')}</span>
                     </button>
                     <button className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 flex items-center gap-2 text-white transition-colors duration-300">
                       <FaCog className="text-sunset/70" />
-                      <span>{t('profile.settings')}</span>
+                      <span>{t('Settings')}</span>
                     </button>
                     <div className="border-t border-stone-600/10 my-1"></div>
-                    <button 
-                      className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 flex items-center gap-2 text-purple transition-colors duration-300"
-                      onClick={() => {
-                        localStorage.removeItem("token");
-                        window.location.reload();
-                      }}
-                    >
-                      <FaSignOutAlt />
-                      <span>{t('profile.signOut')}</span>
-                    </button>
+                    <button
+  onClick={handleLogout}
+  disabled={isLoggingOut}
+  className="flex items-center justify-center space-x-3 px-4 py-3 w-full rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <FaSignOutAlt className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
+  <span>{isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}</span>
+  t{('logout')}
+</button>
                   </div>
                 )}
               </div>

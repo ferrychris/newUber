@@ -63,8 +63,8 @@ const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({ orders }) => {
         }, {} as Record<string, number>);
 
         const topDestinations = Object.entries(destinationCount)
-          .sort(([,a], [,b]) => b - a)
-          .slice(0, 4);
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 4);
 
         setAnalytics({
           monthlyOrders,
@@ -123,7 +123,7 @@ const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({ orders }) => {
     labels: analytics.topDestinations.map(([dest]) => dest),
     datasets: [
       {
-        data: analytics.topDestinations.map(([,count]) => count),
+        data: analytics.topDestinations.map(([, count]) => count),
         backgroundColor: [
           '#FF6B6B',
           '#4CAF50',
