@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import supabase from '../utils/supabase';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTheme } from '../utils/theme';
 
@@ -13,35 +12,51 @@ interface LoginFormData {
   password: string;
 }
 
+interface LocationState {
+  from?: string;
+  message?: string;
+}
+
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useTheme();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
   });
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const state = location.state as LocationState;
+    if (state?.message) {
+      toast.info(state.message);
+      // Clear the message from location state
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-  
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email.trim(),
-        password: formData.password
+        email: formData.email,
+        password: formData.password,
       });
-  
+
       if (error) {
-        console.error('Login error:', error.message);
+        console.error('Erreur de connexion:', error.message);
         toast.error(error.message);
       } else {
         toast.success('Connexion réussie');
-        navigate('/dashboard');
+        const state = location.state as LocationState;
+        navigate(state?.from || '/dashboard');
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
+      console.error('Erreur inattendue:', err);
       toast.error('Une erreur est survenue lors de la connexion');
     } finally {
       setLoading(false);
@@ -55,29 +70,14 @@ export default function Login() {
       [name]: value
     }));
   };
-  const fetchData = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("user_id", session.user.id);
-  
-    if (error) console.error(error);
-    else console.log(data);
-    if (session.user.role !== "admin") {
-      navigate("/dashboard"); // Redirect if not admin
-    }
-  };
-  
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark p-6">
+    <div className={`min-h-screen flex items-center justify-center ${theme === 'light' ? 'bg-gradient-light' : 'bg-gradient-dark'} p-6`}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex w-full max-w-[1200px] h-[600px] bg-white dark:bg-midnight-800 rounded-2xl shadow-soft-light dark:shadow-soft-dark overflow-hidden"
+        className={`flex w-full max-w-[1200px] h-[600px] ${theme === 'light' ? 'bg-white' : 'bg-midnight-800'} rounded-2xl ${theme === 'light' ? 'shadow-soft-light' : 'shadow-soft-dark'} overflow-hidden`}
       >
         {/* Left Side - Image */}
         <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-sunset dark:bg-gradient-sunset-dark items-center justify-center p-12">
