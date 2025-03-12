@@ -15,7 +15,7 @@ export default function Home() {
       {/* Content */}
       <div className="relative">
         {/* <HeroSection /> */}
-<Hero/>        
+<Hero />        
         <div className="relative z-10 bg-white dark:bg-midnight-800">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-50/50 dark:via-midnight-800/50 to-white dark:to-midnight-800" />
           <ServicesSection />

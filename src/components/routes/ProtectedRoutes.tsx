@@ -23,9 +23,10 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      setLoading(true);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session) {
+      if (sessionError || !session) {
         navigate('/login', { 
           state: { 
             message: 'Veuillez vous connecter pour accéder à cette page',
@@ -35,7 +36,6 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
         return;
       }
 
-      // Check if user has admin role when required
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -43,6 +43,24 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
         .single();
 
       if (profileError) {
+        if (profileError.code === 'PGRST116') {
+          // Create a default user profile if not found
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([{ id: session.user.id, role: 'user', created_at: new Date().toISOString() }])
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Erreur de création du profil:', createError);
+            throw createError;
+          }
+
+          setIsAdmin(false);
+          setAuthenticated(true);
+          return;
+        }
+
         console.error('Erreur de profil:', profileError);
         throw profileError;
       }
@@ -61,7 +79,7 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
 
       setAuthenticated(true);
     } catch (error) {
-      console.error('Erreur d\'authentification:', error);
+      console.error("Erreur d'authentification:", error);
       navigate('/login', { 
         state: { 
           message: 'Une erreur est survenue. Veuillez vous reconnecter.',
