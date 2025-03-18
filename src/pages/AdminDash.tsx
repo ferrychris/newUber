@@ -39,7 +39,7 @@ import {
   ArrowLeftOnRectangleIcon
 } from "@heroicons/react/24/outline";
 import { Link, useNavigate } from 'react-router-dom';
-import supabase from '../utils/supabase';
+import { supabase } from '../utils/supabase';
 
 interface KpiData {
   title: string;

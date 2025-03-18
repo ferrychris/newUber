@@ -3,60 +3,66 @@ import { Link } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import { useTheme } from '../utils/theme';
-import supabase from '../utils/supabase';
+import { supabase } from '../utils/supabase';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
 interface RegisterFormData {
-  firstName: string;
-  lastName: string;
+  full_name: string;
   email: string;
+  phone: string;
   password: string;
   confirmPassword: string;
+  role: 'customer' | 'driver';
 }
+
+interface RegisterFormErrors extends Partial<RegisterFormData> {}
 
 export default function Register() {
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<RegisterFormData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
+  const [formData, setFormData] = useState<RegisterFormData>({
+    full_name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    role: 'customer'
+  });
 
-  const validateForm = () => {
-    const newErrors: Partial<RegisterFormData> = {};
+  const [errors, setErrors] = useState<RegisterFormErrors>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: RegisterFormErrors = {};
     
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'Le prénom est requis';
-    }
-    
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Le nom est requis';
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = 'Full name is required';
     }
     
     if (!formData.email.trim()) {
-      newErrors.email = "L'email est requis";
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "L'email n'est pas valide";
+      newErrors.email = "Invalid email format";
     }
     
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\+?[0-9]{10,}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Invalid phone number';
+    }
+
     if (!formData.password) {
-      newErrors.password = 'Le mot de passe est requis';
+      newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Les mots de passe ne correspondent pas';
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -66,48 +72,153 @@ export default function Register() {
   async function register() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
+      // Trim and sanitize input data
+      const sanitizedEmail = formData.email.trim().toLowerCase();
+      const sanitizedPhone = formData.phone.trim();
+      const sanitizedName = formData.full_name.trim();
+      
+      // Sign up the user with metadata
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: sanitizedEmail,
         password: formData.password,
         options: {
           data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName
+            full_name: sanitizedName,
+            phone: sanitizedPhone,
+            role: formData.role,
+            profile_image: null
           }
         }
       });
 
-      if (error) {
-        console.error('Error:', error.message);
-        toast.error(error.message);
-      } else {
-        toast.success('Inscription réussie ! Veuillez vérifier votre email pour confirmer votre compte.');
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+      if (authError) {
+        console.error('Auth Error:', authError.message);
+        
+        // Provide more user-friendly error messages
+        if (authError.message.includes('email already registered')) {
+          toast.error('This email is already in use. Please log in or use another email.');
+        } else if (authError.message.includes('password')) {
+          toast.error('The password is too weak. Use at least 6 characters.');
+        } else {
+          toast.error(authError.message);
+        }
+        return;
       }
+
+      if (!authData.user) {
+        toast.error("An error occurred during registration.");
+        return;
+      }
+
+      console.log('User registered successfully:', authData.user.id);
+
+      // Insert user profile data
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: authData.user.id,
+          full_name: sanitizedName,
+          email: sanitizedEmail,
+          phone: sanitizedPhone,
+          role: formData.role,
+          password: formData.password, // Note: Password stored for validation only, not for login
+          profile_image: null
+        }]);
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        
+        if (profileError.message.includes('duplicate key')) {
+          if (profileError.message.includes('email')) {
+            toast.error('This email is already in use.');
+          } else if (profileError.message.includes('phone')) {
+            toast.error('This phone number is already in use.');
+          } else {
+            toast.error('A profile with these details already exists.');
+          }
+        } else {
+          toast.error("An error occurred while creating the profile. Please try again.");
+        }
+        
+        // Try to clean up the auth user if profile creation failed
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        return;
+      }
+
+      toast.success('Registration successful! Please check your email to confirm your account.');
+      
+      // Create driver profile if user role is driver
+      if (formData.role === 'driver') {
+        const { error: driverError } = await supabase
+          .from('drivers')
+          .insert([{
+            id: authData.user.id,
+            license_number: '',
+            license_expiry: '',
+            vehicle_type: null,
+            vehicle_make: '',
+            vehicle_model: '',
+            vehicle_year: null,
+            vehicle_color: '',
+            vehicle_plate: '',
+            verification_status: 'pending',
+            total_rides: 0,
+            average_rating: 0
+          }]);
+          
+        if (driverError) {
+          console.error('Error creating driver profile:', driverError);
+          // Don't block registration if driver profile creation fails
+          // We can handle this later in the driver dashboard
+        }
+        
+        // Also create an entry in driver_availability
+        const { error: availabilityError } = await supabase
+          .from('driver_availability')
+          .insert([{
+            driver_id: authData.user.id,
+            status: 'offline',
+            last_location_update: new Date().toISOString(),
+            current_latitude: null,
+            current_longitude: null
+          }]);
+          
+        if (availabilityError) {
+          console.error('Error creating driver availability:', availabilityError);
+          // Don't block registration if availability creation fails
+        }
+      }
+      
+      setTimeout(() => {
+        // Redirect based on role
+        const redirectPath = formData.role === 'driver' ? '/driver/dashboard' : '/dashboard';
+        navigate(redirectPath);
+      }, 2000);
     } catch (err) {
-      console.error('Unexpected error:', err);
-      toast.error("Une erreur est survenue. Veuillez réessayer plus tard.");
+      const error = err as Error;
+      console.error('Unexpected error:', error);
+      toast.error(error.message || "An error occurred. Please try again later.");
     } finally {
       setLoading(false);
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      register();
+    if (!validateForm()) {
+      toast.error("Please fill in all fields correctly");
+      return;
     }
+    await register();
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    if (errors[name as keyof RegisterFormData]) {
+    if (errors[name as keyof RegisterFormErrors]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
@@ -115,173 +226,192 @@ export default function Register() {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark p-6">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex w-full max-w-[1200px] h-[700px] bg-white dark:bg-midnight-800 rounded-2xl shadow-soft-light dark:shadow-soft-dark overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md"
       >
-        {/* Left Side - Image */}
-        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-sunset dark:bg-gradient-sunset-dark items-center justify-center p-12">
-          <div className="text-white space-y-6">
-            <h2 className="text-5xl font-bold">Rejoignez-nous</h2>
-            <p className="text-white/90">Créez votre compte pour accéder à des fonctionnalités exclusives et commencer votre voyage avec nous.</p>
-            <div className="absolute bottom-12 left-12">
-              <p className="text-white/70 text-sm">Déjà un compte ?</p>
-              <Link to="/login" className="text-white hover:text-white/90 font-semibold">
-                Connectez-vous ici
-              </Link>
-            </div>
+        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">Registration</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Full Name Input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Full Name
+            </label>
+            <input
+              type="text"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.full_name ? 'border-red-500 dark:border-red-500' : ''}`}
+              required
+            />
+            {errors.full_name && (
+              <p className="mt-1 text-sm text-red-500">{errors.full_name}</p>
+            )}
           </div>
-        </div>
 
-        {/* Right Side - Form */}
-        <div className="w-full lg:w-1/2 p-12 overflow-y-auto">
-          <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Créez votre compte</h1>
-              <p className="text-gray-600 dark:text-gray-400">Rejoignez-nous et commencez votre voyage</p>
-            </div>
+          {/* Email Input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.email ? 'border-red-500 dark:border-red-500' : ''}`}
+              required
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+            )}
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prénom</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    className={`input w-full ${errors.firstName ? 'border-red-500 dark:border-red-500' : ''}`}
-                  />
-                  {errors.firstName && (
-                    <p className="mt-1 text-sm text-red-500">{errors.firstName}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    className={`input w-full ${errors.lastName ? 'border-red-500 dark:border-red-500' : ''}`}
-                  />
-                  {errors.lastName && (
-                    <p className="mt-1 text-sm text-red-500">{errors.lastName}</p>
-                  )}
-                </div>
-              </div>
+          {/* Phone Input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Phone
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.phone ? 'border-red-500 dark:border-red-500' : ''}`}
+              required
+            />
+            {errors.phone && (
+              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+            )}
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`input w-full ${errors.email ? 'border-red-500 dark:border-red-500' : ''}`}
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-                )}
-              </div>
+          {/* Role Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Account Type
+            </label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="customer">Customer</option>
+              <option value="driver">Driver</option>
+            </select>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`input w-full pr-10 ${errors.password ? 'border-red-500 dark:border-red-500' : ''}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-sunset dark:hover:text-sunset transition-colors"
-                  >
-                    {showPassword ? <FaEyeSlash className="w-5 h-5" /> : <FaEye className="w-5 h-5" />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-500">{errors.password}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmer le mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className={`input w-full pr-10 ${errors.confirmPassword ? 'border-red-500 dark:border-red-500' : ''}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-sunset dark:hover:text-sunset transition-colors"
-                  >
-                    {showConfirmPassword ? <FaEyeSlash className="w-5 h-5" /> : <FaEye className="w-5 h-5" />}
-                  </button>
-                </div>
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
-                )}
-              </div>
-
+          {/* Password Input */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.password ? 'border-red-500 dark:border-red-500' : ''}`}
+                required
+              />
               <button
-                type="submit"
-                disabled={loading}
-                className="button w-full flex items-center justify-center"
+                type="button"
+                onClick={togglePasswordVisibility}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
               >
-                {loading ? (
-                  <div className="w-6 h-6 border-2 border-white rounded-full animate-spin border-t-transparent" />
-                ) : (
-                  "S'inscrire"
-                )}
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white dark:bg-midnight-800 text-gray-500 dark:text-gray-400">Ou continuer avec</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-midnight-700 transition-colors"
-                >
-                  <FcGoogle className="w-5 h-5 mr-2" />
-                  <span className="text-gray-700 dark:text-gray-300">Google</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-midnight-700 transition-colors"
-                >
-                  <FaApple className="w-5 h-5 mr-2 text-gray-900 dark:text-white" />
-                  <span className="text-gray-700 dark:text-gray-300">Apple</span>
-                </button>
-              </div>
-            </form>
-
-            <p className="text-center mt-8 text-sm text-gray-600 dark:text-gray-400">
-              Déjà un compte ?{' '}
-              <Link to="/login" className="text-sunset hover:text-sunset/80 font-semibold">
-                Connectez-vous
-              </Link>
-            </p>
+            </div>
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+            )}
           </div>
-        </div>
+
+          {/* Confirm Password Input */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.confirmPassword ? 'border-red-500 dark:border-red-500' : ''}`}
+                required
+              />
+              <button
+                type="button"
+                onClick={toggleConfirmPasswordVisibility}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+              >
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {loading ? 'Registering...' : "Register"}
+          </button>
+
+          {/* Social Login Options */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              >
+                <FcGoogle className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              >
+                <FaApple className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Login Link */}
+          <div className="text-sm text-center mt-4">
+            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Already registered? Log in
+            </Link>
+          </div>
+        </form>
       </motion.div>
     </div>
   );

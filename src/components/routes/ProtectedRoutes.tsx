@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import supabase from '../../utils/supabase';
+import { supabase } from '../../utils/supabase';
 import { useTheme } from '../../utils/theme';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminRequired?: boolean;
+  driverRequired?: boolean;
 }
 
-export default function ProtectedRoute({ children, adminRequired = false }: ProtectedRouteProps) {
+export default function ProtectedRoute({ 
+  children, 
+  adminRequired = false,
+  driverRequired = false 
+}: ProtectedRouteProps) {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,49 +33,40 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
       if (sessionError || !session) {
         navigate('/login', { 
           state: { 
-            message: 'Veuillez vous connecter pour accéder à cette page',
+            message: 'Please log in to access this page',
             from: location.pathname 
           } 
         });
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+      // Get user profile with role from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('role')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError) {
-        if (profileError.code === 'PGRST116') {
-          // Create a default user profile if not found
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert([{ id: session.user.id, role: 'user', created_at: new Date().toISOString() }])
-            .select()
-            .single();
-
-          if (createError) {
-            console.error('Erreur de création du profil:', createError);
-            throw createError;
-          }
-
-          setIsAdmin(false);
-          setAuthenticated(true);
-          return;
-        }
-
-        console.error('Erreur de profil:', profileError);
-        throw profileError;
+      if (userError && userError.code !== 'PGRST116') {
+        console.error('Error fetching user role:', userError);
+        throw userError;
       }
-
-      const userIsAdmin = profile?.role === 'admin';
-      setIsAdmin(userIsAdmin);
-
-      if (adminRequired && !userIsAdmin) {
+      
+      // Check for admin access if required
+      if (adminRequired && userData?.role !== 'admin') {
         navigate('/', { 
           state: { 
-            message: 'Accès non autorisé. Vous devez être administrateur pour accéder à cette page.' 
+            message: 'Unauthorized access. You must be an administrator to access this page.' 
+          } 
+        });
+        return;
+      }
+
+      // Check for driver access if required
+      if (driverRequired && userData?.role !== 'driver') {
+        navigate('/', { 
+          state: { 
+            message: 'Unauthorized access. This section is for drivers only.' 
           } 
         });
         return;
@@ -79,10 +74,10 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
 
       setAuthenticated(true);
     } catch (error) {
-      console.error("Erreur d'authentification:", error);
+      console.error("Authentication error:", error);
       navigate('/login', { 
         state: { 
-          message: 'Une erreur est survenue. Veuillez vous reconnecter.',
+          message: 'An error occurred. Please log in again.',
           from: location.pathname
         } 
       });
@@ -100,13 +95,13 @@ export default function ProtectedRoute({ children, adminRequired = false }: Prot
           className="p-8 rounded-lg bg-white/10 backdrop-blur-sm"
         >
           <div className="w-12 h-12 border-4 border-sunset rounded-full animate-spin border-t-transparent"></div>
-          <p className="mt-4 text-gray-700 dark:text-gray-300">Chargement...</p>
+          <p className="mt-4 text-gray-700 dark:text-gray-300">Loading...</p>
         </motion.div>
       </div>
     );
   }
 
-  if (!authenticated || (adminRequired && !isAdmin)) {
+  if (!authenticated) {
     return <Navigate to="/login" state={{ from: location.pathname }} />;
   }
 

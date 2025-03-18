@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import AdminDash from './pages/AdminDash';
 import { UserDash } from './pages/UserDash';
+import DriverDashboard from './pages/DriverDashboard';
 import FretersManagement from './admincomponents/FretersManagement';
 import OrdersManagement from './admincomponents/OrdersManagement';
 import UsersManagement from './admincomponents/UsersManagement';
@@ -27,6 +28,13 @@ function App() {
             <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <UserDash />
+              </ProtectedRoute>
+            } />
+
+            {/* Protected Driver Dashboard Routes */}
+            <Route path="/driver/dashboard" element={
+              <ProtectedRoute driverRequired>
+                <DriverDashboard />
               </ProtectedRoute>
             } />
             

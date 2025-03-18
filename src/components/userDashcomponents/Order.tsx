@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import supabase from "../../utils/supabase";
+import { supabase } from "../../utils/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { FaSpinner } from "react-icons/fa";
