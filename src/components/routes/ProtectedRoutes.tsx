@@ -28,57 +28,106 @@ export default function ProtectedRoute({
   const checkAuth = async () => {
     try {
       setLoading(true);
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session) {
-        navigate('/login', { 
-          state: { 
-            message: 'Please log in to access this page',
-            from: location.pathname 
-          } 
-        });
-        return;
-      }
-
-      // Get user profile with role from users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (userError && userError.code !== 'PGRST116') {
-        console.error('Error fetching user role:', userError);
-        throw userError;
+      // First check localStorage for our custom session
+      const userSessionStr = localStorage.getItem('userSession');
+      let userSession = null;
+      
+      if (userSessionStr) {
+        try {
+          userSession = JSON.parse(userSessionStr);
+          console.log('Found user session in localStorage:', userSession.full_name);
+        } catch (e) {
+          console.error('Error parsing user session from localStorage:', e);
+        }
       }
       
-      // Check for admin access if required
-      if (adminRequired && userData?.role !== 'admin') {
-        navigate('/', { 
-          state: { 
-            message: 'Unauthorized access. You must be an administrator to access this page.' 
-          } 
-        });
-        return;
-      }
+      // If not found in localStorage, fallback to check Supabase auth
+      if (!userSession) {
+        console.log('No localStorage session, checking Supabase auth...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          console.log('No valid session found, redirecting to login');
+          navigate('/login', { 
+            state: { 
+              message: 'Please log in to access this page',
+              from: location.pathname 
+            } 
+          });
+          return;
+        }
+        
+        // Get user profile with role from users table using Supabase auth ID
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-      // Check for driver access if required
-      if (driverRequired && userData?.role !== 'driver') {
-        navigate('/', { 
-          state: { 
-            message: 'Unauthorized access. This section is for drivers only.' 
-          } 
-        });
-        return;
-      }
+        if (userError && userError.code !== 'PGRST116') {
+          console.error('Error fetching user role:', userError);
+          throw userError;
+        }
+        
+        // Use the userData to check role requirements
+        const userRole = userData?.role || 'customer';
+        
+        // Check for admin access if required
+        if (adminRequired && userRole !== 'admin') {
+          navigate('/', { 
+            state: { 
+              message: 'Unauthorized access. You must be an administrator to access this page.' 
+            } 
+          });
+          return;
+        }
 
+        // Check for driver access if required
+        if (driverRequired && userRole !== 'driver') {
+          navigate('/', { 
+            state: { 
+              message: 'Unauthorized access. You must be a driver to access this page.' 
+            } 
+          });
+          return;
+        }
+      } 
+      // Use localStorage session
+      else {
+        console.log('Using localStorage session for authentication');
+        const userRole = userSession.role || 'customer';
+        
+        // Check for admin access if required
+        if (adminRequired && userRole !== 'admin') {
+          console.log('Admin access required but user is not admin');
+          navigate('/', { 
+            state: { 
+              message: 'Unauthorized access. You must be an administrator to access this page.' 
+            } 
+          });
+          return;
+        }
+
+        // Check for driver access if required
+        if (driverRequired && userRole !== 'driver') {
+          console.log('Driver access required but user is not driver');
+          navigate('/', { 
+            state: { 
+              message: 'Unauthorized access. You must be a driver to access this page.' 
+            } 
+          });
+          return;
+        }
+      }
+      
+      // If we get here, the user is authenticated and has the correct role
       setAuthenticated(true);
     } catch (error) {
-      console.error("Authentication error:", error);
+      console.error('Authentication check error:', error);
       navigate('/login', { 
         state: { 
-          message: 'An error occurred. Please log in again.',
-          from: location.pathname
+          message: 'An error occurred during authentication. Please log in again.' 
         } 
       });
     } finally {

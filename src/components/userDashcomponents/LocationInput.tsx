@@ -3,14 +3,13 @@ import { FaMapMarkerAlt, FaMapMarked, FaSpinner } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash/debounce';
 import { DEBOUNCE_DELAY } from './orders/constants';
-import { AddressFeature } from './orders/types';
 import { useTranslation } from 'react-i18next';
-import { validateLocationPrecision, validateAddressFeaturePrecision } from '../../utils/i18n';
+import { geocodeAddress, MapboxFeature, formatMapboxFeatureAddress, isLocationInFrance } from '../../utils/mapboxService';
 
 interface LocationInputProps {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, coordinates?: [number, number]) => void;
   placeholder?: string;
   error?: string;
   disabled?: boolean;
@@ -27,7 +26,7 @@ const LocationInput: React.FC<LocationInputProps> = ({
   onValidation
 }) => {
   const { t } = useTranslation();
-  const [suggestions, setSuggestions] = useState<AddressFeature[]>([]);
+  const [suggestions, setSuggestions] = useState<MapboxFeature[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
@@ -65,20 +64,12 @@ const LocationInput: React.FC<LocationInputProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&type=housenumber,street&postcode=^[0-9]{5}$`
-      );
-      const data = await response.json();
-      const validAddresses = data.features.filter((feature: AddressFeature) => {
-        // Ensure address is in France and has proper precision
-        const isValidPostcode = feature.properties.postcode && 
-          feature.properties.postcode.length === 5;
-        const isValidType = feature.properties.type === 'housenumber' || 
-          feature.properties.type === 'street';
-        const hasCity = !!feature.properties.city;
-        const hasPreciseLocation = validateAddressFeaturePrecision(feature);
-
-        return isValidPostcode && isValidType && hasCity && hasPreciseLocation;
+      const data = await geocodeAddress(query);
+      
+      // Filter to ensure we have appropriate results
+      const validAddresses = data.features.filter((feature) => {
+        // Ensure address has place_name and coordinates
+        return feature.place_name && feature.center && feature.center.length === 2;
       });
 
       setSuggestions(validAddresses);
@@ -104,9 +95,9 @@ const LocationInput: React.FC<LocationInputProps> = ({
     debouncedFetchSuggestions(newValue);
   };
 
-  const handleSuggestionClick = (suggestion: AddressFeature) => {
-    const formattedAddress = `${suggestion.properties.label}, ${suggestion.properties.postcode} ${suggestion.properties.city}, France`;
-    onChange(formattedAddress);
+  const handleSuggestionClick = (suggestion: MapboxFeature) => {
+    const formattedAddress = formatMapboxFeatureAddress(suggestion);
+    onChange(formattedAddress, suggestion.center);
     setSuggestions([]);
     setShowSuggestions(false);
     onValidation?.(true);
@@ -119,28 +110,26 @@ const LocationInput: React.FC<LocationInputProps> = ({
         navigator.geolocation.getCurrentPosition(resolve, reject);
       });
 
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.coords.latitude},${position.coords.longitude}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&language=fr&region=FR`
-      );
-      const data = await response.json();
-
-      const result = data.results[0];
-      if (!result) throw new Error(t('location.addressNotFound'));
-
-      // Verify it's a French address
-      const countryComponent = result.address_components.find(
-        (component: any) => component.types.includes('country')
-      );
-      if (!countryComponent || countryComponent.short_name !== 'FR') {
+      // Mapbox expects coordinates as [longitude, latitude]
+      const coordinates: [number, number] = [position.coords.longitude, position.coords.latitude];
+      
+      // Check if the location is in France
+      const isFrenchLocation = await isLocationInFrance(coordinates);
+      if (!isFrenchLocation) {
         throw new Error(t('location.notFrenchAddress'));
       }
 
-      // Verify street-level precision
-      if (!validateAddressFeaturePrecision(result)) {
-        throw new Error(t('location.streetLevelRequired'));
+      // Get address from coordinates (reverse geocoding)
+      const data = await geocodeAddress(coordinates.join(','));
+      
+      if (!data.features || data.features.length === 0) {
+        throw new Error(t('location.addressNotFound'));
       }
 
-      onChange(result.formatted_address);
+      const feature = data.features[0];
+      const formattedAddress = formatMapboxFeatureAddress(feature);
+      
+      onChange(formattedAddress, coordinates);
       onValidation?.(true);
     } catch (error) {
       console.error('Error getting current location:', error);
@@ -225,7 +214,7 @@ const LocationInput: React.FC<LocationInputProps> = ({
             <ul className="py-1">
               {suggestions.map((suggestion, index) => (
                 <motion.li
-                  key={`${suggestion.properties.postcode}-${index}`}
+                  key={`${suggestion.id}-${index}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -236,9 +225,9 @@ const LocationInput: React.FC<LocationInputProps> = ({
                 >
                   <FaMapMarkerAlt className="w-4 h-4 text-sunset flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{suggestion.properties.label}</p>
+                    <p className="truncate">{suggestion.text}</p>
                     <p className="text-xs text-stone-400 truncate">
-                      {suggestion.properties.postcode} {suggestion.properties.city}
+                      {suggestion.place_name}
                     </p>
                   </div>
                 </motion.li>

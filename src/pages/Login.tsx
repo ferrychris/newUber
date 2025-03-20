@@ -17,6 +17,7 @@ export default function Login() {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -63,267 +64,84 @@ export default function Login() {
       // Trim email to prevent whitespace issues
       const cleanEmail = formData.email.trim().toLowerCase();
       
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: formData.password,
-      });
-
-      if (authError) {
-        console.error('Authentication error:', authError);
-        
-        // Provide more user-friendly error messages
-        if (authError.message.includes('Invalid login credentials')) {
-          toast.error('Incorrect Credentials');
-        } else if (authError.message.includes('Email not confirmed')) {
-          toast.error('Confirm your email');
-        } else {
-          toast.error(authError.message);
-        }
-        return;
-      }
-
-      if (!authData.user) {
-        toast.error("An error occurred during login");
-        return;
-      }
-
-      console.log('Authentication successful, getting user profile...');
-
-      // Get user profile with role
-      const { data: userData, error: userError } = await supabase
+      console.log('Attempting login for:', cleanEmail);
+      
+      // Check if the user exists in our custom users table
+      const { data: userInDb, error: userCheckError } = await supabase
         .from('users')
-        .select('role, full_name')
-        .eq('id', authData.user.id)
+        .select('id, full_name, password, email, role, phone, profile_image')
+        .eq('email', cleanEmail)
         .maybeSingle();
-
-      // If user profile doesn't exist in the database, create a basic one
-      if (userError) {
-        console.error('Error fetching user profile:', userError);
         
-        if (userError.code === 'PGRST116') {
-          console.log('User profile not found, checking auth metadata for role');
-          
-          // Check if user metadata has a role specified and create appropriate profile
-          const userMetadata = authData.user.user_metadata;
-          const metadataRole = userMetadata?.role || 'customer';
-          
-          console.log('Using role from metadata:', metadataRole);
-          
-          // Create a user profile with the role from metadata
-          const { error: createError } = await supabase
-            .from('users')
-            .insert([{
-              id: authData.user.id,
-              full_name: userMetadata?.full_name || 'User',
-              email: authData.user.email,
-              phone: userMetadata?.phone || '',
-              role: metadataRole,
-              password: '', // We don't store the password here, as it's handled by Auth
-              profile_image: null
-            }]);
-            
-          if (createError) {
-            console.error('Error creating profile:', createError);
-            toast.error("An error occurred during profile creation");
-            navigate('/dashboard');
-            return;
-          }
-          
-          // If user is a driver, also create driver profile
-          if (metadataRole === 'driver') {
-            console.log('Creating driver profile for user');
-            
-            const { error: driverError } = await supabase
-              .from('drivers')
-              .insert([{
-                id: authData.user.id,
-                license_number: '',
-                license_expiry: '',
-                vehicle_type: null,
-                vehicle_make: '',
-                vehicle_model: '',
-                vehicle_year: null,
-                vehicle_color: '',
-                vehicle_plate: '',
-                verification_status: 'pending',
-                total_rides: 0,
-                average_rating: 0
-              }]);
-              
-            if (driverError) {
-              console.error('Error creating driver profile:', driverError);
-              // Don't block login if driver profile creation fails
-            }
-            
-            // Create driver availability
-            const { error: availabilityError } = await supabase
-              .from('driver_availability')
-              .insert([{
-                driver_id: authData.user.id,
-                status: 'offline',
-                last_location_update: new Date().toISOString(),
-                current_latitude: null,
-                current_longitude: null
-              }]);
-              
-            if (availabilityError) {
-              console.error('Error creating driver availability:', availabilityError);
-              // Don't block login if availability creation fails
-            }
-            
-            // Redirect to driver dashboard
-            navigate('/driver/dashboard');
-            toast.success(`Welcome, ${userMetadata?.full_name || 'Driver'} !`);
-            return;
-          }
-          
-          // For customer or other roles
-          navigate('/dashboard');
-          toast.success(`Welcome, ${userMetadata?.full_name || 'User'} !`);
-          return;
-        } else {
-          toast.error("An error occurred during user profile retrieval");
-          navigate('/dashboard');
-          return;
-        }
-      }
-
-      if (!userData) {
-        console.log('User profile not found, checking auth metadata for role');
-        
-        // Check if user metadata has a role specified and create appropriate profile
-        const userMetadata = authData.user.user_metadata;
-        const metadataRole = userMetadata?.role || 'customer';
-        
-        console.log('Using role from metadata:', metadataRole);
-        
-        // Create a user profile with the role from metadata
-        const { error: createError } = await supabase
-          .from('users')
-          .insert([{
-            id: authData.user.id,
-            full_name: userMetadata?.full_name || 'User',
-            email: authData.user.email,
-            phone: userMetadata?.phone || '',
-            role: metadataRole,
-            password: '', // We don't store the password here, as it's handled by Auth
-            profile_image: null
-          }]);
-          
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          toast.error("An error occurred during profile creation");
-          navigate('/dashboard');
-          return;
-        }
-        
-        // If user is a driver, also create driver profile
-        if (metadataRole === 'driver') {
-          console.log('Creating driver profile for user');
-          
-          const { error: driverError } = await supabase
-            .from('drivers')
-            .insert([{
-              id: authData.user.id,
-              license_number: '',
-              license_expiry: '',
-              vehicle_type: null,
-              vehicle_make: '',
-              vehicle_model: '',
-              vehicle_year: null,
-              vehicle_color: '',
-              vehicle_plate: '',
-              verification_status: 'pending',
-              total_rides: 0,
-              average_rating: 0
-            }]);
-            
-          if (driverError) {
-            console.error('Error creating driver profile:', driverError);
-            // Don't block login if driver profile creation fails
-          }
-          
-          // Create driver availability
-          const { error: availabilityError } = await supabase
-            .from('driver_availability')
-            .insert([{
-              driver_id: authData.user.id,
-              status: 'offline',
-              last_location_update: new Date().toISOString(),
-              current_latitude: null,
-              current_longitude: null
-            }]);
-            
-          if (availabilityError) {
-            console.error('Error creating driver availability:', availabilityError);
-            // Don't block login if availability creation fails
-          }
-          
-          // Redirect to driver dashboard
-          navigate('/driver/dashboard');
-          toast.success(`Welcome, ${userMetadata?.full_name || 'Driver'} !`);
-          return;
-        }
-        
-        // For customer or other roles
-        navigate('/dashboard');
-        toast.success(`Welcome, ${userMetadata?.full_name || 'User'} !`);
+      if (userCheckError) {
+        console.error('Error checking user in DB:', userCheckError);
+        toast.error('Error checking user credentials. Please try again.');
+        setLoading(false);
         return;
       }
-
-      console.log('User profile found:', userData);
-
-      // Extract user role
-      const userRole = userData.role;
       
-      // Redirect based on user role using a more explicit approach
-      let redirectPath = '/dashboard'; // Default path
-      let welcomeMessage = `Welcome, ${userData.full_name || 'User'} !`;
-      
-      // Determine where to redirect based on role
-      switch(userRole) {
-        case 'driver':
-          console.log('User is a driver, redirecting to driver dashboard');
-          redirectPath = '/driver/dashboard';
-          welcomeMessage = `Welcome, ${userData.full_name || 'Driver'} !`;
-          break;
-        case 'admin':
-          console.log('User is an admin, redirecting to admin dashboard');
-          redirectPath = '/admin';
-          welcomeMessage = `Welcome, ${userData.full_name || 'Admin'} !`;
-          break;
-        default:
-          console.log('User is a customer, redirecting to customer dashboard');
-          // Default redirectPath and welcomeMessage already set
-          break;
+      // If user doesn't exist
+      if (!userInDb) {
+        console.error('User not found in database');
+        toast.error('Invalid email or password');
+        setLoading(false);
+        return;
       }
       
-      // Perform the redirect and show welcome message
-      navigate(redirectPath);
-      
-      // Additional helpful message for drivers with pending verification
-      if (userRole === 'driver') {
-        // Check if driver verification is pending
-        const { data: driverData, error: driverError } = await supabase
-          .from('drivers')
-          .select('verification_status')
-          .eq('id', authData.user.id)
-          .maybeSingle();
+      // Check password
+      if (userInDb.password === formData.password) {
+        console.log('Password matched for user in custom table');
         
-        if (!driverError && driverData && driverData.verification_status === 'pending') {
-          // Adding a short delay so the welcome message is seen first
-          setTimeout(() => {
-            toast.info('Your driver account is pending verification. Please submit your documents.');
-          }, 1500);
-        }
+        // Store user session info in localStorage with all relevant user data
+        const sessionData = {
+          id: userInDb.id,
+          email: userInDb.email,
+          full_name: userInDb.full_name,
+          role: userInDb.role || 'customer',
+          phone: userInDb.phone || null,
+          profile_image: userInDb.profile_image || null,
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString()
+        };
+        
+        // Save session to localStorage
+        localStorage.setItem('userSession', JSON.stringify(sessionData));
+        
+        // Log information for debugging
+        console.log('Using custom authentication via localStorage');
+        console.log('User logged in:', userInDb.full_name);
+        console.log('User role:', userInDb.role || 'customer');
+        console.log('User ID stored in session:', sessionData.id);
+        
+        toast.success(`Welcome back, ${userInDb.full_name}!`);
+        
+        // Add a slight delay to ensure the toast is seen and localStorage is set
+        setTimeout(() => {
+          // Redirect based on role
+          const userRole = userInDb.role || 'customer';
+          console.log('Redirecting user with role:', userRole);
+          
+          if (userRole === 'driver') {
+            console.log('Navigating to driver dashboard');
+            navigate('/driver/dashboard');
+          } else if (userRole === 'admin') {
+            console.log('Navigating to admin dashboard');
+            navigate('/admin/dashboard');
+          } else {
+            // Default to customer dashboard for any other role
+            console.log('Navigating to customer dashboard');
+            navigate('/dashboard');
+          }
+        }, 1000);
+      } else {
+        // Passwords don't match
+        console.error('Password incorrect for user');
+        toast.error('Incorrect password');
+        setLoading(false);
       }
-      
-      toast.success(welcomeMessage);
-
     } catch (error) {
       console.error('Login error:', error);
-      toast.error("An error occurred during login");
-    } finally {
+      toast.error('An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };
@@ -345,104 +163,146 @@ export default function Login() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center bg-gradient-${theme} p-6`}>
+    <div className="min-h-screen flex">
+      {/* Left side - orange background with message */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="hidden md:flex md:w-1/2 bg-[#FF7D45] text-white flex-col justify-center p-12"
       >
-        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">Login</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`mt-1 block w-full px-3 py-2 border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`}
-              required
-            />
-            {formErrors.email && (
-              <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
-            )}
+        <h1 className="text-5xl font-bold mb-6">Welcome back!</h1>
+        <p className="text-xl">
+          Log in to access your account and continue where you left off.
+        </p>
+      </motion.div>
+      
+      {/* Right side - login form */}
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white"
+      >
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold mb-2">Welcome back</h2>
+            <p className="text-gray-500">Glad to see you again!</p>
           </div>
-
-          {/* Password Input */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Password
-            </label>
-            <div className="relative">
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
               <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
-                className={`mt-1 block w-full px-3 py-2 border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`}
+                className={`block w-full px-4 py-3 border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                placeholder="Enter your email"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
+              {formErrors.email && (
+                <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
+              )}
             </div>
-            {formErrors.password && (
-              <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>
-            )}
-          </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-
-          {/* Social Login Options */}
-          <div className="mt-6">
+            {/* Password Input */}
             <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-sm text-[#FF7D45] hover:text-[#E86A35]">
+                  Forgot password?
+                </Link>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                  Or continue with
-                </span>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`block w-full px-4 py-3 border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+              {formErrors.password && (
+                <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>
+              )}
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={() => setRememberMe(!rememberMe)}
+                className="h-4 w-4 text-[#FF7D45] focus:ring-[#FF7D45] border-gray-300 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                Remember me
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-[#FF7D45] hover:bg-[#E86A35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7D45] ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {loading ? 'Logging in...' : 'Log in'}
+            </button>
+
+            {/* Social Login Options */}
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <FcGoogle className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <FaApple className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-              >
-                <FcGoogle className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-              >
-                <FaApple className="h-5 w-5" />
-              </button>
+            {/* Register Link */}
+            <div className="text-sm text-center mt-6">
+              <span className="text-gray-600">Don't have an account? </span>
+              <Link to="/register" className="font-medium text-[#FF7D45] hover:text-[#E86A35]">
+                Sign up
+              </Link>
             </div>
-          </div>
-
-          {/* Register Link */}
-          <div className="text-sm text-center mt-4">
-            <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Not registered yet? Create an account
-            </Link>
-          </div>
-        </form>
+          </form>
+        </div>
       </motion.div>
     </div>
   );

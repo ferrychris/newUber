@@ -92,7 +92,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
           <div className="flex items-center space-x-1">
             <FaEuroSign className={`w-3 h-3 ${service.theme.text}`} />
             <span className={`font-medium ${service.theme.text}`}>
-              {formatCurrency(order.price)}
+              {formatCurrency(order.estimated_price)}
             </span>
           </div>
         </div>
@@ -104,7 +104,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
             <div>
               <p className="text-sm text-stone-400">{t('location.pickup')}</p>
               <p className="text-sm text-stone-300 line-clamp-1">
-                {order.pickupLocation}
+                {order.pickup_location}
               </p>
             </div>
           </div>
@@ -113,7 +113,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
             <div>
               <p className="text-sm text-stone-400">{t('location.destination')}</p>
               <p className="text-sm text-stone-300 line-clamp-1">
-                {order.destination}
+                {order.dropoff_location}
               </p>
             </div>
           </div>
@@ -124,7 +124,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
           <div className="flex items-center space-x-2">
             <FaCalendarAlt className="w-4 h-4 text-stone-400" />
             <span className="text-sm text-stone-400">
-              {formatDate(order.scheduledDate)}
+              {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
             </span>
           </div>
           <motion.span

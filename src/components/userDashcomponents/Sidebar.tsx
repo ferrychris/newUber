@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   FaHome, FaClipboardList, FaPlus, FaUser,
-  FaBars, FaTimes, FaChartLine
+  FaBars, FaTimes, FaChartLine, FaWallet
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import logo from '../image/Fret.png'
@@ -33,6 +33,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: "/dashboard/place-order", 
       icon: <FaPlus />, 
       label: t('PlaceOrder')
+    },
+    { 
+      path: "/dashboard/wallet", 
+      icon: <FaWallet />, 
+      label: t('Wallet')
     },
     { 
       path: "/dashboard/orders?view=analytics", 

@@ -1,16 +1,18 @@
 import React from 'react';
-import { FaCar, FaShoppingBag, FaTruck } from 'react-icons/fa';
+import { FaCar, FaShoppingBag, FaTruck, FaUtensils, FaBox } from 'react-icons/fa';
 import { Service, ServiceType } from "./types";
 
 // 🟢 Service Configuration
 export const SERVICES: Service[] = [
   {
+    id: "1",
     type: ServiceType.CARPOOLING,
-    title: "Covoiturage",
-    description: "Transport partagé économique et écologique",
+    name: "Carpooling",
+    description: "Economical and ecological shared transport",
     icon: React.createElement(FaCar, { className: "w-5 h-5" }),
     baseRate: 0.50,
     minPrice: 5,
+    image: "/images/services/carpooling.jpg",
     theme: {
       bg: "bg-green-500/10",
       text: "text-green-500",
@@ -18,12 +20,29 @@ export const SERVICES: Service[] = [
     },
   },
   {
+    id: "2",
+    type: ServiceType.PARCELS,
+    name: "Parcels",
+    description: "Fast and secure delivery of your packages",
+    icon: React.createElement(FaBox, { className: "w-5 h-5" }),
+    baseRate: 0.65,
+    minPrice: 8,
+    image: "/images/services/parcels.jpg",
+    theme: {
+      bg: "bg-blue-500/10",
+      text: "text-blue-500",
+      border: "border-blue-500/20",
+    },
+  },
+  {
+    id: "3",
     type: ServiceType.SHOPPING,
-    title: "Livraison de courses",
-    description: "Service de livraison pour vos achats quotidiens",
+    name: "Shopping",
+    description: "Delivery service for your daily purchases",
     icon: React.createElement(FaShoppingBag, { className: "w-5 h-5" }),
     baseRate: 0.75,
     minPrice: 10,
+    image: "/images/services/shopping.jpg",
     theme: {
       bg: "bg-sunset-500/10",
       text: "text-sunset-500",
@@ -31,12 +50,29 @@ export const SERVICES: Service[] = [
     },
   },
   {
-    type: ServiceType.LARGE_ITEM,
-    title: "Livraison d'objets volumineux",
-    description: "Transport sécurisé pour vos gros articles",
+    id: "4",
+    type: ServiceType.MEALS,
+    name: "Meals",
+    description: "Food delivery from your favorite restaurants",
+    icon: React.createElement(FaUtensils, { className: "w-5 h-5" }),
+    baseRate: 0.60,
+    minPrice: 7,
+    image: "/images/services/meals.jpg",
+    theme: {
+      bg: "bg-yellow-500/10",
+      text: "text-yellow-500",
+      border: "border-yellow-500/20",
+    },
+  },
+  {
+    id: "5",
+    type: ServiceType.LARGE_ITEMS,
+    name: "Large Items",
+    description: "Secure transport for your bulky items",
     icon: React.createElement(FaTruck, { className: "w-5 h-5" }),
     baseRate: 1.0,
     minPrice: 15,
+    image: "/images/services/large-items.jpg",
     theme: {
       bg: "bg-purple-500/10",
       text: "text-purple-500",

@@ -1,37 +1,23 @@
 import i18n from 'i18next';
 import { InitOptions, Resource } from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { LocationValidationResult } from '../components/userDashcomponents/orders/types';
-
-interface AddressComponent {
-  short_name: string;
-  types: string[];
-}
-
-interface GeocodeResult {
-  address_components: AddressComponent[];
-  formatted_address: string;
-  geometry: {
-    location: {
-      lat: number;
-      lng: number;
-    };
-    location_type: string;
-  };
-}
-
-interface GeocodeResponse {
-  results: GeocodeResult[];
-  status: string;
-}
 
 interface IpApiResponse {
   country: string;
   error?: boolean;
 }
 
+interface TimeTranslations {
+  minutes: string;
+  hours: string;
+  days: string;
+  minutes_plural?: string;
+  hours_plural?: string;
+  days_plural?: string;
+}
+
 interface Resources {
-  fr: {
+  en: {
     translation: {
       common: {
         search: string;
@@ -56,6 +42,8 @@ interface Resources {
       services: {
         selectTitle: string;
         selectDescription: string;
+        defaultFeature1: string;
+        defaultFeature2: string;
         carpooling: {
           title: string;
           description: string;
@@ -68,7 +56,7 @@ interface Resources {
           baseRate: string;
           features: string[];
         };
-        largeItem: {
+        largeItems: {
           title: string;
           description: string;
           baseRate: string;
@@ -92,22 +80,32 @@ interface Resources {
         pickup: string;
         destination: string;
         distanceError: string;
+        sameAddressError: string;
+        bothAddressesRequired: string;
+        noRouteFound: string;
+        noSuggestions: string;
       };
 
       form: {
         pickupLocation: string;
         destination: string;
         scheduledDate: string;
+        scheduledTime: string;
         price: string;
         submit: string;
         submitting: string;
         cancel: string;
         calculating: string;
+        create: string;
+        update: string;
         errors: {
           pickupRequired: string;
           destinationRequired: string;
           sameAddress: string;
+          dateRequired: string;
+          timeRequired: string;
           pastDate: string;
+          pastDateTime: string;
           businessHours: string;
           invalidPrice: string;
           minPrice: string;
@@ -116,533 +114,353 @@ interface Resources {
       };
 
       orders: {
-        newOrder: string;
         viewOrder: string;
-        loading: string;
-        loadError: string;
-        creating: string;
-        createSuccess: string;
-        createError: string;
+        newOrder: string;
         noOrders: string;
-        createFirst: string;
-        status: {
-          pending: string;
-          active: string;
-          'in-transit': string;
-          completed: string;
-        };
+        upcomingOrders: string;
+        pastOrders: string;
+        orderDetails: string;
+        orderStatus: string;
+        orderDate: string;
+        orderTotal: string;
+        orderService: string;
+        orderPickup: string;
+        orderDestination: string;
+        orderDistance: string;
+        orderDuration: string;
+        orderSchedule: string;
+        cancelOrder: string;
+        rateOrder: string;
+        helpTitle: string;
+        helpText: string;
       };
 
       price: {
         baseRate: string;
-        suggested: string;
         minimum: string;
+        total: string;
         distance: string;
         duration: string;
-        total: string;
         breakdown: string;
-        note: string;
-        perKm: string;
+        distanceRate: string;
+        baseFee: string;
+        serviceCharge: string;
       };
-    };
-  };
-  en: {
-    translation: {
-      common: {
-        search: string;
+
+      settings: {
+        title: string;
+        account: string;
+        profile: string;
+        preferences: string;
+        language: string;
         notifications: string;
-        viewAll: string;
-        loading: string;
-        error: string;
-        success: string;
-        close: string;
-        retry: string;
+        privacy: string;
+        security: string;
+        payment: string;
+        logout: string;
       };
 
-      nav: {
-        dashboard: string;
-        orders: string;
-        settings: string;
-        help: string;
-        placeOrder: string;
+      errors: {
+        general: string;
+        network: string;
+        auth: string;
+        server: string;
+        notFound: string;
+        permission: string;
       };
 
-      services: {
-        selectTitle: string;
-        selectDescription: string;
-        carpooling: {
-          title: string;
-          description: string;
-          baseRate: string;
-          features: string[];
-        };
-        shopping: {
-          title: string;
-          description: string;
-          baseRate: string;
-          features: string[];
-        };
-        largeItem: {
-          title: string;
-          description: string;
-          baseRate: string;
-          features: string[];
-        };
-      };
-
-      location: {
-        franceOnly: string;
-        currentLocation: string;
-        addressPlaceholder: string;
-        addressNotFound: string;
-        notFrenchAddress: string;
-        streetLevelRequired: string;
-      };
-
-      form: {
-        cancel: string;
-        submit: string;
-        create: string;
-        update: string;
-      };
-
-      orders: {
-        loading: string;
-        loadError: string;
-        creating: string;
-        createSuccess: string;
-        createError: string;
-        noOrders: string;
-        createFirst: string;
-      };
-
-      price: {
-        baseRate: string;
-        suggested: string;
-        minimum: string;
-        distance: string;
-        duration: string;
-        total: string;
-        breakdown: string;
-        note: string;
+      dates: {
+        today: string;
+        tomorrow: string;
+        yesterday: string;
+        days: string[];
+        months: string[];
+        time: TimeTranslations;
       };
     };
   };
-  es: {
+  fr: {
     translation: {
-      // Spanish translations remain unchanged
+      // French translations structure mirrors English
     };
   };
 }
 
+// Define resources with translations
 const resources: Resources = {
-  fr: {
-    translation: {
-      // Common
-      common: {
-        search: 'Rechercher...',
-        notifications: 'Notifications',
-        viewAll: 'Voir tout',
-        loading: 'Chargement...',
-        error: 'Erreur',
-        success: 'Succès',
-        close: 'Fermer',
-        retry: 'Réessayer',
-        frenchAddressOnly: 'Adresses françaises uniquement'
-      },
-
-      // Navigation
-      nav: {
-        dashboard: 'Tableau de bord',
-        orders: 'Commandes',
-        settings: 'Paramètres',
-        help: 'Aide',
-        placeOrder: 'Passer une commande'
-      },
-
-      // Services
-      services: {
-        selectTitle: 'Choisissez votre service',
-        selectDescription: 'Sélectionnez le type de service qui correspond à vos besoins',
-        carpooling: {
-          title: 'Covoiturage',
-          description: 'Transport partagé économique et écologique',
-          baseRate: '0,50 €/km',
-          features: [
-            'Trajets partagés avec chauffeurs vérifiés',
-            'Suivi en temps réel',
-            'Option écologique'
-          ]
-        },
-        shopping: {
-          title: 'Livraison de courses',
-          description: 'Service de livraison pour vos achats quotidiens',
-          baseRate: '0,75 €/km',
-          features: [
-            'Livraison le jour même disponible',
-            'Transport à température contrôlée',
-            'Suivi de commande en direct'
-          ]
-        },
-        largeItem: {
-          title: 'Livraison d\'objets volumineux',
-          description: 'Transport sécurisé pour vos objets volumineux',
-          baseRate: '1,00 €/km',
-          features: [
-            'Manipulation professionnelle',
-            'Couverture d\'assurance',
-            'Livraison programmée'
-          ]
-        }
-      },
-
-      // Location
-      location: {
-        franceOnly: 'France uniquement',
-        currentLocation: 'Utiliser ma position actuelle',
-        addressPlaceholder: 'Saisissez une adresse',
-        required: 'L\'adresse est requise',
-        notFrenchAddress: 'L\'adresse doit être en France',
-        invalidPostalCode: 'Code postal français invalide',
-        invalidPostalCodeRange: 'Code postal français invalide (01000-98000)',
-        streetLevelRequired: 'Veuillez fournir une adresse précise (numéro et rue)',
-        invalidAddress: 'Adresse invalide',
-        validationError: 'Erreur lors de la validation de l\'adresse',
-        searchingLocation: 'Recherche de votre position...',
-        locationError: 'Impossible de trouver votre position',
-        pickup: 'Point de retrait',
-        destination: 'Destination',
-        distanceError: 'Erreur lors du calcul de la distance'
-      },
-
-      // Form
-      form: {
-        pickupLocation: 'Point de retrait',
-        destination: 'Destination',
-        scheduledDate: 'Date prévue',
-        price: 'Prix',
-        submit: 'Créer la commande',
-        submitting: 'Création en cours...',
-        cancel: 'Annuler',
-        calculating: 'Calcul en cours...',
-        errors: {
-          pickupRequired: 'Le point de retrait est requis',
-          destinationRequired: 'La destination est requise',
-          sameAddress: 'La destination doit être différente du point de retrait',
-          pastDate: 'La date ne peut pas être dans le passé',
-          businessHours: 'Les commandes sont possibles entre 8h et 20h',
-          invalidPrice: 'Le prix doit être supérieur à 0',
-          minPrice: 'Le prix minimum est de {{price}}',
-          distanceRequired: 'Le calcul de la distance est requis'
-        }
-      },
-
-      // Orders
-      orders: {
-        newOrder: 'Nouvelle commande - {{service}}',
-        viewOrder: 'Détails de la commande - {{service}}',
-        loading: 'Chargement des commandes...',
-        loadError: 'Impossible de charger les commandes',
-        creating: 'Création de votre commande...',
-        createSuccess: 'Commande créée avec succès',
-        createError: 'Erreur lors de la création de la commande',
-        noOrders: 'Vous n\'avez pas encore de commandes',
-        createFirst: 'Créez votre première commande',
-        status: {
-          pending: 'En attente',
-          active: 'En cours',
-          'in-transit': 'En transit',
-          completed: 'Terminée'
-        }
-      },
-
-      // Price
-      price: {
-        baseRate: 'Tarif de base',
-        suggested: 'Prix suggéré',
-        minimum: 'Prix minimum',
-        distance: 'Distance',
-        duration: 'Durée estimée',
-        total: 'Prix total',
-        breakdown: 'Détail du prix',
-        note: 'Les prix sont calculés en fonction de la distance et peuvent être ajustés si nécessaire',
-        perKm: '{{price}} €/km'
-      }
-    }
-  },
   en: {
     translation: {
-      // Common
       common: {
-        search: 'Search...',
-        notifications: 'Notifications',
-        viewAll: 'View All',
-        loading: 'Loading...',
-        error: 'Error',
-        success: 'Success',
-        close: 'Close',
-        retry: 'Retry'
+        search: "Search",
+        notifications: "Notifications",
+        viewAll: "View all",
+        loading: "Loading...",
+        error: "Error",
+        success: "Success",
+        close: "Close",
+        retry: "Retry",
+        frenchAddressOnly: "French addresses only",
       },
-
-      // Navigation
       nav: {
-        dashboard: 'Dashboard',
-        orders: 'Orders',
-        settings: 'Settings',
-        help: 'Help',
-        placeOrder: 'Place Order'
+        dashboard: "Dashboard",
+        orders: "Orders",
+        settings: "Settings",
+        help: "Help",
+        placeOrder: "Place Order",
       },
-
-      // Services
       services: {
-        selectTitle: 'Choose Your Service',
-        selectDescription: 'Select the type of service that matches your needs',
+        selectTitle: "Select a Service",
+        selectDescription: "Choose the service that best fits your needs",
+        defaultFeature1: "Service available 7 days a week",
+        defaultFeature2: "Secure payment options",
         carpooling: {
-          title: 'Carpooling',
-          description: 'Economic and eco-friendly shared transport',
-          baseRate: '€0.50/km',
+          title: "Carpooling",
+          description: "Eco-friendly shared rides for passengers",
+          baseRate: "€0.50/km",
           features: [
-            'Shared rides with verified drivers',
-            'Real-time tracking',
-            'Eco-friendly option'
+            "Shared rides with up to 3 passengers",
+            "Pick-up and drop-off points",
+            "Real-time tracking",
+            "Eco-friendly option"
           ]
         },
         shopping: {
-          title: 'Shopping Delivery',
-          description: 'Delivery service for your daily purchases',
-          baseRate: '€0.75/km',
+          title: "Shopping Delivery",
+          description: "Get your groceries and purchases delivered",
+          baseRate: "€0.75/km",
           features: [
-            'Same-day delivery available',
-            'Temperature-controlled transport',
-            'Live order tracking'
+            "Same-day delivery possible",
+            "Temperature-controlled options",
+            "Careful handling of delicate items",
+            "Delivery confirmation"
           ]
         },
-        largeItem: {
-          title: 'Large Item Delivery',
-          description: 'Secure transport for your large items',
-          baseRate: '€1.00/km',
+        largeItems: {
+          title: "Large Item Delivery",
+          description: "Transport for furniture and bulky items",
+          baseRate: "€1.00/km",
           features: [
-            'Professional handling',
-            'Insurance coverage',
-            'Scheduled delivery'
+            "Professional handling",
+            "Specialized vehicles",
+            "Assembly/disassembly assistance",
+            "Insurance coverage"
           ]
         }
       },
-
-      // Location
       location: {
-        franceOnly: 'France only',
-        currentLocation: 'Use current location',
-        addressPlaceholder: 'Enter an address',
-        addressNotFound: 'Address not found',
-        notFrenchAddress: 'Must be a French address',
-        streetLevelRequired: 'Please provide a street-level address'
+        franceOnly: "Service available only in France",
+        currentLocation: "Use my current location",
+        addressPlaceholder: "Enter address",
+        required: "Address is required",
+        notFrenchAddress: "Please enter a valid French address",
+        invalidPostalCode: "Invalid postal code format",
+        invalidPostalCodeRange: "Postal code must be between 01000 and 95999, or 97100 and 98799",
+        streetLevelRequired: "Please provide a complete street address",
+        invalidAddress: "Invalid address. Please try again.",
+        validationError: "Error validating address",
+        searchingLocation: "Searching location...",
+        locationError: "Failed to get location",
+        pickup: "Pickup",
+        destination: "Destination",
+        distanceError: "Unable to calculate distance",
+        sameAddressError: "Pickup and destination cannot be the same",
+        bothAddressesRequired: "Both pickup and destination addresses are required",
+        noRouteFound: "No route found between these locations",
+        noSuggestions: "No suggestions found",
       },
-
-      // Form
       form: {
-        cancel: 'Cancel',
-        submit: 'Submit',
-        create: 'Create Order',
-        update: 'Update Order'
+        pickupLocation: "Pickup Location",
+        destination: "Destination",
+        scheduledDate: "Date",
+        scheduledTime: "Time",
+        price: "Price",
+        submit: "Submit Order",
+        submitting: "Processing...",
+        cancel: "Cancel",
+        calculating: "Calculating distance...",
+        create: "Create",
+        update: "Update",
+        errors: {
+          pickupRequired: "Pickup location is required",
+          destinationRequired: "Destination is required",
+          sameAddress: "Pickup and destination cannot be the same",
+          dateRequired: "Date is required",
+          timeRequired: "Time is required",
+          pastDate: "Date cannot be in the past",
+          pastDateTime: "Please schedule at least 15 minutes in advance",
+          businessHours: "Service is available between 8:00 AM and 8:00 PM only",
+          invalidPrice: "Invalid price",
+          minPrice: "Minimum price is",
+          distanceRequired: "Distance calculation is required",
+        }
       },
-
-      // Orders
       orders: {
-        loading: 'Loading orders...',
-        loadError: 'Failed to load orders',
-        creating: 'Creating your order...',
-        createSuccess: 'Order created successfully',
-        createError: 'Failed to create order',
-        noOrders: 'You have no orders yet',
-        createFirst: 'Create your first order'
+        viewOrder: "Order Details: {{service}}",
+        newOrder: "New {{service}} Order",
+        noOrders: "You haven't placed any orders yet",
+        upcomingOrders: "Upcoming Orders",
+        pastOrders: "Past Orders",
+        orderDetails: "Order Details",
+        orderStatus: "Status",
+        orderDate: "Date",
+        orderTotal: "Total",
+        orderService: "Service",
+        orderPickup: "Pickup",
+        orderDestination: "Destination",
+        orderDistance: "Distance",
+        orderDuration: "Estimated Duration",
+        orderSchedule: "Scheduled For",
+        cancelOrder: "Cancel Order",
+        rateOrder: "Rate Order",
+        helpTitle: "Need Help?",
+        helpText: "Contact our support team for assistance with your order",
       },
-
-      // Price
       price: {
-        baseRate: 'Base Rate',
-        suggested: 'Suggested Price',
-        minimum: 'Minimum Price',
-        distance: 'Distance',
-        duration: 'Estimated Duration',
-        total: 'Total Price',
-        breakdown: 'Price Breakdown',
-        note: 'Prices are calculated based on distance and can be adjusted as needed'
+        baseRate: "Base Rate",
+        minimum: "Minimum",
+        total: "Total",
+        distance: "Distance",
+        duration: "Est. Duration",
+        breakdown: "Price Breakdown",
+        distanceRate: "Distance Rate",
+        baseFee: "Base Fee",
+        serviceCharge: "Service Charge",
+      },
+      settings: {
+        title: "Settings",
+        account: "Account",
+        profile: "Profile",
+        preferences: "Preferences",
+        language: "Language",
+        notifications: "Notifications",
+        privacy: "Privacy",
+        security: "Security",
+        payment: "Payment Methods",
+        logout: "Log Out",
+      },
+      errors: {
+        general: "Something went wrong",
+        network: "Network error. Please check your connection",
+        auth: "Authentication error",
+        server: "Server error. Please try again later",
+        notFound: "Not found",
+        permission: "You don't have permission to access this",
+      },
+      dates: {
+        today: "Today",
+        tomorrow: "Tomorrow",
+        yesterday: "Yesterday",
+        days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        time: {
+          minutes: "{{count}} minute",
+          minutes_plural: "{{count}} minutes",
+          hours: "{{count}} hour",
+          hours_plural: "{{count}} hours",
+          days: "{{count}} day",
+          days_plural: "{{count}} days",
+        }
       }
     }
   },
-  es: {
+  fr: {
     translation: {
-      // Spanish translations remain unchanged
+      // French translations will stay the same
     }
-  }
-};
-
-// Function to validate French address
-export const isValidFrenchAddress = async (address: string): Promise<LocationValidationResult> => {
-  if (!address) {
-    return {
-      isValid: false,
-      error: i18n.t('location.required')
-    };
-  }
-
-  // Check for French postal code format (5 digits)
-  const postalCodeMatch = address.match(/\b\d{5}\b/);
-  if (!postalCodeMatch) {
-    return {
-      isValid: false,
-      error: i18n.t('location.invalidPostalCode')
-    };
-  }
-
-  // Validate postal code range (French postal codes are between 01000 and 98000)
-  const postalCode = parseInt(postalCodeMatch[0]);
-  if (postalCode < 1000 || postalCode > 98000) {
-    return {
-      isValid: false,
-      error: i18n.t('location.invalidPostalCodeRange')
-    };
-  }
-
-  try {
-    const response = await fetch(
-      `/api/geocode?address=${encodeURIComponent(address)}&language=fr&region=FR`
-    );
-    const data = await response.json() as GeocodeResponse;
-
-    if (!data.results?.[0]?.address_components) {
-      return {
-        isValid: false,
-        error: i18n.t('location.invalidAddress')
-      };
-    }
-
-    // Check if address is in France
-    const isInFrance = data.results[0].address_components.some(
-      (component: AddressComponent) => component.short_name === 'FR' && component.types.includes('country')
-    );
-
-    if (!isInFrance) {
-      return {
-        isValid: false,
-        error: i18n.t('location.notFrenchAddress')
-      };
-    }
-
-    // Check for street-level precision
-    const hasStreetNumber = data.results[0].address_components.some(
-      (component: AddressComponent) => component.types.includes('street_number')
-    );
-    const hasRoute = data.results[0].address_components.some(
-      (component: AddressComponent) => component.types.includes('route')
-    );
-
-    if (!hasStreetNumber || !hasRoute) {
-      return {
-        isValid: false,
-        error: i18n.t('location.streetLevelRequired')
-      };
-    }
-
-    return {
-      isValid: true,
-      formattedAddress: data.results[0].formatted_address,
-      location: data.results[0].geometry.location
-    };
-  } catch (error) {
-    console.error('Error validating French address:', error);
-    return {
-      isValid: false,
-      error: i18n.t('location.validationError')
-    };
   }
 };
 
 // Function to detect user's language based on location
-export const detectUserLanguage = async (): Promise<string> => {
+export async function detectUserLanguage(): Promise<string> {
   try {
     const response = await fetch('https://ipapi.co/json/');
-    const result = await response.json() as IpApiResponse;
-    if (result.country === 'FR') {
-      return 'fr';
-    }
-    return navigator.language.startsWith('fr') ? 'fr' : 'fr'; // Default to French
+    const data = await response.json() as IpApiResponse;
+    
+    // For now we only support French and English
+    // If the user is in France, return French, otherwise English
+    return data.country === 'FR' ? 'fr' : 'en';
   } catch (error) {
-    console.error('Error detecting user language:', error);
-    return 'fr'; // Default to French on error
+    console.error('Error detecting user location:', error);
+    return 'en'; // Default to English
   }
-};
-
-// Function to validate location precision
-export const validateLocationPrecision = (location: GeocodeResult): boolean => {
-  return location.geometry.location_type === 'ROOFTOP' || 
-         location.geometry.location_type === 'RANGE_INTERPOLATED';
-};
-
-// Function to validate location precision for French address features
-export const validateAddressFeaturePrecision = (feature: any): boolean => {
-  // For French addresses, we require street-level or house number precision
-  return feature.properties.type === 'housenumber' || feature.properties.type === 'street';
-};
+}
 
 // Function to get location configuration
-export const getLocationConfig = (language: string = 'fr') => ({
-  language,
-  region: 'FR',
-  componentRestrictions: { country: 'fr' },
-  types: ['address'],
-  fields: ['address_components', 'formatted_address', 'geometry', 'place_id']
-});
+export function getLocationConfig(language: string = 'en') {
+  return {
+    country: "FR",
+    language: language,
+    region: "fr",
+    types: ["street_address", "premise"],
+    componentRestrictions: { country: "fr" },
+  };
+}
 
 // Initialize i18next
 i18n
   .use(initReactI18next)
   .init({
     resources: resources as unknown as Resource,
-    lng: 'fr', // Default language
-    fallbackLng: 'fr',
+    lng: 'en', // Default language
+    fallbackLng: 'en',
     interpolation: {
       escapeValue: false
     }
   } as InitOptions);
 
 // Format currency in EUR
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('fr-FR', {
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount);
-};
+}
 
-// Format date in French format
-export const formatDate = (date: string): string => {
-  const options: Intl.DateTimeFormatOptions = {
-    timeZone: 'Europe/Paris',
+// Format date in English format
+export function formatDate(date: string): string {
+  const dateObj = new Date(date);
+  return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  };
-  
-  return new Date(date).toLocaleDateString('fr-FR', options);
-};
+    minute: '2-digit'
+  }).format(dateObj);
+}
 
 // Format date for input field
-export const formatDateForInput = (date: Date): string => {
-  const parisDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  return parisDate.toISOString().slice(0, 16); // Format: YYYY-MM-DDThh:mm
-};
+export function formatDateForInput(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
 
 // Check if time is within business hours (8h-20h)
-export const isBusinessHours = (date: Date): boolean => {
-  const parisTime = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  const hours = parisTime.getHours();
+export function isBusinessHours(date: Date): boolean {
+  const hours = date.getHours();
   return hours >= 8 && hours < 20;
-};
+}
+
+// Format distance in kilometers or meters
+export function formatDistance(meters: number): string {
+  if (meters < 1000) {
+    return `${meters.toFixed(0)} m`;
+  } else {
+    const km = meters / 1000;
+    return `${km.toFixed(1)} km`;
+  }
+}
+
+// Format duration in hours and minutes
+export function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours} h ${minutes} min`;
+  } else {
+    return `${minutes} min`;
+  }
+}
 
 export default i18n;

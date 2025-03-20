@@ -1,19 +1,19 @@
-import { toast } from "react-hot-toast";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../utils/supabase";
+import { logout } from '../../utils/supabase'; // Only import the logout function
 import {
   FaBell,
   FaMoon,
   FaSun,
-  FaSearch,
-  FaChevronDown,
-  FaSignOutAlt,
+  FaGlobe,
   FaUser,
+  FaSignOutAlt,
+  FaChevronDown,
   FaCog,
-  FaGlobe
+  FaSearch
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
+import { toast } from "react-toastify";
 
 interface Notification {
   id: number;
@@ -72,28 +72,33 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-const handleLogout = async () => {
-  try {
-    setIsLoggingOut(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      
+      // Use our custom logout function
+      const { success, error } = await logout();
+      
+      if (!success) {
+        throw error || new Error('Failed to log out');
+      }
 
-    // Clear any local storage or state
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userProfile');
-    
-    // Show success message
-    toast.success('Déconnexion réussie');
-    
-    // Redirect to login
-    navigate('/login', { replace: true });
-  } catch (error) {
-    console.error('Logout error:', error);
-    toast.error('Erreur lors de la déconnexion. Veuillez réessayer.');
-  } finally {
-    setIsLoggingOut(false);
-  }
-};
+      // Clear any other local storage or state
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userProfile');
+      
+      // Show success message
+      toast.success('Déconnexion réussie');
+      
+      // Redirect to login
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Erreur lors de la déconnexion. Veuillez réessayer.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -241,14 +246,13 @@ const handleLogout = async () => {
                     </button>
                     <div className="border-t border-stone-600/10 my-1"></div>
                     <button
-  onClick={handleLogout}
-  disabled={isLoggingOut}
-  className="flex items-center justify-center space-x-3 px-4 py-3 w-full rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
->
-  <FaSignOutAlt className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
-  <span>{isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}</span>
-  t{('logout')}
-</button>
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="flex items-center justify-center space-x-3 px-4 py-3 w-full rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FaSignOutAlt className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                      <span>{isLoggingOut ? 'Déconnexion...' : t('logout')}</span>
+                    </button>
                   </div>
                 )}
               </div>

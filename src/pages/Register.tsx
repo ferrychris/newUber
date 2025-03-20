@@ -13,7 +13,7 @@ interface RegisterFormData {
   phone: string;
   password: string;
   confirmPassword: string;
-  role: 'customer' | 'driver';
+  role: 'customer' | 'driver' | 'admin';
 }
 
 interface RegisterFormErrors extends Partial<RegisterFormData> {}
@@ -69,7 +69,7 @@ export default function Register() {
     return Object.keys(newErrors).length === 0;
   };
 
-  async function register() {
+  async function registerWithoutAuth() {
     setLoading(true);
     try {
       // Trim and sanitize input data
@@ -77,127 +77,149 @@ export default function Register() {
       const sanitizedPhone = formData.phone.trim();
       const sanitizedName = formData.full_name.trim();
       
-      // Sign up the user with metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: sanitizedEmail,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: sanitizedName,
-            phone: sanitizedPhone,
-            role: formData.role,
-            profile_image: null
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Auth Error:', authError.message);
-        
-        // Provide more user-friendly error messages
-        if (authError.message.includes('email already registered')) {
-          toast.error('This email is already in use. Please log in or use another email.');
-        } else if (authError.message.includes('password')) {
-          toast.error('The password is too weak. Use at least 6 characters.');
-        } else {
-          toast.error(authError.message);
-        }
-        return;
-      }
-
-      if (!authData.user) {
-        toast.error("An error occurred during registration.");
-        return;
-      }
-
-      console.log('User registered successfully:', authData.user.id);
-
-      // Insert user profile data
-      const { error: profileError } = await supabase
+      console.log("Manual registration attempt for:", sanitizedEmail);
+      
+      // Check if email already exists
+      const { data: existingUserByEmail, error: emailCheckError } = await supabase
         .from('users')
-        .insert([{
-          id: authData.user.id,
-          full_name: sanitizedName,
-          email: sanitizedEmail,
-          phone: sanitizedPhone,
-          role: formData.role,
-          password: formData.password, // Note: Password stored for validation only, not for login
-          profile_image: null
-        }]);
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
+        .select('email')
+        .eq('email', sanitizedEmail)
+        .maybeSingle();
         
-        if (profileError.message.includes('duplicate key')) {
-          if (profileError.message.includes('email')) {
-            toast.error('This email is already in use.');
-          } else if (profileError.message.includes('phone')) {
-            toast.error('This phone number is already in use.');
-          } else {
-            toast.error('A profile with these details already exists.');
-          }
-        } else {
-          toast.error("An error occurred while creating the profile. Please try again.");
-        }
-        
-        // Try to clean up the auth user if profile creation failed
-        await supabase.auth.admin.deleteUser(authData.user.id);
+      if (emailCheckError) {
+        console.error('Error checking email:', emailCheckError);
+        toast.error('Error verifying email availability. Please try again.');
         return;
       }
-
-      toast.success('Registration successful! Please check your email to confirm your account.');
-      
-      // Create driver profile if user role is driver
-      if (formData.role === 'driver') {
-        const { error: driverError } = await supabase
-          .from('drivers')
-          .insert([{
-            id: authData.user.id,
-            license_number: '',
-            license_expiry: '',
-            vehicle_type: null,
-            vehicle_make: '',
-            vehicle_model: '',
-            vehicle_year: null,
-            vehicle_color: '',
-            vehicle_plate: '',
-            verification_status: 'pending',
-            total_rides: 0,
-            average_rating: 0
-          }]);
-          
-        if (driverError) {
-          console.error('Error creating driver profile:', driverError);
-          // Don't block registration if driver profile creation fails
-          // We can handle this later in the driver dashboard
-        }
         
-        // Also create an entry in driver_availability
-        const { error: availabilityError } = await supabase
-          .from('driver_availability')
-          .insert([{
-            driver_id: authData.user.id,
-            status: 'offline',
-            last_location_update: new Date().toISOString(),
-            current_latitude: null,
-            current_longitude: null
-          }]);
+      if (existingUserByEmail) {
+        toast.error('This email is already in use. Please log in or use another email.');
+        return;
+      }
+      
+      // Check if phone already exists
+      if (sanitizedPhone) {
+        const { data: existingUserByPhone, error: phoneCheckError } = await supabase
+          .from('users')
+          .select('phone')
+          .eq('phone', sanitizedPhone)
+          .maybeSingle();
           
-        if (availabilityError) {
-          console.error('Error creating driver availability:', availabilityError);
-          // Don't block registration if availability creation fails
+        if (phoneCheckError) {
+          console.error('Error checking phone:', phoneCheckError);
+          toast.error('Error verifying phone availability. Please try again.');
+          return;
+        }
+          
+        if (existingUserByPhone) {
+          toast.error('This phone number is already in use. Please use another phone number.');
+          return;
         }
       }
       
-      setTimeout(() => {
-        // Redirect based on role
-        const redirectPath = formData.role === 'driver' ? '/driver/dashboard' : '/dashboard';
-        navigate(redirectPath);
-      }, 2000);
-    } catch (err) {
-      const error = err as Error;
-      console.error('Unexpected error:', error);
-      toast.error(error.message || "An error occurred. Please try again later.");
+      // Generate a UUID for the user
+      const userId = window.crypto.randomUUID();
+      console.log('Generated user ID:', userId);
+      
+      // Add a loading toast
+      const loadingToast = toast.loading('Creating your account...');
+      
+      try {
+        // Insert the user directly into the users table
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([{
+            id: userId,
+            full_name: sanitizedName,
+            email: sanitizedEmail,
+            phone: sanitizedPhone || null, // Make sure null is used instead of empty string
+            password: formData.password,
+            profile_image: null,
+            role: formData.role || 'customer' // Make sure we save the user's selected role
+          }]);
+          
+        if (insertError) {
+          console.error('Error inserting user:', insertError);
+          toast.dismiss(loadingToast);
+          toast.error('Could not create user: ' + insertError.message);
+          return;
+        }
+        
+        toast.dismiss(loadingToast);
+        toast.success('Account created successfully! Please log in with your credentials.');
+
+        // Create driver profile if needed
+        if (formData.role === 'driver') {
+          try {
+            // Insert into drivers table
+            const { error: driverError } = await supabase
+              .from('drivers')
+              .insert([{
+                id: userId,
+                license_number: '',
+                license_expiry: new Date().toISOString(),
+                vehicle_type: null,
+                vehicle_make: '',
+                vehicle_model: '',
+                vehicle_year: null,
+                vehicle_color: '',
+                vehicle_plate: '',
+                verification_status: 'pending',
+                total_rides: 0,
+                average_rating: 0
+              }]);
+              
+            if (driverError) {
+              console.error('Error creating driver profile:', driverError);
+              toast.error('Created user account but could not set up driver profile.');
+            }
+          } catch (e) {
+            console.error('Error setting up driver account:', e);
+            toast.error('Created user account but could not set up driver profile.');
+          }
+        }
+        
+        // Store session data in localStorage for immediate login
+        const sessionData = {
+          id: userId,
+          email: sanitizedEmail,
+          full_name: sanitizedName,
+          role: formData.role || 'customer',
+          phone: sanitizedPhone || null,
+          profile_image: null,
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString()
+        };
+        
+        localStorage.setItem('userSession', JSON.stringify(sessionData));
+        console.log('User registered and session saved:', sessionData.full_name);
+        console.log('User role set to:', sessionData.role);
+        
+        // Redirect to appropriate dashboard based on role
+        setTimeout(() => {
+          const userRole = formData.role || 'customer';
+          console.log('Redirecting newly registered user with role:', userRole);
+          
+          if (userRole === 'driver') {
+            console.log('Navigating to driver dashboard');
+            navigate('/driver/dashboard');
+          } else if (userRole === 'admin') {
+            console.log('Navigating to admin dashboard');
+            navigate('/admin/dashboard');
+          } else {
+            // Default to customer dashboard
+            console.log('Navigating to customer dashboard');
+            navigate('/dashboard');
+          }
+        }, 2000);
+      } catch (insertError) {
+        console.error('Exception during user insertion:', insertError);
+        toast.dismiss(loadingToast);
+        toast.error('An unexpected error occurred. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast.error('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -209,7 +231,9 @@ export default function Register() {
       toast.error("Please fill in all fields correctly");
       return;
     }
-    await register();
+    
+    // Use the alternative registration method that bypasses Supabase Auth issues
+    await registerWithoutAuth();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -226,192 +250,210 @@ export default function Register() {
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark p-6">
+    <div className="min-h-screen flex">
+      {/* Left side - orange background with message */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="hidden md:flex md:w-1/2 bg-[#FF7D45] text-white flex-col justify-center p-12"
       >
-        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">Registration</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Full Name Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleChange}
-              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.full_name ? 'border-red-500 dark:border-red-500' : ''}`}
-              required
-            />
-            {errors.full_name && (
-              <p className="mt-1 text-sm text-red-500">{errors.full_name}</p>
-            )}
+        <h1 className="text-5xl font-bold mb-6">Happy to have you!</h1>
+        <p className="text-xl">
+          Create your account and start using our services right away.
+        </p>
+      </motion.div>
+      
+      {/* Right side - registration form */}
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white overflow-y-auto max-h-screen"
+      >
+        <div className="w-full max-w-md py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-2">Create Account</h2>
+            <p className="text-gray-500">Sign up to get started!</p>
           </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Full Name Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Name
+              </label>
+              <input
+                type="text"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleChange}
+                className={`block w-full px-4 py-3 border ${errors.full_name ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                placeholder="Enter your full name"
+                required
+              />
+              {errors.full_name && (
+                <p className="mt-1 text-sm text-red-500">{errors.full_name}</p>
+              )}
+            </div>
 
-          {/* Email Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.email ? 'border-red-500 dark:border-red-500' : ''}`}
-              required
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-            )}
-          </div>
+            {/* Email Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={`block w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                placeholder="Enter your email"
+                required
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+              )}
+            </div>
 
-          {/* Phone Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Phone
-            </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.phone ? 'border-red-500 dark:border-red-500' : ''}`}
-              required
-            />
-            {errors.phone && (
-              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-            )}
-          </div>
+            {/* Phone Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className={`block w-full px-4 py-3 border ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                placeholder="Enter your phone number"
+                required
+              />
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+              )}
+            </div>
 
-          {/* Role Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Account Type
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            {/* Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Type
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]"
+              >
+                <option value="customer">Customer</option>
+                <option value="driver">Driver</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            {/* Password Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`block w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                  placeholder="Create a password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Confirm Password Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className={`block w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                  placeholder="Confirm your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                >
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-[#FF7D45] hover:bg-[#E86A35] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7D45] ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <option value="customer">Customer</option>
-              <option value="driver">Driver</option>
-            </select>
-          </div>
+              {loading ? 'Registering...' : "Sign Up"}
+            </button>
 
-          {/* Password Input */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.password ? 'border-red-500 dark:border-red-500' : ''}`}
-                required
-              />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-500">{errors.password}</p>
-            )}
-          </div>
-
-          {/* Confirm Password Input */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${errors.confirmPassword ? 'border-red-500 dark:border-red-500' : ''}`}
-                required
-              />
-              <button
-                type="button"
-                onClick={toggleConfirmPasswordVisibility}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-              >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>
-            )}
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {loading ? 'Registering...' : "Register"}
-          </button>
-
-          {/* Social Login Options */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+            {/* Social Registration Options */}
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                  Or continue with
-                </span>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <FcGoogle className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <FaApple className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-              >
-                <FcGoogle className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-              >
-                <FaApple className="h-5 w-5" />
-              </button>
+            {/* Login Link */}
+            <div className="text-sm text-center mt-6">
+              <span className="text-gray-600">Already have an account? </span>
+              <Link to="/login" className="font-medium text-[#FF7D45] hover:text-[#E86A35]">
+                Log in
+              </Link>
             </div>
-          </div>
-
-          {/* Login Link */}
-          <div className="text-sm text-center mt-4">
-            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Already registered? Log in
-            </Link>
-          </div>
-        </form>
+          </form>
+        </div>
       </motion.div>
     </div>
   );

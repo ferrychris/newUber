@@ -101,7 +101,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                       {service.icon}
                     </div>
                     <h3 className={`font-medium ${service.theme.text} text-lg`}>
-                      {t(`services.${service.type}.title`)}
+                      {service.name}
                     </h3>
                   </div>
                   
@@ -142,12 +142,36 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                     transition={{ delay: 0.2 }}
                     className="mt-4 space-y-2 text-xs text-stone-400"
                   >
-                    {(t(`services.${service.type}.features`, { returnObjects: true }) as string[]).map((feature: string, idx: number) => (
-                      <li key={idx} className="flex items-center">
-                        <span className={`mr-2 text-lg ${service.theme.text}`}>•</span>
-                        {feature}
-                      </li>
-                    ))}
+                    {(() => {
+                      // Safely get features with fallback
+                      try {
+                        const features = t(`services.${service.type}.features`, { returnObjects: true });
+                        
+                        if (Array.isArray(features)) {
+                          return features.map((feature: any, idx: number) => (
+                            <li key={idx} className="flex items-center">
+                              <span className={`mr-2 text-lg ${service.theme.text}`}>•</span>
+                              {String(feature)}
+                            </li>
+                          ));
+                        } else {
+                          // If features is not an array, return default features
+                          return [
+                            <li key="default1" className="flex items-center">
+                              <span className={`mr-2 text-lg ${service.theme.text}`}>•</span>
+                              {t('services.defaultFeature1')}
+                            </li>,
+                            <li key="default2" className="flex items-center">
+                              <span className={`mr-2 text-lg ${service.theme.text}`}>•</span>
+                              {t('services.defaultFeature2')}
+                            </li>
+                          ];
+                        }
+                      } catch (error) {
+                        console.warn(`Couldn't get features for ${service.type}:`, error);
+                        return null;
+                      }
+                    })()}
                   </motion.ul>
                 </div>
               </motion.button>

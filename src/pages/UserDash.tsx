@@ -4,6 +4,7 @@ import Sidebar from '../components/userDashcomponents/Sidebar';
 import DashIndex from '../components/userDashcomponents/DashIndex';
 import DashNav from '../components/userDashcomponents/Dashnav';
 import Order from '../components/userDashcomponents/Order';
+import Wallet from '../components/userDashcomponents/Wallet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
@@ -91,6 +92,11 @@ export const UserDash = () => {
                   <Route path="place-order" element={
                     <motion.div {...pageTransition}>
                       <Order />
+                    </motion.div>
+                  } />
+                  <Route path="wallet" element={
+                    <motion.div {...pageTransition}>
+                      <Wallet />
                     </motion.div>
                   } />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

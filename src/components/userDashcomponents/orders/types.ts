@@ -1,18 +1,48 @@
-import { ReactNode } from 'react';
+import { ReactElement, CSSProperties } from 'react';
 
 export enum ServiceType {
-  CARPOOLING = 'carpooling',
-  SHOPPING = 'shopping',
-  LARGE_ITEM = 'largeItem'
+  CARPOOLING = 'Carpooling',
+  PARCELS = 'Parcels',
+  SHOPPING = 'Shopping',
+  MEALS = 'Meals',
+  LARGE_ITEMS = 'Large Items'
+}
+
+export enum OrderStatus {
+  PENDING = 'pending',
+  ACTIVE = 'active',
+  IN_TRANSIT = 'in-transit',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
+}
+
+export interface Order {
+  id: string;
+  user_id: string;
+  service_id: string;
+  pickup_location: string;
+  dropoff_location: string;
+  status: OrderStatus;
+  estimated_price: number;
+  actual_price?: number;
+  created_at: string;
+  // Foreign key relationship with services table
+  services?: {
+    id: string;
+    name: string;
+    [key: string]: any;
+  };
 }
 
 export interface Service {
+  id: string;
+  name: string;
   type: ServiceType;
-  title: string;
   description: string;
-  icon: ReactNode;
-  baseRate: number;
   minPrice: number;
+  image: string;
+  icon?: ReactElement;
+  baseRate?: number;
   theme: {
     bg: string;
     text: string;
@@ -24,55 +54,99 @@ export interface OrderFormData {
   pickupLocation: string;
   destination: string;
   scheduledDate: string;
+  scheduledTime: string;
   price: number;
   serviceType: ServiceType;
+  paymentMethod?: 'wallet' | 'cash' | 'card';
+  walletBalance?: number;
 }
 
 export interface OrderFormErrors {
   pickupLocation?: string;
   destination?: string;
   scheduledDate?: string;
+  scheduledTime?: string;
   price?: string;
-  distance?: string;
   sameAddress?: string;
+  distance?: string;
   form?: string;
+  insufficientFunds?: string;
 }
 
-export interface OrderValidation {
-  pickupLocation: boolean;
-  destination: boolean;
-  scheduledDate: boolean;
-  price: boolean;
+export interface ToastConfig {
+  style?: CSSProperties;
+  icon?: ReactElement;
+  iconTheme?: {
+    primary: string;
+    secondary: string;
+  };
+  duration?: number;
 }
 
-export interface PriceInfo {
-  distance: number;
-  duration: number;
-  baseRate: number;
-  suggestedPrice: number;
-  minimumPrice: number;
-}
-
-export type OrderStatus = 'pending' | 'active' | 'inTransit' | 'completed';
-
-export interface Order extends OrderFormData {
-  id: string;
-  userId: string;
-  serviceType: ServiceType;
-  status: OrderStatus;
-  createdAt: string;
-  updatedAt: string;
+export interface DistanceValue {
+  text: string;
+  value: number;
 }
 
 export interface DistanceResult {
-  distance: {
-    text: string;    // Distance in text format (e.g., "5,2 km")
-    value: number;   // Distance in meters
+  distance: DistanceValue;
+  duration: DistanceValue;
+}
+
+export interface PriceInfoCardProps {
+  distanceResult: DistanceResult;
+  service: Service;
+  price: number;
+  walletBalance?: number;
+  onPaymentMethodChange?: (method: 'wallet' | 'cash' | 'card') => void;
+  selectedPaymentMethod?: 'wallet' | 'cash' | 'card';
+}
+
+export interface MapboxFeature {
+  id: string;
+  place_name: string;
+  center: [number, number]; // [longitude, latitude]
+  text: string;
+  place_type: string[];
+  properties: {
+    accuracy?: string;
+    address?: string;
+    category?: string;
+    maki?: string;
+    wikidata?: string;
   };
-  duration: {
-    text: string;    // Duration in text format (e.g., "10 minutes")
-    value: number;   // Duration in seconds
-  };
+  context: Array<{
+    id: string;
+    text: string;
+    wikidata?: string;
+  }>;
+}
+
+export interface MapboxGeocodeResponse {
+  type: string;
+  query: string[];
+  features: MapboxFeature[];
+  attribution: string;
+}
+
+export interface MapboxRouteResponse {
+  routes: Array<{
+    distance: number;
+    duration: number;
+    geometry: {
+      coordinates: Array<[number, number]>;
+      type: string;
+    };
+    weight: number;
+    weight_name: string;
+  }>;
+  waypoints: Array<{
+    distance: number;
+    name: string;
+    location: [number, number];
+  }>;
+  code: string;
+  uuid: string;
 }
 
 export interface LocationValidationResult {
@@ -85,66 +159,55 @@ export interface LocationValidationResult {
   };
 }
 
-export interface PriceInfoCardProps {
-  distanceResult: DistanceResult;
-  service: Service;
-  price: number;
+// Legacy types from old address API - keeping for reference
+export interface AddressComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
 }
 
-export interface ToastConfig {
-  style: {
-    background: string;
-    color: string;
-    borderRadius: string;
-    border: string;
-  };
-  duration?: number;
-  iconTheme: {
-    primary: string;
-    secondary: string;
-  };
-}
-
-export interface ServiceSelectionDialogProps {
-  services: Service[];
-  onClose: () => void;
-  onSelectService: (service: Service) => void;
-}
-
-export interface OrderDetailsDialogProps {
-  service: Service;
-  onClose: () => void;
-  onSubmit: (data: OrderFormData) => Promise<void>;
-  isSubmitting: boolean;
-  viewOnly?: boolean;
-  order?: OrderFormData;
-}
-
-export interface OrderCardProps {
-  order: Order;
-  service: Service;
-  onClick?: () => void;
-}
-
-export interface AddressFeature {
-  type: string;
+export interface AddressObject {
+  address_components: AddressComponent[];
+  formatted_address: string;
+  place_id: string;
+  postcode_localities?: string[];
   geometry: {
-    type: string;
-    coordinates: [number, number];
+    location: {
+      lat: number;
+      lng: number;
+    };
+    location_type: string;
+    viewport: {
+      northeast: {
+        lat: number;
+        lng: number;
+      };
+      southwest: {
+        lat: number;
+        lng: number;
+      };
+    };
+    bounds?: {
+      northeast: {
+        lat: number;
+        lng: number;
+      };
+      southwest: {
+        lat: number;
+        lng: number;
+      };
+    };
   };
-  properties: {
-    label: string;
-    score: number;
-    type: 'housenumber' | 'street';
-    name: string;
-    postcode: string;
-    city: string;
-    context: string;
-    id: string;
-    x: number;
-    y: number;
-    citycode: string;
-    oldcitycode?: string;
-    district?: string;
+  partial_match?: boolean;
+  plus_code?: {
+    compound_code: string;
+    global_code: string;
   };
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
+  oldcitycode?: string;
+  district?: string;
 }
