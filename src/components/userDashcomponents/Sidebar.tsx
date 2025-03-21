@@ -4,7 +4,7 @@ import {
   FaHome, FaClipboardList, FaPlus, FaUser,
   FaBars, FaTimes, FaChartLine, FaWallet,
   FaShippingFast, FaRegFileAlt, FaRegEnvelope, FaBox,
-  FaHeadset, FaCog
+  FaHeadset, FaCog, FaMapMarkedAlt
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import logo from '../image/Fret.png'
@@ -36,9 +36,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       exact: true
     },
     { 
-      path: "/dashboard/shipment", 
-      icon: <FaShippingFast />, 
-      label: t('Shipment')
+      path: "/dashboard/track-order", 
+      icon: <FaMapMarkedAlt />, 
+      label: t('Track Order')
     },
     { 
       path: "/dashboard/orders", 
@@ -50,11 +50,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: <FaRegEnvelope />, 
       label: t('Message'),
       badge: "4"
-    },
-    { 
-      path: "/dashboard/activity", 
-      icon: <FaChartLine />, 
-      label: t('Activity')
     }
   ];
 
@@ -63,11 +58,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: "/dashboard/wallet", 
       icon: <FaWallet />, 
       label: t('Wallet')
-    },
-    { 
-      path: "/dashboard/report", 
-      icon: <FaRegFileAlt />, 
-      label: t('Report')
     },
     { 
       path: "/dashboard/support", 
@@ -100,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Sidebar Header */}
       <div className="flex items-center p-4 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center space-x-2">
-          <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white">
             <FaShippingFast />
           </div>
           <h2 className={`font-bold text-lg transition-all duration-300 ${isCollapsed ? "hidden" : "block"}`}>
@@ -109,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)} 
-          className="ml-auto text-gray-400 dark:text-stone-400 hover:text-indigo-600 dark:hover:text-sunset focus:outline-none hidden lg:block transition-colors duration-300"
+          className="ml-auto text-gray-400 dark:text-stone-400 hover:text-sunset dark:hover:text-sunset focus:outline-none hidden lg:block transition-colors duration-300"
           aria-label={t(isCollapsed ? 'nav.expand' : 'nav.collapse')}
         >
           <FaBars />
@@ -133,7 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             to={item.path}
             className={`flex items-center gap-3 p-3 rounded-lg mb-1 transition-all duration-300 ${
               (item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path.split('?')[0]))
-                ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium" 
+                ? "bg-sunset/10 dark:bg-sunset/20 text-sunset dark:text-sunset font-medium" 
                 : "hover:bg-gray-50 dark:hover:bg-midnight-800/50 text-gray-600 dark:text-stone-400 hover:text-gray-900 dark:hover:text-white"
             }`}
             onClick={() => {
@@ -171,7 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             to={item.path}
             className={`flex items-center gap-3 p-3 rounded-lg mb-1 transition-all duration-300 ${
               (item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path.split('?')[0]))
-                ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium" 
+                ? "bg-sunset/10 dark:bg-sunset/20 text-sunset dark:text-sunset font-medium" 
                 : "hover:bg-gray-50 dark:hover:bg-midnight-800/50 text-gray-600 dark:text-stone-400 hover:text-gray-900 dark:hover:text-white"
             }`}
             onClick={() => {
@@ -193,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={`flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-midnight-800/50 transition-all duration-300 cursor-pointer p-2 rounded-lg`}
         >
           <div className="relative">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white">
               {userName.charAt(0)}
             </div>
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-midnight-900"></div>

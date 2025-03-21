@@ -221,8 +221,8 @@ export const getStatusConfig = (status: string) => {
   switch (status.toLowerCase()) {
     case OrderStatus.PENDING:
       return {
-        bgClass: 'bg-yellow-100 dark:bg-yellow-900/30',
-        textClass: 'text-yellow-700 dark:text-yellow-400'
+        bgClass: 'bg-sunset/10 dark:bg-sunset/20',
+        textClass: 'text-sunset dark:text-sunset'
       };
     case OrderStatus.ACTIVE:
       return {
@@ -231,8 +231,8 @@ export const getStatusConfig = (status: string) => {
       };
     case OrderStatus.IN_TRANSIT:
       return {
-        bgClass: 'bg-indigo-100 dark:bg-indigo-900/30',
-        textClass: 'text-indigo-700 dark:text-indigo-400'
+        bgClass: 'bg-purple-100 dark:bg-purple-900/30',
+        textClass: 'text-purple-700 dark:text-purple-400'
       };
     case OrderStatus.COMPLETED:
       return {

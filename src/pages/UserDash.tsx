@@ -5,8 +5,8 @@ import DashIndex from '../components/userDashcomponents/DashIndex';
 import DashNav from '../components/userDashcomponents/Dashnav';
 import Order from '../components/userDashcomponents/Order';
 import Wallet from '../components/userDashcomponents/Wallet';
-import ShipmentTrack from '../components/userDashcomponents/ShipmentTrack';
 import Message from '../components/userDashcomponents/Message';
+import OrderTracker from '../components/userDashcomponents/OrderTracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
@@ -84,9 +84,9 @@ export const UserDash = () => {
                     <DashIndex />
                   </motion.div>
                 } />
-                <Route path="shipment" element={
+                <Route path="track-order" element={
                   <motion.div {...pageTransition}>
-                    <ShipmentTrack />
+                    <OrderTracker />
                   </motion.div>
                 } />
                 <Route path="orders" element={

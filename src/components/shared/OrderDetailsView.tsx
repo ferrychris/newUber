@@ -29,6 +29,66 @@ interface OrderDetailsViewProps {
   isDriver?: boolean;
 }
 
+const OrderStatusDisplay = ({ status }: { status: string }) => {
+  const { t } = useTranslation();
+  
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return {
+          icon: <FaClock />,
+          color: 'text-sunset',
+          bg: 'bg-sunset/10 dark:bg-sunset/20',
+          text: t('orderStatus.pending')
+        };
+      case 'active':
+        return {
+          icon: <FaCheck />,
+          color: 'text-green-500',
+          bg: 'bg-green-100 dark:bg-green-900/30',
+          text: t('orderStatus.active')
+        };
+      case 'in_transit':
+        return {
+          icon: <FaTruck />,
+          color: 'text-purple-500',
+          bg: 'bg-purple-100 dark:bg-purple-900/30',
+          text: t('orderStatus.in_transit')
+        };
+      case 'completed':
+        return {
+          icon: <FaCheck />,
+          color: 'text-teal-500',
+          bg: 'bg-teal-100 dark:bg-teal-900/30',
+          text: t('orderStatus.completed')
+        };
+      case 'cancelled':
+        return {
+          icon: <FaTimes />,
+          color: 'text-red-500',
+          bg: 'bg-red-100 dark:bg-red-900/30',
+          text: t('orderStatus.cancelled')
+        };
+      default:
+        return {
+          icon: <FaClock />,
+          color: 'text-gray-500',
+          bg: 'bg-gray-100 dark:bg-gray-800/50',
+          text: status
+        };
+    }
+  };
+  
+  const statusConfig = getStatusConfig(status);
+  
+  return (
+    <div className={`flex items-center ${statusConfig.bg} rounded-lg px-3 py-1.5`}>
+      <span className={`mr-1.5 ${statusConfig.color}`}>{statusConfig.icon}</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-white">{statusConfig.text}</span>
+    </div>
+  );
+};
+
 const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
   order,
   service,
@@ -40,325 +100,277 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
   isDriver = false
 }) => {
   const { t } = useTranslation();
-  const [userDetails, setUserDetails] = useState<any>(null);
-  const [driverDetails, setDriverDetails] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [customer, setCustomer] = useState<any>(null);
+  const [driver, setDriver] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
 
-  // Fetch user and driver details if needed
   useEffect(() => {
-    const fetchDetails = async () => {
-      setLoading(true);
+    const fetchRelatedData = async () => {
+      setIsLoading(true);
       try {
-        // Fetch user details if needed
+        // Fetch customer data if showing user details
         if (showUserDetails && order.user_id) {
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, full_name, email, phone, profile_image')
+            .select('*')
             .eq('id', order.user_id)
             .single();
           
           if (userError) throw userError;
-          setUserDetails(userData);
+          setCustomer(userData);
         }
         
-        // Fetch driver details if needed
+        // Fetch driver data if showing driver details
         if (showDriverDetails && order.driver_id) {
           const { data: driverData, error: driverError } = await supabase
             .from('users')
-            .select('id, full_name, email, phone, profile_image')
+            .select('*')
             .eq('id', order.driver_id)
             .single();
           
           if (driverError) throw driverError;
-          setDriverDetails(driverData);
+          setDriver(driverData);
         }
       } catch (error) {
-        console.error("Error fetching details:", error);
+        console.error('Error fetching related data:', error);
         toast.error(t('common.error'));
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
     
-    fetchDetails();
-  }, [order, showUserDetails, showDriverDetails, t]);
-
-  const getStatusConfig = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return {
-          bgClass: 'bg-yellow-100 dark:bg-yellow-900/30',
-          textClass: 'text-yellow-700 dark:text-yellow-400',
-          text: t('orders.status.pending')
-        };
-      case 'accepted':
-        return {
-          bgClass: 'bg-blue-100 dark:bg-blue-900/30',
-          textClass: 'text-blue-700 dark:text-blue-400',
-          text: t('orders.status.accepted')
-        };
-      case 'active':
-        return {
-          bgClass: 'bg-green-100 dark:bg-green-900/30',
-          textClass: 'text-green-700 dark:text-green-400',
-          text: t('orders.status.active')
-        };
-      case 'in-transit':
-        return {
-          bgClass: 'bg-indigo-100 dark:bg-indigo-900/30',
-          textClass: 'text-indigo-700 dark:text-indigo-400',
-          text: t('orders.status.in-transit')
-        };
-      case 'completed':
-        return {
-          bgClass: 'bg-teal-100 dark:bg-teal-900/30',
-          textClass: 'text-teal-700 dark:text-teal-400',
-          text: t('orders.status.completed')
-        };
-      case 'cancelled':
-        return {
-          bgClass: 'bg-red-100 dark:bg-red-900/30',
-          textClass: 'text-red-700 dark:text-red-400',
-          text: t('orders.status.cancelled')
-        };
-      default:
-        return {
-          bgClass: 'bg-gray-100 dark:bg-gray-800/50',
-          textClass: 'text-gray-700 dark:text-gray-400',
-          text: t('orders.status.unknown')
-        };
+    fetchRelatedData();
+  }, [order, showUserDetails, showDriverDetails]);
+  
+  const handleStatusAction = async (action: 'accept' | 'complete' | 'cancel') => {
+    if (!order || !order.id) return;
+    
+    if (action === 'cancel' && !confirm(t('orders.confirmCancel'))) {
+      return;
+    }
+    
+    try {
+      if (action === 'accept' && onAcceptOrder) {
+        await onAcceptOrder(order.id);
+      } else if (action === 'complete' && onCompleteOrder) {
+        await onCompleteOrder(order.id);
+      } else if (action === 'cancel' && onCancelOrder) {
+        await onCancelOrder(order.id);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing order:`, error);
+      toast.error(t('common.error'));
     }
   };
 
-  const statusConfig = getStatusConfig(order.status);
-
+  const renderMetaItem = (icon: React.ReactNode, label: string, value: string | React.ReactNode) => (
+    <div className="flex items-start space-x-3 mb-4">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm text-gray-500 dark:text-stone-400">{label}</p>
+        <p className="font-medium text-gray-900 dark:text-white mt-0.5">{value}</p>
+      </div>
+    </div>
+  );
+  
+  const renderContactItem = (icon: React.ReactNode, label: string, value: string) => (
+    <div className="flex items-center space-x-3 mb-3">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-sunset/10 dark:bg-sunset/20 flex items-center justify-center text-sunset">
+        {icon}
+      </div>
+      <div>
+        <p className="text-xs text-gray-500 dark:text-stone-400">{label}</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">{value}</p>
+      </div>
+    </div>
+  );
+  
   return (
-    <div className="space-y-6">
-      {/* Header with status */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'}`}>
-            {service.icon || <FaTruck className={`w-4 h-4 ${service.theme.text ? service.theme.text.replace('text-', 'text-') : 'text-indigo-600 dark:text-indigo-400'}`} />}
-          </div>
-          <div>
-            <h3 className="font-medium text-gray-900 dark:text-white">
-              {service.name || t(`services.${service.type}.title`)}
-            </h3>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass} mt-1`}>
-              {statusConfig.text}
-            </span>
-          </div>
+    <div className="p-6">
+      {isLoading ? (
+        <div className="flex justify-center items-center py-8">
+          <svg className="animate-spin h-8 w-8 text-sunset" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
         </div>
-        <div className="flex items-center">
-          <div className="text-right">
-            <p className="text-xs text-gray-500 dark:text-stone-400">
-              {t('orders.estimatedPrice')}
-            </p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-end">
-              <FaDollarSign className="w-3 h-3 mr-1" />
-              {formatCurrency(order.estimated_price)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Order details */}
-      <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
-        <h4 className="text-gray-900 dark:text-white font-medium">{t('orders.detailsTitle')}</h4>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Order ID */}
-          <div className="flex items-start space-x-3">
-            <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-              <FaCalendarAlt className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.orderId')}</p>
-              <p className="text-sm text-gray-900 dark:text-white font-mono">{order.id?.slice(0, 8)}</p>
-            </div>
-          </div>
-          
-          {/* Created Date */}
-          <div className="flex items-start space-x-3">
-            <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-              <FaClock className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.createdAt')}</p>
-              <p className="text-sm text-gray-900 dark:text-white">
-                {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Locations */}
-      <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
-        <h4 className="text-gray-900 dark:text-white font-medium">{t('location.title')}</h4>
-        
-        <div className="space-y-6">
-          <div className="flex items-start">
-            <div className="min-w-10 pt-1 flex justify-center">
-              <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.pickup')}</p>
-              <p className="text-sm text-gray-900 dark:text-white font-medium">{order.pickup_location}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center ml-5">
-            <div className="border-l-2 border-dashed border-gray-300 dark:border-stone-600 h-8"></div>
-          </div>
-          
-          <div className="flex items-start">
-            <div className="min-w-10 pt-1 flex justify-center">
-              <div className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400"></div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.destination')}</p>
-              <p className="text-sm text-gray-900 dark:text-white font-medium">{order.dropoff_location}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* User details */}
-      {showUserDetails && (
-        <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
-          <h4 className="text-gray-900 dark:text-white font-medium">{t('user.details')}</h4>
-          
-          {loading ? (
-            <div className="flex justify-center p-4">
-              <div className="animate-pulse bg-gray-200 dark:bg-midnight-600 h-8 w-32 rounded"></div>
-            </div>
-          ) : userDetails ? (
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaUser className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.name')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.full_name}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaPhone className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.phone')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.phone || t('common.notProvided')}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaEnvelope className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.email')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.email}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 dark:text-stone-400 italic text-center">
-              {t('common.dataNotAvailable')}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Driver details */}
-      {showDriverDetails && (
-        <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
-          <h4 className="text-gray-900 dark:text-white font-medium">{t('driver.details')}</h4>
-          
-          {loading ? (
-            <div className="flex justify-center p-4">
-              <div className="animate-pulse bg-gray-200 dark:bg-midnight-600 h-8 w-32 rounded"></div>
-            </div>
-          ) : driverDetails ? (
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaUser className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.name')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.full_name}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaPhone className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.phone')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.phone || t('common.notProvided')}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                  <FaEnvelope className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.email')}</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.email}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 dark:text-stone-400 italic text-center">
-              {t('common.dataNotAvailable')}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      {(onAcceptOrder || onCompleteOrder || onCancelOrder) && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap gap-3 mt-6"
-        >
-          {order.status === 'pending' && isDriver && onAcceptOrder && (
-            <button 
-              onClick={() => onAcceptOrder(order.id)}
-              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+      ) : (
+        <>
+          {/* Tab Navigation */}
+          <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-stone-600/10">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`pb-3 px-1 text-sm font-medium relative ${
+                activeTab === 'details' 
+                  ? 'text-sunset border-b-2 border-sunset' 
+                  : 'text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-300'
+              }`}
             >
-              <FaTruck className="w-3 h-3" />
-              {t('driver.acceptOrder')}
+              {t('orders.detailsTab')}
             </button>
+            {(showUserDetails || showDriverDetails) && (
+              <button
+                onClick={() => setActiveTab('people')}
+                className={`pb-3 px-1 text-sm font-medium relative ${
+                  activeTab === 'people' 
+                    ? 'text-sunset border-b-2 border-sunset' 
+                    : 'text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-300'
+                }`}
+              >
+                {t('orders.peopleTab')}
+              </button>
+            )}
+          </div>
+      
+          {activeTab === 'details' && (
+            <>
+              {/* Service Info */}
+              <div className="mb-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white text-xl">
+                    {service?.icon}
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      {service?.name || t('common.unknownService')}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-stone-400">
+                      {service?.description || t('common.noDescription')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Order Meta */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mb-6">
+                {renderMetaItem(
+                  <FaMapMarkerAlt />,
+                  t('location.pickup'),
+                  order.pickup_location
+                )}
+                
+                {renderMetaItem(
+                  <FaMapMarkerAlt />,
+                  t('location.destination'),
+                  order.delivery_location || order.destination
+                )}
+                
+                {renderMetaItem(
+                  <FaCalendarAlt />,
+                  t('orders.creationDate'),
+                  formatDate(order.created_at)
+                )}
+                
+                {renderMetaItem(
+                  <FaDollarSign />,
+                  t('orders.price'),
+                  formatCurrency(order.price || order.estimated_price || 0)
+                )}
+                
+                {renderMetaItem(
+                  <div>{/* Status icon handled by component */}</div>,
+                  t('orders.status.title'),
+                  <OrderStatusDisplay status={order.status} />
+                )}
+              </div>
+              
+              {/* Action Buttons */}
+              {order.status === 'pending' && (
+                <div className="flex flex-wrap gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-stone-600/10">
+                  {isDriver && onAcceptOrder && (
+                    <button
+                      onClick={() => handleStatusAction('accept')}
+                      className="px-4 py-2 bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200"
+                    >
+                      {t('orders.acceptOrder')}
+                    </button>
+                  )}
+                  
+                  {onCancelOrder && (
+                    <button
+                      onClick={() => handleStatusAction('cancel')}
+                      className="px-4 py-2 border border-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:border-red-800/20 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded-lg"
+                    >
+                      {t('orders.cancelOrder')}
+                    </button>
+                  )}
+                </div>
+              )}
+              
+              {order.status === 'active' && isDriver && onCompleteOrder && (
+                <div className="flex flex-wrap gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-stone-600/10">
+                  <button
+                    onClick={() => handleStatusAction('complete')}
+                    className="px-4 py-2 bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200"
+                  >
+                    {t('orders.markComplete')}
+                  </button>
+                </div>
+              )}
+            </>
           )}
           
-          {(order.status === 'active' || order.status === 'in-transit') && isDriver && onCompleteOrder && (
-            <button 
-              onClick={() => onCompleteOrder(order.id)}
-              className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
-            >
-              <FaCheck className="w-3 h-3" />
-              {t('driver.completeOrder')}
-            </button>
+          {activeTab === 'people' && (
+            <div>
+              {showUserDetails && customer && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    {t('orders.customerInfo')}
+                  </h3>
+                  <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
+                    {renderContactItem(
+                      <FaUser />,
+                      t('profile.name'),
+                      customer.full_name || t('common.notProvided')
+                    )}
+                    
+                    {renderContactItem(
+                      <FaPhone />,
+                      t('profile.phone'),
+                      customer.phone || t('common.notProvided')
+                    )}
+                    
+                    {renderContactItem(
+                      <FaEnvelope />,
+                      t('profile.email'),
+                      customer.email || t('common.notProvided')
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {showDriverDetails && driver && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    {t('orders.driverInfo')}
+                  </h3>
+                  <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
+                    {renderContactItem(
+                      <FaUser />,
+                      t('profile.name'),
+                      driver.full_name || t('common.notProvided')
+                    )}
+                    
+                    {renderContactItem(
+                      <FaPhone />,
+                      t('profile.phone'),
+                      driver.phone || t('common.notProvided')
+                    )}
+                    
+                    {renderContactItem(
+                      <FaEnvelope />,
+                      t('profile.email'),
+                      driver.email || t('common.notProvided')
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          
-          {(order.status === 'pending' || order.status === 'active') && onCancelOrder && (
-            <button 
-              onClick={() => onCancelOrder(order.id)}
-              className="flex-1 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
-            >
-              <FaTimes />
-              {t('orders.cancelOrder')}
-            </button>
-          )}
-        </motion.div>
+        </>
       )}
     </div>
   );

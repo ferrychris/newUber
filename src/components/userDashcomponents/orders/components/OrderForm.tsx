@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaCalendarAlt, FaClock, FaSpinner, FaInfoCircle, FaRoute, FaWallet, FaMoneyBill } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaSpinner, FaInfoCircle, FaRoute, FaWallet, FaMoneyBill, FaCreditCard } from 'react-icons/fa';
 import LocationInput from '../../LocationInput';
 import { Service, OrderFormData, OrderFormErrors, DistanceResult } from '../types';
 import { validateOrderForm, calculatePrice } from '../utils';
 import { useTranslation } from 'react-i18next';
-import { formatDateForInput } from '../../../../utils/i18n';
+import { formatDateForInput, formatCurrency } from '../../../../utils/i18n';
 import { calculateRoute, formatDistance, formatDuration } from '../../../../utils/mapboxService';
 import PriceInfoCard from './PriceInfoCard';
 import { getUserWallet } from '../../../../utils/stripe';
@@ -434,7 +434,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
                   >
                     <FaWallet className={formData.paymentMethod === 'wallet' ? 'text-sunset-500' : 'text-stone-400'} />
                     <span className="text-xs mt-1">{t('price.wallet')}</span>
-                    <span className="text-xs mt-1">{walletBalance !== undefined ? walletBalance.toFixed(2) : ''}</span>
+                    {walletBalance !== null && (
+                      <span className="text-xs mt-1">
+                        {formatCurrency(walletBalance || 0)}
+                      </span>
+                    )}
                     {errors.insufficientFunds && (
                       <span className="text-xs text-red-500 mt-1">{t('price.insufficientFunds')}</span>
                     )}
@@ -460,7 +464,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                         : 'bg-midnight-800 border-stone-700 text-stone-300 hover:bg-midnight-700'
                     }`}
                   >
-                    <FaWallet className={formData.paymentMethod === 'card' ? 'text-sunset-500' : 'text-stone-400'} />
+                    <FaCreditCard className={formData.paymentMethod === 'card' ? 'text-sunset-500' : 'text-stone-400'} />
                     <span className="text-xs mt-1">{t('price.card')}</span>
                   </button>
                 </div>
@@ -535,27 +539,154 @@ const OrderForm: React.FC<OrderFormProps> = ({
         )}
 
         {/* Submit Button */}
-        {!viewOnly && (
-          <motion.button
+        <div className="flex items-center justify-center pt-4 pb-6">
+          <button
             type="submit"
-            disabled={isSubmitting || !locationValidations.pickupLocation || !locationValidations.destination}
-            className={`w-full px-4 py-3 ${service.theme.bg} text-white font-medium rounded-lg 
-              shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-              hover:opacity-90 backdrop-blur-sm`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            disabled={isSubmitting || (!locationValidations.pickupLocation || !locationValidations.destination) || !!errors.form}
+            className={`w-full px-6 py-3 rounded-lg text-white font-medium flex items-center justify-center 
+              ${isSubmitting || !locationValidations.pickupLocation || !locationValidations.destination || !!errors.form
+                ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-300'
+              }
+            `}
           >
             {isSubmitting ? (
-              <span className="flex items-center justify-center space-x-2">
-                <FaSpinner className="animate-spin" />
-                <span>{t('form.submitting')}</span>
-              </span>
+              <>
+                <FaSpinner className="animate-spin mr-2" />
+                {t('common.submitting')}
+              </>
+            ) : viewOnly ? (
+              t('common.close')
             ) : (
-              t('form.submit')
+              t('pages.orders.submitOrder')
             )}
-          </motion.button>
-        )}
+          </button>
+        </div>
       </div>
+
+      {/* Price Details Card */}
+      {!viewOnly && (formData.pickupLocation && formData.destination) && (
+        <div className="mt-6 bg-gray-50 dark:bg-midnight-700/50 rounded-lg border border-gray-200 dark:border-stone-600/10 p-4">
+          <h3 className="text-gray-900 dark:text-white font-medium mb-3 flex items-center">
+            <FaInfoCircle className="text-sunset mr-2" />
+            {t('pages.orders.priceDetails')}
+          </h3>
+          
+          {distanceResult && (
+            <div className="flex flex-col space-y-2 mb-3">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-500 dark:text-stone-400">
+                  {t('pages.orders.distance')}
+                </span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {distanceResult.distance.text}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-500 dark:text-stone-400">
+                  {t('pages.orders.estimatedTime')}
+                </span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {distanceResult.duration.text}
+                </span>
+              </div>
+            </div>
+          )}
+          
+          <div className="border-t border-gray-200 dark:border-stone-600/10 pt-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500 dark:text-stone-400">
+                {t('pages.orders.baseRate')}
+              </span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {formatCurrency(service?.baseRate || 0)}
+              </span>
+            </div>
+            {distanceResult && (
+              <div className="flex justify-between mt-1">
+                <span className="text-sm text-gray-500 dark:text-stone-400">
+                  {t('pages.orders.distanceRate')}
+                </span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {formatCurrency((formData.price || 0) - (service.baseRate || 0))}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between mt-3 border-t border-gray-200 dark:border-stone-600/10 pt-2">
+              <span className="text-base font-medium text-gray-700 dark:text-white">
+                {t('pages.orders.total')}
+              </span>
+              <span className="text-base font-bold text-sunset">
+                {formatCurrency(formData.price || 0)}
+              </span>
+            </div>
+          </div>
+          
+          {/* Payment Method Selection */}
+          <div className="mt-4 border-t border-gray-200 dark:border-stone-600/10 pt-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-white mb-3">
+              {t('pages.orders.paymentMethod')}
+            </h4>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handlePaymentMethodChange('wallet')}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
+                  ${formData.paymentMethod === 'wallet' 
+                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
+                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
+                  transition-colors`}
+              >
+                <FaWallet className={`text-lg ${formData.paymentMethod === 'wallet' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
+                <span className={`text-xs mt-1 ${formData.paymentMethod === 'wallet' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
+                  {t('common.wallet')}
+                </span>
+                {walletBalance !== null && (
+                  <span className="text-xs text-sunset mt-1">
+                    {formatCurrency(walletBalance || 0)}
+                  </span>
+                )}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handlePaymentMethodChange('cash')}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
+                  ${formData.paymentMethod === 'cash' 
+                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
+                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
+                  transition-colors`}
+              >
+                <FaMoneyBill className={`text-lg ${formData.paymentMethod === 'cash' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
+                <span className={`text-xs mt-1 ${formData.paymentMethod === 'cash' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
+                  {t('common.cash')}
+                </span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handlePaymentMethodChange('card')}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
+                  ${formData.paymentMethod === 'card' 
+                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
+                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
+                  transition-colors`}
+              >
+                <FaCreditCard className={`text-lg ${formData.paymentMethod === 'card' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
+                <span className={`text-xs mt-1 ${formData.paymentMethod === 'card' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
+                  {t('common.card')}
+                </span>
+              </button>
+            </div>
+            
+            {formData.paymentMethod === 'wallet' && walletBalance !== null && (walletBalance || 0) < formData.price && (
+              <p className="text-xs text-red-500 mt-2">
+                {t('pages.orders.insufficientFunds')}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </form>
   );
 };

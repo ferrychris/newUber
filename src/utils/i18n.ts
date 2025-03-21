@@ -137,6 +137,33 @@ interface Resources {
         cancelling: string;
         cancelSuccess: string;
         cancelError: string;
+        orderId: string;
+        createdAt: string;
+        estimatedPrice: string;
+        status: {
+          title: string;
+          pending: string;
+          accepted: string;
+          active: string;
+          completed: string;
+          cancelled: string;
+          in_transit: string;
+          unknown: string;
+        };
+        creating: string;
+        create: string;
+        empty: string;
+        emptyMessage: string;
+        createFirst: string;
+        details: string;
+        loadError: string;
+        createSuccess: string;
+        createError: string;
+        title: string;
+        date: string;
+        service: string;
+        actions: string;
+        selectService: string;
       };
 
       price: {
@@ -180,6 +207,26 @@ interface Resources {
         days: string[];
         months: string[];
         time: TimeTranslations;
+      };
+
+      tracking: {
+        title: string;
+        subtitle: string;
+        noOrders: string;
+        noOrdersMessage: string;
+        activeOrders: string;
+        driverInfo: string;
+        driverLocation: string;
+        driver: string;
+        orderDetails: string;
+        deliveryStatus: string;
+        orderAccepted: string;
+        driverAssigned: string;
+        inTransit: string;
+        itemInTransit: string;
+        waitingPickup: string;
+        selectOrder: string;
+        selectOrderMessage: string;
       };
     };
   };
@@ -322,6 +369,33 @@ const resources: Resources = {
         cancelling: "Cancelling your order...",
         cancelSuccess: "Order cancelled successfully",
         cancelError: "Failed to cancel order. Please try again later.",
+        orderId: "Order ID",
+        createdAt: "Created At",
+        estimatedPrice: "Estimated Price",
+        status: {
+          title: "Status",
+          pending: "Pending",
+          accepted: "Accepted",
+          active: "Active",
+          completed: "Completed",
+          cancelled: "Cancelled",
+          in_transit: "In Transit",
+          unknown: "Unknown"
+        },
+        creating: "Creating order...",
+        create: "Create",
+        empty: "No orders found",
+        emptyMessage: "You haven't placed any orders yet",
+        createFirst: "Create your first order",
+        details: "Details",
+        loadError: "Error loading orders",
+        createSuccess: "Order created successfully",
+        createError: "Failed to create order",
+        title: "Orders",
+        date: "Date",
+        service: "Service",
+        actions: "Actions",
+        selectService: "Select Service"
       },
       price: {
         baseRate: "Base Rate",
@@ -368,6 +442,25 @@ const resources: Resources = {
           days: "{{count}} day",
           days_plural: "{{count}} days",
         }
+      },
+      tracking: {
+        title: "Tracking",
+        subtitle: "Track your orders and deliveries",
+        noOrders: "No orders found",
+        noOrdersMessage: "You haven't placed any orders yet",
+        activeOrders: "Active Orders",
+        driverInfo: "Driver Information",
+        driverLocation: "Driver Location",
+        driver: "Driver",
+        orderDetails: "Order Details",
+        deliveryStatus: "Delivery Status",
+        orderAccepted: "Order Accepted",
+        driverAssigned: "Driver Assigned",
+        inTransit: "In Transit",
+        itemInTransit: "Item in Transit",
+        waitingPickup: "Waiting for Pickup",
+        selectOrder: "Select Order",
+        selectOrderMessage: "Select an order to track"
       }
     }
   },

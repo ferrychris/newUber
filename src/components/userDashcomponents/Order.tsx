@@ -324,165 +324,155 @@ const Order: React.FC = () => {
     setSelectedOrder(null);
   };
 
-  // Function to cancel an order
-  const handleCancelOrder = async (orderId: string): Promise<void> => {
+  // Helper function to find the service for an order
+  const findServiceForOrder = (order: OrderType) => {
+    if (!order) return null;
+    
+    // Cast to any to avoid TypeScript errors
+    const services = order.services as any;
+    
+    // Try to find the service in our SERVICES array
+    if (services && typeof services.name === 'string') {
+      return SERVICES.find((s) => s.id === services.name || s.name === services.name) || SERVICES[0];
+    }
+    
+    // Fallback to first service if we can't find a match
+    return SERVICES[0];
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!orderId) return;
+    
+    const loadingToast = toast.loading("Annulation de la commande...", getToastConfig("error"));
+    
     try {
-      // Show confirmation dialog
-      if (!confirm(t('orders.confirmCancel'))) {
-        return; // User cancelled the operation
-      }
-      
-      // Show loading toast
-      const loadingToast = toast.loading(t('orders.cancelling'));
-      
-      // Update the order status to cancelled
-      const { error } = await supabase
+      // Update the order status in the database
+      const { data, error } = await supabase
         .from('orders')
         .update({ status: 'cancelled' })
         .eq('id', orderId);
+        
+      if (error) throw error;
       
-      if (error) {
-        console.error('Error cancelling order:', error);
-        toast.error(t('orders.cancelError'), getToastConfig("error"));
-        throw error;
-      }
+      // Update the order in the local state
+      setOrders(orders.map(order => 
+        order.id === orderId 
+          ? { ...order, status: 'cancelled' as OrderType['status'] } 
+          : order
+      ));
       
-      // Show success toast
-      toast.success(t('orders.cancelSuccess'), getToastConfig("success"));
-      
-      // Refresh orders
-      fetchOrders(userId);
-      
-      // Close the dialog
+      // Close the order details dialog
       setSelectedOrder(null);
       
-      // Dismiss loading toast
       toast.dismiss(loadingToast);
+      toast.success("Commande annulée avec succès", getToastConfig("success"));
     } catch (error) {
-      console.error('Error cancelling order:', error);
-      toast.error(t('orders.cancelError'), getToastConfig("error"));
+      console.error("Error cancelling order:", error);
+      toast.dismiss(loadingToast);
+      toast.error("Échec de l'annulation de la commande", getToastConfig("error"));
     }
-  };
-
-  // Helper function to find the service for an order
-  const findServiceForOrder = (order: OrderType): Service | null => {
-    if (!order) return null;
-    
-    // Try to find service from joined data
-    if (order.services && typeof (order.services as any).name === 'string') {
-      const serviceName = (order.services as any).name;
-      const foundService = SERVICES.find(s => s.name === serviceName);
-      if (foundService) return foundService;
-    }
-    
-    // Try to find by service_id
-    if (order.service_id) {
-      const foundService = SERVICES.find(s => s.id === order.service_id);
-      if (foundService) return foundService;
-    }
-    
-    // Default to first service if no match
-    return SERVICES.length > 0 ? SERVICES[0] : null;
   };
 
   return (
-    <div className="container mx-auto">
-      {/* Header section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('orders.title')}</h1>
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          {t('pages.orders.title')}
+        </h1>
+        <div className="mt-4 sm:mt-0">
           <button
             onClick={() => setShowServiceDialog(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-            disabled={isCreatingOrder}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
           >
-            {isCreatingOrder ? (
-              <><FaSpinner className="animate-spin" /> {t('orders.creating')}</>
-            ) : (
-              <>{t('orders.create')}</>
-            )}
+            {t('pages.orders.createOrder')}
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {error && (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 p-4 rounded-lg mb-6"
-        >
-          <p>{error}</p>
-        </motion.div>
+        <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                {t('common.error')}
+              </h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {isLoading ? (
-        <div className="flex justify-center items-center h-40">
-          <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
+        <div className="flex justify-center items-center h-64">
+          <FaSpinner className="animate-spin h-8 w-8 text-sunset" />
         </div>
       ) : orders.length === 0 ? (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-midnight-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 text-center"
-        >
-          <div className="mb-4 flex justify-center">
-            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+        <div className="bg-white dark:bg-midnight-800 shadow-sm overflow-hidden rounded-xl border border-gray-200 dark:border-stone-600/10">
+          <div className="px-4 py-5 sm:p-6 text-center">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+              {t('pages.orders.noOrders')}
+            </h3>
+            <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-stone-400 mx-auto">
+              <p>{t('pages.orders.createFirstOrder')}</p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => setShowServiceDialog(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset"
+              >
+                {t('pages.orders.createOrder')}
+              </button>
             </div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t('orders.empty')}</h2>
-          <p className="text-gray-500 dark:text-stone-400 mb-6">{t('orders.emptyMessage')}</p>
-          <button
-            onClick={() => setShowServiceDialog(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            {t('orders.createFirst')}
-          </button>
-        </motion.div>
+        </div>
       ) : (
-        <div className="bg-white dark:bg-midnight-800 shadow-sm rounded-xl border border-gray-100 dark:border-stone-700/20 overflow-hidden">
+        <div className="overflow-hidden shadow rounded-xl border border-gray-200 dark:border-stone-600/10 bg-white dark:bg-midnight-800">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-midnight-700/50 border-b border-gray-100 dark:border-stone-700/20">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-stone-600/10">
+              <thead className="bg-gray-50 dark:bg-midnight-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.service')}
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('pages.orders.service')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('location.title')}
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('pages.orders.locations')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.estimatedPrice')}
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('pages.orders.price')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.status.title')}
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('pages.orders.status')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.date')}
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.actions')}
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-stone-700/20">
+              <tbody className="bg-white dark:bg-midnight-800 divide-y divide-gray-200 dark:divide-stone-600/10">
                 {orders.map((order) => {
-                  const service = findServiceForOrder(order) as Service;
                   const statusConfig = getStatusConfig(order.status);
-                  
-                  // Skip orders with no service
-                  if (!service) return null;
                   
                   return (
                     <tr 
                       key={order.id} 
-                      className="hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors cursor-pointer"
+                      className="hover:bg-gray-50 dark:hover:bg-midnight-700/50 cursor-pointer transition-colors duration-200"
                       onClick={() => {
                         const orderService = findServiceForOrder(order);
                         setSelectedOrder(order);
@@ -491,52 +481,50 @@ const Order: React.FC = () => {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className={`p-2 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'} mr-3`}>
-                            {service.icon || <FaMapMarkerAlt className={`w-4 h-4 ${service.theme.text ? service.theme.text.replace('text-', 'text-') : 'text-indigo-600 dark:text-indigo-400'}`} />}
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white">
+                            {findServiceForOrder(order)?.icon}
                           </div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {service.name}
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {findServiceForOrder(order)?.name}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-stone-400">
+                              {formatDate(order.created_at)}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          <div className="flex flex-col">
-                            <div className="flex items-center">
-                              <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400 mr-2"></div>
-                              <p className="text-sm truncate max-w-[200px]">{order.pickup_location.split(',')[0]}</p>
-                            </div>
-                            <div className="border-l-2 h-4 border-dashed border-gray-300 dark:border-stone-600 ml-1"></div>
-                            <div className="flex items-center">
-                              <div className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400 mr-2"></div>
-                              <p className="text-sm truncate max-w-[200px]">{order.dropoff_location.split(',')[0]}</p>
-                            </div>
+                        <div className="flex flex-col text-sm text-gray-900 dark:text-white">
+                          <div className="flex items-center">
+                            <FaMapMarkerAlt className="mr-1 text-sunset" />
+                            <span className="truncate max-w-[180px]">{order.pickup_location}</span>
+                          </div>
+                          <div className="w-px h-2 ml-2 border-l border-dashed border-gray-300 dark:border-stone-600"></div>
+                          <div className="flex items-center">
+                            <FaMapMarkerAlt className="mr-1 text-purple-600" />
+                            <span className="truncate max-w-[180px]">{order.dropoff_location}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(order.estimated_price)}
-                        </div>
+                        <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(order.estimated_price || 0)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                          {t(`status.${order.status}`)}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
+                          {t(`orderStatus.${order.status}`)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-stone-400">
-                        {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 
-                          className="inline-flex items-center px-2.5 py-1.5 border border-gray-200 dark:border-stone-700/20 text-xs font-medium rounded text-gray-700 dark:text-stone-300 bg-white dark:bg-midnight-700/50 hover:bg-gray-50 dark:hover:bg-midnight-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-midnight-800"
+                          className="text-sunset hover:text-purple-600 transition-colors duration-200"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedOrder(order);
                             setSelectedService(findServiceForOrder(order));
                           }}
                         >
-                          {t('orders.details')}
+                          {t('common.details')}
                         </button>
                       </td>
                     </tr>
@@ -548,31 +536,49 @@ const Order: React.FC = () => {
         </div>
       )}
 
-      {/* Service Selection Dialog */}
-      {showServiceDialog && (
-        <ServiceSelectionDialog
-          onClose={() => setShowServiceDialog(false)}
-          onSelectService={(service: Service) => {
-            setSelectedService(service);
-            setShowServiceDialog(false);
-            // Show order details form after service selection
-            setSelectedOrder({ service_id: service.id } as OrderType);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {showServiceDialog && (
+          <ServiceSelectionDialog
+            onClose={() => setShowServiceDialog(false)}
+            onSelectService={(service: Service) => {
+              setSelectedService(service);
+              setShowServiceDialog(false);
+              setSelectedOrder({} as OrderType);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Order Details Dialog */}
-      {selectedOrder && (
-        <OrderDetailsDialog
-          order={selectedOrder}
-          service={selectedService}
-          onClose={() => setSelectedOrder(null)}
-          onSubmit={handleCreateOrder}
-          isSubmitting={isCreatingOrder}
-          viewOnly={!!selectedOrder.id} // Only view mode for existing orders
-          onCancelOrder={handleCancelOrder}
-        />
-      )}
+      <AnimatePresence>
+        {selectedService && selectedOrder && (
+          <OrderDetailsDialog
+            onClose={() => {
+              setSelectedService(null);
+              setSelectedOrder(null);
+            }}
+            service={selectedService}
+            order={selectedOrder}
+            viewOnly={!!selectedOrder.id}
+            onSubmit={async (orderData: OrderFormData) => {
+              setIsCreatingOrder(true);
+
+              const loadingToast = toast.loading(
+                t('pages.orders.creatingOrder'),
+                getToastConfig("error")
+              );
+
+              try {
+                // ... existing code ...
+              } catch (error) {
+                // ... existing code ...
+              } finally {
+                setIsCreatingOrder(false);
+              }
+            }}
+            onCancelOrder={handleCancelOrder}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
