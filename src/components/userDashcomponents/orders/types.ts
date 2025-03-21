@@ -32,6 +32,7 @@ export interface Order {
     name: string;
     [key: string]: any;
   };
+  driver_id?: string;
 }
 
 export interface Service {
@@ -71,6 +72,9 @@ export interface OrderFormErrors {
   distance?: string;
   form?: string;
   insufficientFunds?: string;
+  paymentError?: string;
+  cardSetupError?: string;
+  cardProcessingError?: string;
 }
 
 export interface ToastConfig {

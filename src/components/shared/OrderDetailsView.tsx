@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { 
   FaMapMarkerAlt, 
   FaCalendarAlt, 
-  FaEuroSign, 
   FaUser, 
   FaPhone, 
   FaEnvelope,
   FaCheck,
   FaTruck,
-  FaClock
+  FaClock,
+  FaDollarSign,
+  FaTimes
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../utils/i18n';
@@ -86,45 +87,45 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
     switch (status.toLowerCase()) {
       case 'pending':
         return {
-          color: 'bg-yellow-500',
-          text: t('orders.status.pending'),
-          textColor: 'text-yellow-500'
+          bgClass: 'bg-yellow-100 dark:bg-yellow-900/30',
+          textClass: 'text-yellow-700 dark:text-yellow-400',
+          text: t('orders.status.pending')
         };
       case 'accepted':
         return {
-          color: 'bg-blue-500',
-          text: t('orders.status.accepted'),
-          textColor: 'text-blue-500'
+          bgClass: 'bg-blue-100 dark:bg-blue-900/30',
+          textClass: 'text-blue-700 dark:text-blue-400',
+          text: t('orders.status.accepted')
         };
       case 'active':
         return {
-          color: 'bg-green-500',
-          text: t('orders.status.active'),
-          textColor: 'text-green-500'
+          bgClass: 'bg-green-100 dark:bg-green-900/30',
+          textClass: 'text-green-700 dark:text-green-400',
+          text: t('orders.status.active')
         };
       case 'in-transit':
         return {
-          color: 'bg-sunset',
-          text: t('orders.status.in-transit'),
-          textColor: 'text-sunset'
+          bgClass: 'bg-indigo-100 dark:bg-indigo-900/30',
+          textClass: 'text-indigo-700 dark:text-indigo-400',
+          text: t('orders.status.in-transit')
         };
       case 'completed':
         return {
-          color: 'bg-purple-500',
-          text: t('orders.status.completed'),
-          textColor: 'text-purple-500'
+          bgClass: 'bg-teal-100 dark:bg-teal-900/30',
+          textClass: 'text-teal-700 dark:text-teal-400',
+          text: t('orders.status.completed')
         };
       case 'cancelled':
         return {
-          color: 'bg-red-500',
-          text: t('orders.status.cancelled'),
-          textColor: 'text-red-500'
+          bgClass: 'bg-red-100 dark:bg-red-900/30',
+          textClass: 'text-red-700 dark:text-red-400',
+          text: t('orders.status.cancelled')
         };
       default:
         return {
-          color: 'bg-stone-500',
-          text: t('orders.status.unknown'),
-          textColor: 'text-stone-500'
+          bgClass: 'bg-gray-100 dark:bg-gray-800/50',
+          textClass: 'text-gray-700 dark:text-gray-400',
+          text: t('orders.status.unknown')
         };
     }
   };
@@ -135,54 +136,56 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
     <div className="space-y-6">
       {/* Header with status */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className={`p-2 rounded-lg ${service.theme.bg}`}>
-            {service.icon}
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'}`}>
+            {service.icon || <FaTruck className={`w-4 h-4 ${service.theme.text ? service.theme.text.replace('text-', 'text-') : 'text-indigo-600 dark:text-indigo-400'}`} />}
           </div>
           <div>
-            <h3 className="font-medium text-stone-200">
+            <h3 className="font-medium text-gray-900 dark:text-white">
               {service.name || t(`services.${service.type}.title`)}
             </h3>
-            <div className="flex items-center space-x-2 mt-1">
-              <div className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
-              <span className={`text-sm ${statusConfig.textColor}`}>
-                {statusConfig.text}
-              </span>
-            </div>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass} mt-1`}>
+              {statusConfig.text}
+            </span>
           </div>
         </div>
-        <div className="flex items-center space-x-1">
-          <FaEuroSign className={`w-3 h-3 ${service.theme.text}`} />
-          <span className={`font-medium ${service.theme.text}`}>
-            {formatCurrency(order.estimated_price)}
-          </span>
+        <div className="flex items-center">
+          <div className="text-right">
+            <p className="text-xs text-gray-500 dark:text-stone-400">
+              {t('orders.estimatedPrice')}
+            </p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-end">
+              <FaDollarSign className="w-3 h-3 mr-1" />
+              {formatCurrency(order.estimated_price)}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Order details */}
-      <div className="space-y-4 p-4 bg-midnight-800/30 rounded-lg border border-stone-800/30">
-        <h4 className="text-stone-300 font-medium">{t('orders.detailsTitle')}</h4>
+      <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
+        <h4 className="text-gray-900 dark:text-white font-medium">{t('orders.detailsTitle')}</h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Order ID */}
-          <div className="flex items-start space-x-2">
-            <div className="bg-midnight-700/50 p-2 rounded-lg">
-              <FaCalendarAlt className="w-4 h-4 text-stone-400" />
+          <div className="flex items-start space-x-3">
+            <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+              <FaCalendarAlt className="w-4 h-4 text-gray-500 dark:text-stone-400" />
             </div>
             <div>
-              <p className="text-sm text-stone-400">{t('orders.orderId')}</p>
-              <p className="text-sm text-stone-300 font-mono">{order.id?.slice(0, 8)}</p>
+              <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.orderId')}</p>
+              <p className="text-sm text-gray-900 dark:text-white font-mono">{order.id?.slice(0, 8)}</p>
             </div>
           </div>
           
           {/* Created Date */}
-          <div className="flex items-start space-x-2">
-            <div className="bg-midnight-700/50 p-2 rounded-lg">
-              <FaClock className="w-4 h-4 text-stone-400" />
+          <div className="flex items-start space-x-3">
+            <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+              <FaClock className="w-4 h-4 text-gray-500 dark:text-stone-400" />
             </div>
             <div>
-              <p className="text-sm text-stone-400">{t('orders.createdAt')}</p>
-              <p className="text-sm text-stone-300">
+              <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.createdAt')}</p>
+              <p className="text-sm text-gray-900 dark:text-white">
                 {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
               </p>
             </div>
@@ -191,27 +194,31 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       </div>
 
       {/* Locations */}
-      <div className="space-y-4 p-4 bg-midnight-800/30 rounded-lg border border-stone-800/30">
-        <h4 className="text-stone-300 font-medium">{t('location.title')}</h4>
+      <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
+        <h4 className="text-gray-900 dark:text-white font-medium">{t('location.title')}</h4>
         
-        <div className="space-y-4">
-          <div className="flex items-start space-x-2">
-            <div className="bg-midnight-700/50 p-2 rounded-lg">
-              <FaMapMarkerAlt className="w-4 h-4 text-green-500" />
+        <div className="space-y-6">
+          <div className="flex items-start">
+            <div className="min-w-10 pt-1 flex justify-center">
+              <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></div>
             </div>
             <div>
-              <p className="text-sm text-stone-400">{t('location.pickup')}</p>
-              <p className="text-sm text-stone-300">{order.pickup_location}</p>
+              <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.pickup')}</p>
+              <p className="text-sm text-gray-900 dark:text-white font-medium">{order.pickup_location}</p>
             </div>
           </div>
           
-          <div className="flex items-start space-x-2">
-            <div className="bg-midnight-700/50 p-2 rounded-lg">
-              <FaMapMarkerAlt className="w-4 h-4 text-red-500" />
+          <div className="flex items-center ml-5">
+            <div className="border-l-2 border-dashed border-gray-300 dark:border-stone-600 h-8"></div>
+          </div>
+          
+          <div className="flex items-start">
+            <div className="min-w-10 pt-1 flex justify-center">
+              <div className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400"></div>
             </div>
             <div>
-              <p className="text-sm text-stone-400">{t('location.destination')}</p>
-              <p className="text-sm text-stone-300">{order.dropoff_location}</p>
+              <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.destination')}</p>
+              <p className="text-sm text-gray-900 dark:text-white font-medium">{order.dropoff_location}</p>
             </div>
           </div>
         </div>
@@ -219,145 +226,140 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
 
       {/* User details */}
       {showUserDetails && (
-        <div className="space-y-4 p-4 bg-midnight-800/30 rounded-lg border border-stone-800/30">
-          <h4 className="text-stone-300 font-medium">{t('user.details')}</h4>
+        <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
+          <h4 className="text-gray-900 dark:text-white font-medium">{t('user.details')}</h4>
           
           {loading ? (
             <div className="flex justify-center p-4">
-              <div className="animate-pulse bg-stone-800/50 h-8 w-32 rounded"></div>
+              <div className="animate-pulse bg-gray-200 dark:bg-midnight-600 h-8 w-32 rounded"></div>
             </div>
           ) : userDetails ? (
             <div className="space-y-4">
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaUser className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaUser className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('user.name')}</p>
-                  <p className="text-sm text-stone-300">{userDetails.full_name}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.name')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.full_name}</p>
                 </div>
               </div>
               
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaPhone className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaPhone className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('user.phone')}</p>
-                  <p className="text-sm text-stone-300">{userDetails.phone || t('common.notProvided')}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.phone')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.phone || t('common.notProvided')}</p>
                 </div>
               </div>
               
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaEnvelope className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaEnvelope className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('user.email')}</p>
-                  <p className="text-sm text-stone-300">{userDetails.email}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('user.email')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{userDetails.email}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4 text-stone-400">
-              {t('user.noDetails')}
-            </div>
+            <p className="text-sm text-gray-500 dark:text-stone-400 italic text-center">
+              {t('common.dataNotAvailable')}
+            </p>
           )}
         </div>
       )}
 
       {/* Driver details */}
       {showDriverDetails && (
-        <div className="space-y-4 p-4 bg-midnight-800/30 rounded-lg border border-stone-800/30">
-          <h4 className="text-stone-300 font-medium">{t('driver.details')}</h4>
+        <div className="space-y-4 p-4 bg-gray-50 dark:bg-midnight-700/30 rounded-xl border border-gray-100 dark:border-stone-700/20">
+          <h4 className="text-gray-900 dark:text-white font-medium">{t('driver.details')}</h4>
           
           {loading ? (
             <div className="flex justify-center p-4">
-              <div className="animate-pulse bg-stone-800/50 h-8 w-32 rounded"></div>
+              <div className="animate-pulse bg-gray-200 dark:bg-midnight-600 h-8 w-32 rounded"></div>
             </div>
           ) : driverDetails ? (
             <div className="space-y-4">
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaUser className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaUser className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('driver.name')}</p>
-                  <p className="text-sm text-stone-300">{driverDetails.full_name}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.name')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.full_name}</p>
                 </div>
               </div>
               
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaPhone className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaPhone className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('driver.phone')}</p>
-                  <p className="text-sm text-stone-300">{driverDetails.phone || t('common.notProvided')}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.phone')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.phone || t('common.notProvided')}</p>
                 </div>
               </div>
               
-              <div className="flex items-start space-x-2">
-                <div className="bg-midnight-700/50 p-2 rounded-lg">
-                  <FaTruck className="w-4 h-4 text-stone-400" />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
+                  <FaEnvelope className="w-4 h-4 text-gray-500 dark:text-stone-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-400">{t('driver.vehicleInfo')}</p>
-                  <p className="text-sm text-stone-300">{t('driver.contactForDetails')}</p>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">{t('driver.email')}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{driverDetails.email}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4 text-stone-400">
-              {t('driver.noDriverYet')}
-            </div>
+            <p className="text-sm text-gray-500 dark:text-stone-400 italic text-center">
+              {t('common.dataNotAvailable')}
+            </p>
           )}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="grid grid-cols-1 gap-3 pt-4">
-        {/* Driver actions */}
-        {isDriver && order.status === 'pending' && onAcceptOrder && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onAcceptOrder(order.id)}
-            className="w-full py-3 px-4 flex items-center justify-center bg-green-600 hover:bg-green-700 
-              text-white font-medium rounded-lg transition-colors"
-          >
-            <FaCheck className="mr-2" />
-            {t('driver.acceptOrder')}
-          </motion.button>
-        )}
-
-        {/* Driver complete order action */}
-        {isDriver && (order.status === 'accepted' || order.status === 'in-transit') && onCompleteOrder && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onCompleteOrder(order.id)}
-            className="w-full py-3 px-4 flex items-center justify-center bg-purple-600 hover:bg-purple-700 
-              text-white font-medium rounded-lg transition-colors"
-          >
-            <FaCheck className="mr-2" />
-            {t('driver.completeOrder')}
-          </motion.button>
-        )}
-
-        {/* Cancel order - available for both */}
-        {(order.status === 'pending' || order.status === 'accepted') && onCancelOrder && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onCancelOrder(order.id)}
-            className="w-full py-3 px-4 flex items-center justify-center bg-red-600 hover:bg-red-700 
-              text-white font-medium rounded-lg transition-colors"
-          >
-            {t('orders.cancelOrder')}
-          </motion.button>
-        )}
-      </div>
+      {/* Action buttons */}
+      {(onAcceptOrder || onCompleteOrder || onCancelOrder) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap gap-3 mt-6"
+        >
+          {order.status === 'pending' && isDriver && onAcceptOrder && (
+            <button 
+              onClick={() => onAcceptOrder(order.id)}
+              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <FaTruck className="w-3 h-3" />
+              {t('driver.acceptOrder')}
+            </button>
+          )}
+          
+          {(order.status === 'active' || order.status === 'in-transit') && isDriver && onCompleteOrder && (
+            <button 
+              onClick={() => onCompleteOrder(order.id)}
+              className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <FaCheck className="w-3 h-3" />
+              {t('driver.completeOrder')}
+            </button>
+          )}
+          
+          {(order.status === 'pending' || order.status === 'active') && onCancelOrder && (
+            <button 
+              onClick={() => onCancelOrder(order.id)}
+              className="flex-1 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              <FaTimes />
+              {t('orders.cancelOrder')}
+            </button>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 };

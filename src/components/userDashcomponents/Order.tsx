@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../utils/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
-import { FaSpinner } from "react-icons/fa";
+import { FaSpinner, FaMapMarkerAlt } from "react-icons/fa";
 import { SERVICES } from "./orders/constants";
-import { getToastConfig, validateFrenchAddress } from "./orders/utils";
+import { getToastConfig, validateFrenchAddress, getStatusConfig } from "./orders/utils";
+import { formatCurrency, formatDate } from "../../utils/i18n";
 import OrderCard from "./orders/components/OrderCard";
 import ServiceSelectionDialog from "./orders/components/ServiceSelectionDialog";
 import OrderDetailsDialog from "./orders/components/OrderDetailsDialog";
@@ -323,212 +324,256 @@ const Order: React.FC = () => {
     setSelectedOrder(null);
   };
 
-  const findServiceForOrder = (order: OrderType): Service => {
-    // Try to find service using service_id from the joined services data
-    let service: Service | undefined;
+  // Function to cancel an order
+  const handleCancelOrder = async (orderId: string): Promise<void> => {
+    try {
+      // Show confirmation dialog
+      if (!confirm(t('orders.confirmCancel'))) {
+        return; // User cancelled the operation
+      }
+      
+      // Show loading toast
+      const loadingToast = toast.loading(t('orders.cancelling'));
+      
+      // Update the order status to cancelled
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderId);
+      
+      if (error) {
+        console.error('Error cancelling order:', error);
+        toast.error(t('orders.cancelError'), getToastConfig("error"));
+        throw error;
+      }
+      
+      // Show success toast
+      toast.success(t('orders.cancelSuccess'), getToastConfig("success"));
+      
+      // Refresh orders
+      fetchOrders(userId);
+      
+      // Close the dialog
+      setSelectedOrder(null);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast.error(t('orders.cancelError'), getToastConfig("error"));
+    }
+  };
+
+  // Helper function to find the service for an order
+  const findServiceForOrder = (order: OrderType): Service | null => {
+    if (!order) return null;
     
-    // Access services data if it exists in the joined query result
-    const serviceName = order.services?.name;
-    
-    if (serviceName) {
-      // Try to match by name from the joined query
-      service = SERVICES.find((s: Service) => s.name === serviceName);
+    // Try to find service from joined data
+    if (order.services && typeof (order.services as any).name === 'string') {
+      const serviceName = (order.services as any).name;
+      const foundService = SERVICES.find(s => s.name === serviceName);
+      if (foundService) return foundService;
     }
     
-    // Fallback to first service if we can't find a match
-    if (!service) {
-      service = SERVICES[0];
-      console.warn(`No matching service found for order ${order.id}, using default service`);
+    // Try to find by service_id
+    if (order.service_id) {
+      const foundService = SERVICES.find(s => s.id === order.service_id);
+      if (foundService) return foundService;
     }
     
-    // We know this will never be undefined since we fallback to SERVICES[0]
-    return service as Service;
+    // Default to first service if no match
+    return SERVICES.length > 0 ? SERVICES[0] : null;
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="space-y-6 p-4 bg-midnight-900/90 rounded-lg backdrop-blur-sm border border-stone-800/50"
-    >
-      <div className="flex items-center justify-between">
-        <motion.h2 
-          initial={{ x: -20 }}
-          animate={{ x: 0 }}
-          className="text-2xl font-semibold text-stone-200"
-        >
-          {t('nav.orders')}
-        </motion.h2>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowServiceDialog(true)}
-          className="px-4 py-2 bg-sunset text-white font-medium rounded-lg 
-            shadow-lg hover:bg-sunset/90 transition-colors duration-200
-            disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isCreatingOrder}
-        >
-          {isCreatingOrder ? (
-            <span className="flex items-center space-x-2">
-              <FaSpinner className="animate-spin" />
-              <span>{t('common.loading')}</span>
-            </span>
-          ) : (
-            t('nav.placeOrder')
-          )}
-        </motion.button>
-      </div>
-
-      {/* Loading State */}
-      {isLoading && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-12"
-        >
-          <div className="flex space-x-2">
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1, delay: 0 }}
-              className="w-3 h-3 bg-sunset rounded-full"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
-              className="w-3 h-3 bg-sunset rounded-full"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
-              className="w-3 h-3 bg-sunset rounded-full"
-            />
-          </div>
-          <p className="mt-4 text-stone-400">{t('orders.loading')}</p>
-        </motion.div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-8"
-        >
-          <p className="text-red-400 mb-2">{error}</p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => fetchOrders(userId)}
-            className="text-sunset hover:text-sunset/80 underline transition-colors"
-          >
-            {t('common.retry')}
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !error && orders.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12 bg-midnight-800/50 rounded-lg border border-stone-800/30"
-        >
-          <p className="text-stone-400 mb-4">{t('orders.noOrders')}</p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+    <div className="container mx-auto">
+      {/* Header section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('orders.title')}</h1>
+          <button
             onClick={() => setShowServiceDialog(true)}
-            className="text-sunset hover:text-sunset/80 underline transition-colors"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+            disabled={isCreatingOrder}
+          >
+            {isCreatingOrder ? (
+              <><FaSpinner className="animate-spin" /> {t('orders.creating')}</>
+            ) : (
+              <>{t('orders.create')}</>
+            )}
+          </button>
+        </div>
+      </motion.div>
+
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 p-4 rounded-lg mb-6"
+        >
+          <p>{error}</p>
+        </motion.div>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
+        </div>
+      ) : orders.length === 0 ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-midnight-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 text-center"
+        >
+          <div className="mb-4 flex justify-center">
+            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t('orders.empty')}</h2>
+          <p className="text-gray-500 dark:text-stone-400 mb-6">{t('orders.emptyMessage')}</p>
+          <button
+            onClick={() => setShowServiceDialog(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium"
           >
             {t('orders.createFirst')}
-          </motion.button>
+          </button>
         </motion.div>
+      ) : (
+        <div className="bg-white dark:bg-midnight-800 shadow-sm rounded-xl border border-gray-100 dark:border-stone-700/20 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-midnight-700/50 border-b border-gray-100 dark:border-stone-700/20">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('orders.service')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('location.title')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('orders.estimatedPrice')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('orders.status.title')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('orders.date')}
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                    {t('orders.actions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-stone-700/20">
+                {orders.map((order) => {
+                  const service = findServiceForOrder(order) as Service;
+                  const statusConfig = getStatusConfig(order.status);
+                  
+                  // Skip orders with no service
+                  if (!service) return null;
+                  
+                  return (
+                    <tr 
+                      key={order.id} 
+                      className="hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors cursor-pointer"
+                      onClick={() => {
+                        const orderService = findServiceForOrder(order);
+                        setSelectedOrder(order);
+                        setSelectedService(orderService); // Set the service when clicking an order
+                      }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`p-2 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'} mr-3`}>
+                            {service.icon || <FaMapMarkerAlt className={`w-4 h-4 ${service.theme.text ? service.theme.text.replace('text-', 'text-') : 'text-indigo-600 dark:text-indigo-400'}`} />}
+                          </div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {service.name}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          <div className="flex flex-col">
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400 mr-2"></div>
+                              <p className="text-sm truncate max-w-[200px]">{order.pickup_location.split(',')[0]}</p>
+                            </div>
+                            <div className="border-l-2 h-4 border-dashed border-gray-300 dark:border-stone-600 ml-1"></div>
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400 mr-2"></div>
+                              <p className="text-sm truncate max-w-[200px]">{order.dropoff_location.split(',')[0]}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(order.estimated_price)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
+                          {t(`status.${order.status}`)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-stone-400">
+                        {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button 
+                          className="inline-flex items-center px-2.5 py-1.5 border border-gray-200 dark:border-stone-700/20 text-xs font-medium rounded text-gray-700 dark:text-stone-300 bg-white dark:bg-midnight-700/50 hover:bg-gray-50 dark:hover:bg-midnight-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-midnight-800"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                            setSelectedService(findServiceForOrder(order));
+                          }}
+                        >
+                          {t('orders.details')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
-      {/* Orders List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence mode="popLayout">
-          {orders.map((order, index) => {
-            // Find the corresponding service
-            // Try to find service using service_id from the joined services data
-            let service: Service | undefined;
-            
-            // Access services data if it exists in the joined query result
-            const serviceName = order.services?.name;
-            
-            if (serviceName) {
-              // Try to match by name from the joined query
-              service = SERVICES.find((s: Service) => s.name === serviceName);
-            }
-            
-            // Fallback to first service if we can't find a match
-            if (!service) {
-              service = SERVICES[0];
-              console.warn(`No matching service found for order ${order.id}, using default service`);
-            }
-            
-            return (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <OrderCard
-                  order={order}
-                  service={service as Service}
-                  onClick={() => setSelectedOrder(order)}
-                />
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-
       {/* Service Selection Dialog */}
-      <AnimatePresence>
-        {showServiceDialog && (
-          <ServiceSelectionDialog
-            onClose={() => setShowServiceDialog(false)}
-            onSelectService={(service: Service) => {
-              setSelectedService(service);
-              setShowServiceDialog(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {showServiceDialog && (
+        <ServiceSelectionDialog
+          onClose={() => setShowServiceDialog(false)}
+          onSelectService={(service: Service) => {
+            setSelectedService(service);
+            setShowServiceDialog(false);
+            // Show order details form after service selection
+            setSelectedOrder({ service_id: service.id } as OrderType);
+          }}
+        />
+      )}
 
       {/* Order Details Dialog */}
-      <AnimatePresence>
-        {selectedService && (
-          <OrderDetailsDialog
-            service={selectedService}
-            onClose={() => setSelectedService(null)}
-            onSubmit={handleCreateOrder}
-            isSubmitting={isCreatingOrder}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* View Order Dialog */}
-      <AnimatePresence>
-        {selectedOrder && (
-          <OrderDetailsDialog
-            order={selectedOrder}
-            service={findServiceForOrder(selectedOrder)}
-            onClose={() => setSelectedOrder(null)}
-            onSubmit={handleViewOrder}
-            viewOnly
-            isDriver={false}
-            onCancelOrder={async (_orderId: string) => Promise.resolve()}
-            onCompleteOrder={async (_orderId: string) => Promise.resolve()}
-            onAcceptOrder={async (_orderId: string) => Promise.resolve()}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {selectedOrder && (
+        <OrderDetailsDialog
+          order={selectedOrder}
+          service={selectedService}
+          onClose={() => setSelectedOrder(null)}
+          onSubmit={handleCreateOrder}
+          isSubmitting={isCreatingOrder}
+          viewOnly={!!selectedOrder.id} // Only view mode for existing orders
+          onCancelOrder={handleCancelOrder}
+        />
+      )}
+    </div>
   );
 };
 

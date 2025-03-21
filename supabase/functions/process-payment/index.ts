@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import Stripe from 'https://esm.sh/stripe@11.18.0?target=deno';
-
+import  supabase  from '../../utils/supabase';
 // Initialize Stripe with the secret key from environment variables
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   httpClient: Deno.createHttpClient({
@@ -39,7 +39,7 @@ serve(async (req) => {
     // Get current wallet balance
     const { data: wallet, error: walletError } = await supabase
       .from('wallets')
-      .select('balance')
+      .select('balance', 'user_id')
       .eq('id', walletId)
       .single();
 
@@ -48,32 +48,33 @@ serve(async (req) => {
     }
 
     // Update wallet balance
-    const newBalance = wallet.balance + (amount / 100); // Convert cents to dollars
-    
+    const newBalance = wallet.balance - (amount / 100); // Convert cents to dollars
+
+    if (newBalance < 0) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient funds in wallet' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { error: updateError } = await supabase
       .from('wallets')
-      .update({ balance: newBalance, last_updated: new Date().toISOString() })
+      .update({ balance: newBalance })
       .eq('id', walletId);
 
     if (updateError) {
       throw updateError;
     }
 
-    // Record transaction
+    // Create a transaction record in the transactions table
     const { error: transactionError } = await supabase
-      .from('wallet_transactions')
+      .from('transactions')
       .insert({
-        wallet_id: walletId,
-        amount: amount / 100, // Convert cents to dollars
-        type: 'deposit',
+        user_id: wallet.user_id,
+        order_id: null, // This can be updated later once the order is created
+        amount: amount / 100,
         status: 'completed',
-        reference: paymentIntentId,
-        description: 'Wallet top-up via Stripe',
-        payment_method: 'stripe',
-        metadata: {
-          payment_intent: paymentIntentId,
-          stripe_status: paymentIntent.status
-        }
+        payment_method: 'wallet',
       });
 
     if (transactionError) {
@@ -81,11 +82,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        walletId,
-        newBalance
-      }),
+      JSON.stringify({ success: true }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {

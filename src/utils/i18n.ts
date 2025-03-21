@@ -133,6 +133,10 @@ interface Resources {
         rateOrder: string;
         helpTitle: string;
         helpText: string;
+        confirmCancel: string;
+        cancelling: string;
+        cancelSuccess: string;
+        cancelError: string;
       };
 
       price: {
@@ -314,6 +318,10 @@ const resources: Resources = {
         rateOrder: "Rate Order",
         helpTitle: "Need Help?",
         helpText: "Contact our support team for assistance with your order",
+        confirmCancel: "Are you sure you want to cancel this order? This action cannot be undone.",
+        cancelling: "Cancelling your order...",
+        cancelSuccess: "Order cancelled successfully",
+        cancelError: "Failed to cancel order. Please try again later.",
       },
       price: {
         baseRate: "Base Rate",

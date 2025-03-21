@@ -62,17 +62,17 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
             stiffness: 300,
             damping: 25
           }}
-          className="relative w-full max-w-xl p-6 bg-midnight-900/95 border border-stone-800/50 
-            rounded-lg shadow-xl backdrop-blur-sm max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-xl p-6 bg-white dark:bg-midnight-800 border border-gray-100 dark:border-stone-700/20 
+            rounded-xl shadow-lg max-h-[90vh] overflow-y-auto"
           onClick={e => e.stopPropagation()}
         >
           {!isSubmitting && (
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 90 }}
+              whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-300 
-                transition-colors rounded-full hover:bg-stone-800/50"
+              className="absolute top-4 right-4 p-2 text-gray-400 dark:text-stone-400 hover:text-gray-600 dark:hover:text-stone-300 
+                transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-stone-800/50"
               aria-label={t('common.close')}
             >
               <FaTimes className="w-4 h-4" />
@@ -92,27 +92,27 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
             />
           ) : (
             <>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4 mb-6">
                 <motion.div 
                   whileHover={{ scale: 1.05 }}
-                  className={`p-3 rounded-lg ${service?.theme.bg} backdrop-blur-sm 
-                    border ${service?.theme.border}`}
+                  className={`p-3 rounded-lg ${service?.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'} 
+                    border ${service?.theme.border ? service.theme.border.replace('border-', 'border-') : 'border-indigo-200 dark:border-indigo-800/30'}`}
                 >
                   {service?.icon}
                 </motion.div>
                 <div>
                   <motion.h2 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="text-xl font-semibold text-stone-200"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-xl font-semibold text-gray-900 dark:text-white"
                   >
                     {t('orders.newOrder', { service: t(`services.${service?.type}.title`) })}
                   </motion.h2>
                   <motion.p 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="text-sm text-stone-400"
+                    className="text-sm text-gray-500 dark:text-stone-400"
                   >
                     {t(`services.${service?.type}.description`)}
                   </motion.p>
@@ -132,8 +132,8 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={onClose}
-                  className="mt-4 w-full px-4 py-2 text-sm text-stone-400 hover:text-stone-300 
-                    transition-colors border border-stone-800/50 rounded-lg hover:bg-stone-800/20"
+                  className="mt-6 w-full px-4 py-2 text-sm text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-300 
+                    transition-colors border border-gray-200 dark:border-stone-700/20 rounded-lg hover:bg-gray-50 dark:hover:bg-stone-800/20"
                 >
                   {t('form.cancel')}
                 </motion.button>

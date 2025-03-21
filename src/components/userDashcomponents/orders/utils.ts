@@ -1,33 +1,37 @@
-import { Service, LocationValidationResult, ToastConfig, OrderFormErrors } from './types';
+import { Service, LocationValidationResult, ToastConfig, OrderFormErrors, OrderStatus, ServiceType } from './types';
 import i18n from '../../../utils/i18n';
 
 /**
  * Validates the order form data
  */
 export const validateOrderForm = (
-  pickupLocation: string,
-  destination: string,
-  scheduledDate: string,
-  scheduledTime: string,
-  price: number,
-  minPrice: number,
+  formData: {
+    pickupLocation: string;
+    destination: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    price: number;
+    minPrice: number;
+    paymentMethod: 'wallet' | 'cash' | 'card';
+    walletBalance?: number;
+  },
   hasDistance: boolean = false
 ): OrderFormErrors => {
   const errors: OrderFormErrors = {};
   const { t } = i18n;
 
   // Check if pickup location is provided
-  if (!pickupLocation) {
+  if (!formData.pickupLocation) {
     errors.pickupLocation = t('form.errors.pickupRequired');
   }
 
   // Check if destination is provided
-  if (!destination) {
+  if (!formData.destination) {
     errors.destination = t('form.errors.destinationRequired');
   }
 
   // Check if pickup and destination are the same
-  if (pickupLocation && destination && pickupLocation === destination) {
+  if (formData.pickupLocation && formData.destination && formData.pickupLocation === formData.destination) {
     errors.sameAddress = t('form.errors.sameAddress');
   }
 
@@ -36,10 +40,10 @@ export const validateOrderForm = (
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   // Check if scheduled date is provided and valid
-  if (!scheduledDate) {
+  if (!formData.scheduledDate) {
     errors.scheduledDate = t('form.errors.dateRequired');
   } else {
-    const selectedDate = new Date(scheduledDate + 'T00:00:00');
+    const selectedDate = new Date(formData.scheduledDate + 'T00:00:00');
     
     // Check if date is in the past (before today)
     if (selectedDate < today) {
@@ -48,19 +52,19 @@ export const validateOrderForm = (
   }
   
   // Check if time is provided and valid
-  if (!scheduledTime) {
+  if (!formData.scheduledTime) {
     errors.scheduledTime = t('form.errors.timeRequired');
   } else {
     // Validate time is within business hours (8am-8pm)
-    const [hours, minutes] = scheduledTime.split(':').map(Number);
+    const [hours, minutes] = formData.scheduledTime.split(':').map(Number);
     if (hours < 8 || hours >= 20) {
       errors.scheduledTime = t('form.errors.businessHours');
     }
     
     // Check if the date and time combined is in the past or too close to current time
-    if (scheduledDate && !errors.scheduledDate) {
+    if (formData.scheduledDate && !errors.scheduledDate) {
       // Create a date object with the selected date and time
-      const [year, month, day] = scheduledDate.split('-').map(Number);
+      const [year, month, day] = formData.scheduledDate.split('-').map(Number);
       
       // Note: month is 0-indexed in JavaScript Date
       const scheduledDateTime = new Date(year, month - 1, day, hours, minutes, 0);
@@ -75,15 +79,20 @@ export const validateOrderForm = (
   }
 
   // Check if price is provided and valid
-  if (!price || isNaN(price) || price <= 0) {
+  if (!formData.price || isNaN(formData.price) || formData.price <= 0) {
     errors.price = t('form.errors.invalidPrice');
-  } else if (price < minPrice) {
-    errors.price = `${t('form.errors.minPrice')} ${minPrice}€`;
+  } else if (formData.price < formData.minPrice) {
+    errors.price = `${t('form.errors.minPrice')} ${formData.minPrice}€`;
   }
 
   // Check if distance calculation has been performed if both pickup and destination are provided
-  if (!hasDistance && pickupLocation && destination && pickupLocation !== destination) {
+  if (!hasDistance && formData.pickupLocation && formData.destination && formData.pickupLocation !== formData.destination) {
     errors.distance = t('form.errors.distanceRequired');
+  }
+
+  // Validate payment method
+  if (formData.paymentMethod === 'wallet' && formData.walletBalance !== undefined && formData.walletBalance < formData.price) {
+    errors.insufficientFunds = t('price.insufficientFunds');
   }
 
   return errors;
@@ -111,11 +120,11 @@ export const calculatePrice = (distanceInKm: number, service: Service): number =
 const getBaseRate = (service: Service): number => {
   // Base rates for different service types in euros
   switch (service.type) {
-    case 'carpooling':
+    case ServiceType.CARPOOLING:
       return 2.50;
-    case 'shopping':
+    case ServiceType.SHOPPING:
       return 5.00;
-    case 'largeItem':
+    case ServiceType.LARGE_ITEMS:
       return 8.00;
     default:
       return 2.50; // Default base rate
@@ -128,11 +137,11 @@ const getBaseRate = (service: Service): number => {
 const getRatePerKm = (service: Service): number => {
   // Rates per kilometer for different service types in euros
   switch (service.type) {
-    case 'carpooling':
+    case ServiceType.CARPOOLING:
       return 0.40;
-    case 'shopping':
+    case ServiceType.SHOPPING:
       return 0.50;
-    case 'largeItem':
+    case ServiceType.LARGE_ITEMS:
       return 0.70;
     default:
       return 0.40; // Default rate per km
@@ -204,3 +213,41 @@ export const getToastConfig = (type: 'success' | 'error'): ToastConfig => ({
     secondary: '#1a1b1e'
   }
 });
+
+/**
+ * Returns styling configuration for order status
+ */
+export const getStatusConfig = (status: string) => {
+  switch (status.toLowerCase()) {
+    case OrderStatus.PENDING:
+      return {
+        bgClass: 'bg-yellow-100 dark:bg-yellow-900/30',
+        textClass: 'text-yellow-700 dark:text-yellow-400'
+      };
+    case OrderStatus.ACTIVE:
+      return {
+        bgClass: 'bg-green-100 dark:bg-green-900/30',
+        textClass: 'text-green-700 dark:text-green-400'
+      };
+    case OrderStatus.IN_TRANSIT:
+      return {
+        bgClass: 'bg-indigo-100 dark:bg-indigo-900/30',
+        textClass: 'text-indigo-700 dark:text-indigo-400'
+      };
+    case OrderStatus.COMPLETED:
+      return {
+        bgClass: 'bg-teal-100 dark:bg-teal-900/30',
+        textClass: 'text-teal-700 dark:text-teal-400'
+      };
+    case OrderStatus.CANCELLED:
+      return {
+        bgClass: 'bg-red-100 dark:bg-red-900/30',
+        textClass: 'text-red-700 dark:text-red-400'
+      };
+    default:
+      return {
+        bgClass: 'bg-gray-100 dark:bg-gray-800/50',
+        textClass: 'text-gray-700 dark:text-gray-400'
+      };
+  }
+};
