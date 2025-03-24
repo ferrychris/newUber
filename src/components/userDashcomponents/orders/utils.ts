@@ -1,5 +1,6 @@
 import { Service, LocationValidationResult, ToastConfig, OrderFormErrors, OrderStatus, ServiceType } from './types';
 import i18n from '../../../utils/i18n';
+import { supabase } from '../../../utils/supabase';
 
 /**
  * Validates the order form data
@@ -251,3 +252,115 @@ export const getStatusConfig = (status: string) => {
       };
   }
 };
+
+/**
+ * Order form data interface
+ */
+export interface OrderFormData {
+  serviceType?: string;
+  description?: string;
+  imageUrl?: string;
+  price: number;
+  paymentMethod?: 'wallet' | 'cash' | 'card';
+  estimatedTime?: string;
+  walletBalance?: number;
+  pickupLocation: string;
+  destination: string;
+  scheduledDate: string;
+  scheduledTime: string;
+}
+
+/**
+ * Order result interface
+ */
+export interface OrderResult {
+  success: boolean;
+  error?: string;
+  order?: {
+    id: string;
+    status: string;
+    paymentStatus: string;
+    createdAt: string;
+  };
+}
+
+/**
+ * Submit order to Supabase database
+ * @param formData The form data or order data object
+ * @param userId Optional user ID (only needed for form data)
+ * @returns Promise with order result
+ */
+export async function submitOrder(
+  data: OrderFormData | {
+    user_id: string;
+    service_id: string;
+    status: string;
+    pickup_location: string;
+    dropoff_location: string;
+    estimated_price: number;
+    payment_method: 'wallet' | 'cash';
+  }, 
+  userId?: string
+): Promise<OrderResult> {
+  console.log("Submitting order with data:", data);
+  
+  try {
+    let orderData;
+    
+    // Check if we're dealing with form data or direct order data
+    if ('pickupLocation' in data) {
+      // It's form data, convert it to database format
+      if (!userId) {
+        throw new Error('User ID is required when submitting form data');
+      }
+      
+      // Original implementation for form data
+      const formData = data as OrderFormData;
+      
+      // Implementation details as before...
+      // Format order data for database
+      const price = typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price;
+      
+      orderData = {
+        user_id: userId,
+        status: 'pending',
+        pickup_location: formData.pickupLocation,
+        dropoff_location: formData.destination,
+        scheduled_date: formData.scheduledDate,
+        scheduled_time: formData.scheduledTime,
+        estimated_price: price,
+        payment_method: formData.paymentMethod || 'cash',
+      };
+    } else {
+      // It's already formatted order data, use as is
+      orderData = data;
+    }
+    
+    // Insert the order
+    const { data: newOrder, error } = await supabase
+      .from("orders")
+      .insert([orderData])
+      .select();
+    
+    if (error) {
+      console.error("Order creation error:", error);
+      throw error;
+    }
+
+    return { 
+      success: true, 
+      order: newOrder?.[0] ? {
+        id: newOrder[0].id,
+        status: newOrder[0].status,
+        paymentStatus: 'completed',
+        createdAt: newOrder[0].created_at
+      } : undefined 
+    };
+  } catch (error) {
+    console.error('Error creating order:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
+}

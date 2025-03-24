@@ -1,15 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, getCurrentUser } from '../../utils/supabase';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { FaTruck, FaShoppingBag, FaMapMarkerAlt, FaPhoneAlt, FaUser, FaSpinner, FaArrowRight, FaInfoCircle, FaCalendarAlt, FaClock, FaCheck } from 'react-icons/fa';
+import { FaTruck, FaShoppingBag, FaMapMarkerAlt, FaPhoneAlt, FaUser, FaSpinner, FaArrowRight, FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, FaWallet, FaMoneyBill, FaExternalLinkAlt } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import { ServiceType } from './orders/types';
+import { ServiceType, Order, Service } from './orders/types';
 import { formatCurrency, formatDate } from '../../utils/i18n';
 import { getStatusConfig } from './orders/utils';
 import toast from 'react-hot-toast';
+import OrderDetailsDialog from './orders/components/OrderDetailsDialog';
+
+// Custom CSS to fix z-index issues with the map
+const mapContainerStyle = {
+  height: '100%',
+  width: '100%',
+  position: 'relative',
+  zIndex: 1
+} as React.CSSProperties;
+
+const mapWrapperStyle = {
+  position: 'relative',
+  zIndex: 1
+} as React.CSSProperties;
 
 // Fix Leaflet icon issues
 // @ts-ignore
@@ -62,6 +76,8 @@ const OrderTracker: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [showOrderDetailsDialog, setShowOrderDetailsDialog] = useState(false);
+  const [selectedOrderService, setSelectedOrderService] = useState<any | null>(null);
   const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null);
   const [pickupLocation, setPickupLocation] = useState<[number, number] | null>(null);
   const [destinationLocation, setDestinationLocation] = useState<[number, number] | null>(null);
@@ -138,7 +154,7 @@ const OrderTracker: React.FC = () => {
         .from('orders')
         .select('*, services(*)')
         .eq('user_id', userId)
-        .in('status', ['accepted', 'active'])
+        .in('status', ['accepted', 'active', 'pending'])
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -155,7 +171,9 @@ const OrderTracker: React.FC = () => {
         if (deliveryOrders.length > 0 && !selectedOrder) {
           setSelectedOrder(deliveryOrders[0]);
           fetchOrderLocations(deliveryOrders[0]);
-          fetchDriverDetails(deliveryOrders[0].driver_id);
+          if (deliveryOrders[0].driver_id) {
+            fetchDriverDetails(deliveryOrders[0].driver_id);
+          }
         }
       }
     } catch (error) {
@@ -256,7 +274,52 @@ const OrderTracker: React.FC = () => {
   const handleSelectOrder = (order: any) => {
     setSelectedOrder(order);
     fetchOrderLocations(order);
-    fetchDriverDetails(order.driver_id);
+    if (order.driver_id) {
+      fetchDriverDetails(order.driver_id);
+    } else {
+      setDriverDetails(null);
+    }
+  };
+
+  // Handle open order details
+  const handleOpenOrderDetails = () => {
+    if (selectedOrder && selectedOrder.services) {
+      const serviceData = {
+        id: selectedOrder.services.id,
+        name: selectedOrder.services.name,
+        type: selectedOrder.services.type || ServiceType.PARCELS,
+        description: selectedOrder.services.description || '',
+        minPrice: selectedOrder.services.min_price || 5,
+        image: selectedOrder.services.image || '',
+        theme: {
+          bg: 'bg-purple-500/10',
+          text: 'text-purple-500',
+          border: 'border-purple-500/20'
+        }
+      };
+      
+      setSelectedOrderService(serviceData);
+      setShowOrderDetailsDialog(true);
+    }
+  };
+
+  // Handle order cancellation
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderId);
+        
+      if (error) throw error;
+      
+      toast.success(t('orders.cancelSuccess'));
+      fetchActiveOrders();
+      setShowOrderDetailsDialog(false);
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast.error(t('common.error'));
+    }
   };
 
   // Format order status
@@ -362,6 +425,19 @@ const OrderTracker: React.FC = () => {
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {formatCurrency(order.estimated_price)}
                         </p>
+                        <div className="flex items-center text-xs mt-1 text-gray-500">
+                          {order.payment_method === 'wallet' ? (
+                            <>
+                              <FaWallet className="w-3 h-3 text-purple-500 mr-1" />
+                              <span>{t('payment.wallet')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <FaMoneyBill className="w-3 h-3 text-green-500 mr-1" />
+                              <span>{t('payment.cash')}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -410,10 +486,10 @@ const OrderTracker: React.FC = () => {
             {selectedOrder ? (
               <>
                 {/* Map */}
-                <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden h-[400px]">
+                <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden h-[400px]" style={mapWrapperStyle}>
                   {pickupLocation && destinationLocation ? (
                     <MapContainer
-                      style={{ height: '100%', width: '100%' }}
+                      style={mapContainerStyle}
                       zoom={13}
                       attributionControl={false}
                     >
@@ -463,9 +539,19 @@ const OrderTracker: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4"
                 >
-                  <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">
-                    {t('tracking.orderDetails')}
-                  </h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-md font-medium text-gray-900 dark:text-white">
+                      {t('tracking.orderDetails')}
+                    </h3>
+                    
+                    <button 
+                      onClick={handleOpenOrderDetails}
+                      className="flex items-center text-xs text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      {t('orders.viewDetails')}
+                      <FaExternalLinkAlt className="ml-1 w-3 h-3" />
+                    </button>
+                  </div>
                   
                   <div className="space-y-4">
                     {/* Order info */}
@@ -519,6 +605,33 @@ const OrderTracker: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Payment details */}
+                    <div className="mt-4 p-3 bg-gray-50 dark:bg-midnight-700/30 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.estimatedPrice')}</p>
+                          <p className="text-md font-medium text-gray-900 dark:text-white">{formatCurrency(selectedOrder.estimated_price)}</p>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('payment.method')}:</p>
+                          <div className="flex items-center">
+                            {selectedOrder.payment_method === 'wallet' ? (
+                              <>
+                                <FaWallet className="w-4 h-4 text-purple-500 mr-1" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">{t('payment.wallet')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <FaMoneyBill className="w-4 h-4 text-green-500 mr-1" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">{t('payment.cash')}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Delivery status */}
@@ -540,7 +653,9 @@ const OrderTracker: React.FC = () => {
                             {t('tracking.orderAccepted')}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-stone-400">
-                            {t('tracking.driverAssigned')}
+                            {selectedOrder.status === 'pending' 
+                              ? t('tracking.waitingAcceptance')
+                              : t('tracking.driverAssigned')}
                           </p>
                         </div>
                       </div>
@@ -564,6 +679,22 @@ const OrderTracker: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Cancel button for pending orders */}
+                  {selectedOrder.status === 'pending' && (
+                    <div className="mt-6 border-t border-gray-100 dark:border-stone-700/20 pt-4 flex justify-end">
+                      <button
+                        onClick={() => {
+                          if (window.confirm(t('orders.confirmCancel'))) {
+                            handleCancelOrder(selectedOrder.id);
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-sm font-medium transition-colors duration-200"
+                      >
+                        {t('orders.cancelOrder')}
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               </>
             ) : (
@@ -582,6 +713,20 @@ const OrderTracker: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Order Details Dialog */}
+      <AnimatePresence>
+        {showOrderDetailsDialog && selectedOrder && selectedOrderService && (
+          <OrderDetailsDialog
+            onClose={() => setShowOrderDetailsDialog(false)}
+            service={selectedOrderService}
+            order={selectedOrder}
+            viewOnly={true}
+            onSubmit={async () => {}}
+            onCancelOrder={handleCancelOrder}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

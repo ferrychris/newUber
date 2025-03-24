@@ -10,7 +10,13 @@ import {
   FaTruck,
   FaClock,
   FaDollarSign,
-  FaTimes
+  FaTimes,
+  FaComment,
+  FaCommentDots,
+  FaMoneyBill,
+  FaWallet,
+  FaCar,
+  FaPhoneAlt
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../utils/i18n';
@@ -18,9 +24,45 @@ import { supabase } from '../../utils/supabase';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
+// Define interfaces directly instead of importing
+interface Order {
+  id: string;
+  user_id: string;
+  service_id: string;
+  pickup_location: string;
+  dropoff_location: string;
+  status: string;
+  estimated_price: number;
+  actual_price?: number;
+  created_at: string;
+  payment_method?: 'wallet' | 'cash';
+  driver_id?: string;
+  services?: {
+    id: string;
+    name: string;
+    [key: string]: any;
+  };
+}
+
+interface Service {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  minPrice: number;
+  image: string;
+  icon?: React.ReactElement;
+  baseRate?: number;
+  theme: {
+    bg: string;
+    text: string;
+    border: string;
+  };
+}
+
 interface OrderDetailsViewProps {
-  order: any;
-  service: any;
+  order: Order;
+  service: Service;
   showUserDetails?: boolean;
   showDriverDetails?: boolean;
   onAcceptOrder?: (orderId: string) => Promise<void>;
@@ -39,35 +81,35 @@ const OrderStatusDisplay = ({ status }: { status: string }) => {
           icon: <FaClock />,
           color: 'text-sunset',
           bg: 'bg-sunset/10 dark:bg-sunset/20',
-          text: t('orderStatus.pending')
+          text: t('orders.status.pending')
         };
       case 'active':
         return {
           icon: <FaCheck />,
           color: 'text-green-500',
           bg: 'bg-green-100 dark:bg-green-900/30',
-          text: t('orderStatus.active')
+          text: t('orders.status.active')
         };
       case 'in_transit':
         return {
           icon: <FaTruck />,
           color: 'text-purple-500',
           bg: 'bg-purple-100 dark:bg-purple-900/30',
-          text: t('orderStatus.in_transit')
+          text: t('orders.status.in_transit')
         };
       case 'completed':
         return {
           icon: <FaCheck />,
           color: 'text-teal-500',
           bg: 'bg-teal-100 dark:bg-teal-900/30',
-          text: t('orderStatus.completed')
+          text: t('orders.status.completed')
         };
       case 'cancelled':
         return {
           icon: <FaTimes />,
           color: 'text-red-500',
           bg: 'bg-red-100 dark:bg-red-900/30',
-          text: t('orderStatus.cancelled')
+          text: t('orders.status.cancelled')
         };
       default:
         return {
@@ -166,7 +208,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
 
   const renderMetaItem = (icon: React.ReactNode, label: string, value: string | React.ReactNode) => (
     <div className="flex items-start space-x-3 mb-4">
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-sunset flex items-center justify-center text-white">
         {icon}
       </div>
       <div>
@@ -188,6 +230,27 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
     </div>
   );
   
+  // Payment method renderer
+  const renderPaymentMethod = () => {
+    const paymentMethod = order.payment_method || 'cash';
+    
+    if (paymentMethod === 'wallet') {
+      return (
+        <div className="flex items-center">
+          <FaWallet className="text-purple-500 mr-2" />
+          <span>{t('payment.wallet')}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center">
+          <FaMoneyBill className="text-green-500 mr-2" />
+          <span>{t('payment.cash')}</span>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="p-6">
       {isLoading ? (
@@ -228,85 +291,99 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
           {activeTab === 'details' && (
             <>
               {/* Service Info */}
-              <div className="mb-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white text-xl">
-                    {service?.icon}
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {service?.name || t('common.unknownService')}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-stone-400">
-                      {service?.description || t('common.noDescription')}
-                    </p>
-                  </div>
+              <div className="mb-6 flex items-center">
+                <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white text-xl">
+                  {service?.icon}
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {service?.name || t('common.unknownService')}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-stone-400">
+                    {service?.description || t('common.noDescription')}
+                  </p>
                 </div>
               </div>
               
-              {/* Order Meta */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mb-6">
-                {renderMetaItem(
-                  <FaMapMarkerAlt />,
-                  t('location.pickup'),
-                  order.pickup_location
-                )}
-                
-                {renderMetaItem(
-                  <FaMapMarkerAlt />,
-                  t('location.destination'),
-                  order.delivery_location || order.destination
-                )}
-                
-                {renderMetaItem(
-                  <FaCalendarAlt />,
-                  t('orders.creationDate'),
-                  formatDate(order.created_at)
-                )}
-                
-                {renderMetaItem(
-                  <FaDollarSign />,
-                  t('orders.price'),
-                  formatCurrency(order.price || order.estimated_price || 0)
-                )}
-                
-                {renderMetaItem(
-                  <div>{/* Status icon handled by component */}</div>,
-                  t('orders.status.title'),
-                  <OrderStatusDisplay status={order.status} />
-                )}
+              {/* Order Status */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 dark:text-stone-400 mb-2">
+                  {t('orders.status.title')}
+                </h4>
+                <OrderStatusDisplay status={order.status} />
               </div>
               
-              {/* Action Buttons */}
-              {order.status === 'pending' && (
-                <div className="flex flex-wrap gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-stone-600/10">
-                  {isDriver && onAcceptOrder && (
-                    <button
-                      onClick={() => handleStatusAction('accept')}
-                      className="px-4 py-2 bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200"
-                    >
-                      {t('orders.acceptOrder')}
-                    </button>
+              {/* Order Details */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 dark:text-stone-400 mb-2">
+                  {t('orders.details')}
+                </h4>
+                <div className="space-y-4">
+                  {renderMetaItem(
+                    <FaCalendarAlt />,
+                    t('orders.createdAt'),
+                    formatDate(order.created_at)
                   )}
                   
-                  {onCancelOrder && (
-                    <button
-                      onClick={() => handleStatusAction('cancel')}
-                      className="px-4 py-2 border border-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:border-red-800/20 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded-lg"
-                    >
-                      {t('orders.cancelOrder')}
-                    </button>
+                  {renderMetaItem(
+                    <FaMapMarkerAlt />,
+                    t('location.pickupLocation'),
+                    order.pickup_location
+                  )}
+                  
+                  {renderMetaItem(
+                    <FaMapMarkerAlt />,
+                    t('location.destination'),
+                    order.dropoff_location
+                  )}
+                  
+                  {renderMetaItem(
+                    <FaDollarSign />,
+                    t('orders.price'),
+                    formatCurrency(order.estimated_price || 0)
+                  )}
+                  
+                  {renderMetaItem(
+                    order.payment_method === 'wallet' ? <FaWallet /> : <FaMoneyBill />,
+                    t('payment.method'),
+                    renderPaymentMethod()
                   )}
                 </div>
-              )}
+              </div>
               
-              {order.status === 'active' && isDriver && onCompleteOrder && (
-                <div className="flex flex-wrap gap-3 mt-8 pt-4 border-t border-gray-200 dark:border-stone-600/10">
-                  <button
-                    onClick={() => handleStatusAction('complete')}
-                    className="px-4 py-2 bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200"
-                  >
-                    {t('orders.markComplete')}
+              {/* Payment Details */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 dark:text-stone-400 mb-2">
+                  {t('orders.paymentDetails')}
+                </h4>
+                <div className="bg-gray-50 dark:bg-midnight-700/30 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-gray-700 dark:text-stone-300">{t('orders.estimatedPrice')}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.estimated_price)}</span>
+                  </div>
+                  
+                  {order.actual_price && (
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-gray-700 dark:text-stone-300">{t('orders.actualPrice')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.actual_price)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-stone-600/10">
+                    <span className="text-gray-700 dark:text-stone-300">{t('payment.method')}</span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {renderPaymentMethod()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Message Button for Active Orders */}
+              {order.status === 'active' && (
+                <div className="mb-6">
+                  <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-stone-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-white bg-white dark:bg-midnight-700 hover:bg-gray-50 dark:hover:bg-midnight-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900">
+                    <FaCommentDots className="mr-2" />
+                    {t('messages.contactDriver')}
                   </button>
                 </div>
               )}
@@ -371,6 +448,42 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* Actions */}
+      {order.status !== 'completed' && order.status !== 'cancelled' && (
+        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-stone-600/10">
+          {onCancelOrder && order.status === 'pending' && (
+            <button
+              onClick={() => {
+                if (window.confirm(t('orders.confirmCancel'))) {
+                  onCancelOrder(order.id);
+                }
+              }}
+              className="px-4 py-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors duration-200"
+            >
+              {t('orders.cancelOrder')}
+            </button>
+          )}
+          
+          {isDriver && order.status === 'pending' && onAcceptOrder && (
+            <button
+              onClick={() => onAcceptOrder(order.id)}
+              className="px-4 py-2 bg-purple-500 text-white hover:bg-purple-600 rounded-lg font-medium transition-colors duration-200"
+            >
+              {t('orders.acceptOrder')}
+            </button>
+          )}
+          
+          {isDriver && order.status === 'in-transit' && onCompleteOrder && (
+            <button
+              onClick={() => onCompleteOrder(order.id)}
+              className="px-4 py-2 bg-green-500 text-white hover:bg-green-600 rounded-lg font-medium transition-colors duration-200"
+            >
+              {t('orders.completeOrder')}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

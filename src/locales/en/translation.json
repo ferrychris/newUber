@@ -1,0 +1,89 @@
+{
+  "welcome": "Welcome to React",
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "noDescription": "No description available",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "processing": "Processing..."
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "balance": "Current Balance",
+    "availableBalance": "Available Balance",
+    "lastUpdated": "Last Updated",
+    "paymentMethods": "Payment Methods",
+    "addCard": "Add New Card",
+    "recentTransactions": "Recent Transactions",
+    "viewAll": "View All",
+    "history": "History",
+    "savingsGoal": "Savings Goal",
+    "quickActions": "Quick Actions",
+    "deposit": "Deposit",
+    "withdrawal": "Withdrawal",
+    "transfer": "Transfer",
+    "cards": "Cards",
+    "transactions": "Transactions",
+    "authRequired": "You need to be logged in to access your wallet",
+    "noWallet": "No wallet found for your account",
+    "loadError": "Failed to load wallet data",
+    "createError": "Failed to create wallet",
+    "created": "Wallet created successfully",
+    "addFunds": "Add Funds",
+    "noWalletId": "Wallet ID not found",
+    "paymentMethod": "Payment Method",
+    "creditCard": "Credit Card",
+    "bankTransfer": "Bank Transfer",
+    "selectAmount": "Select Amount",
+    "confirmDeposit": "Confirm Deposit",
+    "confirmPayment": "Pay Now",
+    "cardDetails": "Card Details",
+    "securePayment": "Payments are secure and encrypted",
+    "processingPayment": "Processing Payment",
+    "doNotClose": "Please do not close this window",
+    "paymentSuccess": "Payment Successful",
+    "fundDepositDesc": "Funds added to wallet",
+    "fundsAdded": "Funds added successfully",
+    "addFundsError": "Failed to add funds",
+    "invalidAmount": "Please enter a valid amount",
+    "transaction": {
+      "deposit": "Deposit",
+      "withdrawal": "Withdrawal",
+      "payment": "Payment",
+      "earnings": "Earnings"
+    },
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "failed": "Failed",
+      "processing": "Processing"
+    }
+  },
+  "loading": {
+    "walletBalance": "Loading wallet balance..."
+  },
+  "payment": {
+    "cardSetupError": "Error setting up card payment",
+    "processingError": "Error processing payment",
+    "stripeNotLoaded": "Payment system is not loaded. Please try again.",
+    "cardElementMissing": "Card details missing. Please reload the page."
+  }
+} 

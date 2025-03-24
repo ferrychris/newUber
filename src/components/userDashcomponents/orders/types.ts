@@ -26,6 +26,7 @@ export interface Order {
   estimated_price: number;
   actual_price?: number;
   created_at: string;
+  payment_method?: 'wallet' | 'cash';
   // Foreign key relationship with services table
   services?: {
     id: string;
@@ -60,6 +61,7 @@ export interface OrderFormData {
   serviceType: ServiceType;
   paymentMethod?: 'wallet' | 'cash' | 'card';
   walletBalance?: number;
+  estimatedTime?: string;
 }
 
 export interface OrderFormErrors {

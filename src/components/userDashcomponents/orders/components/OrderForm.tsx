@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaCalendarAlt, FaClock, FaSpinner, FaInfoCircle, FaRoute, FaWallet, FaMoneyBill, FaCreditCard } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaSpinner, FaInfoCircle, FaRoute, FaWallet, FaMoneyBill } from 'react-icons/fa';
 import LocationInput from '../../LocationInput';
 import { Service, OrderFormData, OrderFormErrors, DistanceResult } from '../types';
 import { validateOrderForm, calculatePrice } from '../utils';
@@ -8,8 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDateForInput, formatCurrency } from '../../../../utils/i18n';
 import { calculateRoute, formatDistance, formatDuration } from '../../../../utils/mapboxService';
 import PriceInfoCard from './PriceInfoCard';
-import { getUserWallet } from '../../../../utils/stripe';
-import { supabase } from '../../../../utils/supabase';
+import { supabase, getCurrentUser } from '../../../../utils/supabase';
 
 interface OrderFormProps {
   service: Service;
@@ -55,9 +54,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
     destination: false
   });
   const [coordinates, setCoordinates] = useState<LocationCoordinates>({});
-  const [walletBalance, setWalletBalance] = useState<number | undefined>(undefined);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
-  const [isProcessingCard, setIsProcessingCard] = useState(false);
 
   // Set default date and time to now in local timezone
   useEffect(() => {
@@ -71,26 +69,65 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   }, [order]);
 
-  // Fetch wallet balance when component mounts
+  // Fetch wallet balance
   useEffect(() => {
-    async function fetchWalletBalance() {
+    const fetchWalletBalance = async () => {
+      setIsLoadingWallet(true);
       try {
-        setIsLoadingWallet(true);
-        // Check if the user is logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
-
-        const userWallet = await getUserWallet(session.user.id);
-        if (userWallet) {
-          setWalletBalance(userWallet.balance);
+        // Try localStorage first
+        const userSessionStr = localStorage.getItem('userSession');
+        let userId = null;
+        
+        if (userSessionStr) {
+          try {
+            const userSession = JSON.parse(userSessionStr);
+            if (userSession && userSession.id) {
+              userId = userSession.id;
+            }
+          } catch (error) {
+            console.error("Error parsing localStorage session:", error);
+          }
+        }
+        
+        // If no userId in localStorage, try Supabase auth
+        if (!userId) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) {
+            userId = session.user.id;
+          }
+        }
+        
+        if (!userId) {
+          console.error("No user ID available for wallet lookup");
+          return;
+        }
+        
+        // Get wallet data from the database
+        const { data, error } = await supabase
+          .from('wallets')
+          .select('balance')
+          .eq('user_id', userId)
+          .single();
+          
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No wallet found, set balance to 0
+            console.log("No wallet found for user, setting balance to 0");
+            setWalletBalance(0);
+          } else {
+            console.error("Error fetching wallet:", error);
+          }
+        } else if (data) {
+          console.log("Wallet balance fetched:", data.balance);
+          setWalletBalance(data.balance || 0);
         }
       } catch (error) {
-        console.error('Error fetching wallet balance:', error);
+        console.error("Error in wallet balance fetch:", error);
       } finally {
         setIsLoadingWallet(false);
       }
-    }
-
+    };
+    
     fetchWalletBalance();
   }, []);
 
@@ -184,43 +221,25 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
   };
 
-  const handlePaymentMethodChange = async (method: 'wallet' | 'cash' | 'card') => {
+  // Handle payment method change
+  const handlePaymentMethodChange = (method: 'wallet' | 'cash') => {
     setFormData(prev => ({
       ...prev,
       paymentMethod: method
     }));
-
-    // Clear any payment-related errors
+    
+    // Clear any existing payment errors
     setErrors(prev => ({
       ...prev,
-      insufficientFunds: undefined,
-      paymentError: undefined
+      insufficientFunds: undefined
     }));
-
-    // Validate wallet balance if wallet payment is selected
-    if (method === 'wallet' && walletBalance !== undefined && walletBalance < formData.price) {
+    
+    // Check wallet balance if wallet is selected
+    if (method === 'wallet' && walletBalance !== null && walletBalance < formData.price) {
       setErrors(prev => ({
         ...prev,
-        insufficientFunds: t('price.insufficientFunds')
+        insufficientFunds: t('errors.insufficientFunds')
       }));
-    }
-
-    // Handle card payment setup
-    if (method === 'card') {
-      try {
-        setIsProcessingCard(true);
-        // Here you would typically initialize your payment processor (e.g., Stripe)
-        // For now, we'll just simulate a successful setup
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error('Error setting up card payment:', error);
-        setErrors(prev => ({
-          ...prev,
-          paymentError: t('payment.cardSetupError')
-        }));
-      } finally {
-        setIsProcessingCard(false);
-      }
     }
   };
 
@@ -242,53 +261,205 @@ const OrderForm: React.FC<OrderFormProps> = ({
     const validationErrors = validateOrderForm({
       ...formData,
       minPrice: service.minPrice,
-      paymentMethod: formData.paymentMethod || 'cash'
+      paymentMethod: formData.paymentMethod
     }, !!distanceResult);
+    
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-
-    // Validate payment method
-    if (formData.paymentMethod === 'wallet' && walletBalance !== undefined && walletBalance < formData.price) {
-      setErrors({
-        ...errors,
-        insufficientFunds: t('price.insufficientFunds')
-      });
-      return;
-    }
-
-    // Handle card payment processing
-    if (formData.paymentMethod === 'card') {
-      try {
-        setIsProcessingCard(true);
-        // Here you would typically process the payment with your payment processor
-        // For now, we'll just simulate a successful payment
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } catch (error) {
-        console.error('Error processing card payment:', error);
+    
+    // Check wallet balance if payment method is wallet
+    if (formData.paymentMethod === 'wallet') {
+      if (walletBalance === null) {
         setErrors({
           ...errors,
-          paymentError: t('payment.processingError')
+          form: t('errors.walletNotLoaded')
         });
         return;
-      } finally {
-        setIsProcessingCard(false);
+      }
+      
+      if (walletBalance < formData.price) {
+        setErrors({
+          ...errors,
+          insufficientFunds: t('errors.insufficientFunds')
+        });
+        return;
       }
     }
     
     try {
-      // Proceed with form submission      
+      // Get user ID using localStorage directly - match Order.tsx approach
+      const userSessionStr = localStorage.getItem('userSession');
+      let userId = null;
+      
+      if (userSessionStr) {
+        try {
+          const userSession = JSON.parse(userSessionStr);
+          if (userSession && userSession.id) {
+            userId = userSession.id;
+            console.log("Using user ID from localStorage:", userId);
+          }
+        } catch (parseError) {
+          console.error("Error parsing localStorage session:", parseError);
+        }
+      }
+      
+      // If localStorage failed, try supabase auth
+      if (!userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          userId = session.user.id;
+          console.log("Using user ID from supabase auth:", userId);
+        } else {
+          console.error("No authenticated user found");
+          setErrors({
+            ...errors,
+            form: t('errors.authRequired')
+          });
+          throw new Error('User not authenticated - please log in again');
+        }
+      }
+      
+      // Lookup service ID by name (to match the pattern in Order.tsx)
+      console.log("Finding service ID for:", service.name);
+      
+      // First check if the service exists
+      const { data: serviceList, error: listError } = await supabase
+        .from('services')
+        .select('id')
+        .eq('name', service.name);
+        
+      if (listError) {
+        console.error("Service list error:", listError);
+        throw new Error(`Error fetching services: ${listError.message}`);
+      }
+      
+      let serviceId;
+      
+      if (!serviceList || serviceList.length === 0) {
+        console.log("No service found with name:", service.name);
+        
+        // Try to find by type as fallback
+        const { data: serviceByType } = await supabase
+          .from('services')
+          .select('id')
+          .eq('type', service.type)
+          .maybeSingle();
+          
+        if (serviceByType) {
+          serviceId = serviceByType.id;
+          console.log("Found service by type with ID:", serviceId);
+        } else {
+          // Use a hardcoded serviceId from the database if available
+          // This is a last resort fallback to avoid UUID errors
+          const { data: anyService } = await supabase
+            .from('services')
+            .select('id')
+            .limit(1)
+            .maybeSingle();
+            
+          if (anyService) {
+            serviceId = anyService.id;
+            console.log("Using fallback service ID:", serviceId);
+          } else {
+            throw new Error("Could not find any services in the database");
+          }
+        }
+      } else {
+        serviceId = serviceList[0].id;
+        console.log("Found service ID:", serviceId);
+      }
+      
+      if (!serviceId) {
+        throw new Error("No valid service ID found");
+      }
+      
+      // Prepare data to match Order.tsx expectations
+      const orderData = {
+        user_id: userId,
+        service_id: serviceId,
+        pickup_location: formData.pickupLocation,
+        dropoff_location: formData.destination,
+        scheduled_date: formData.scheduledDate,
+        scheduled_time: formData.scheduledTime,
+        estimated_price: formData.price,
+        payment_method: formData.paymentMethod,
+        status: "pending"
+      };
+      
+      console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
+      
+      // Begin a transaction if using wallet payment
+      if (formData.paymentMethod === 'wallet') {
+        // Start a Supabase transaction
+        const { error: walletError } = await supabase.rpc('deduct_from_wallet', {
+          user_id_param: userId,
+          amount_param: formData.price
+        });
+        
+        if (walletError) {
+          console.error("Wallet transaction error:", walletError);
+          setErrors({
+            ...errors,
+            form: t('errors.walletTransactionFailed')
+          });
+          throw new Error(`Wallet transaction failed: ${walletError.message}`);
+        }
+        
+        console.log("Wallet transaction successful");
+      }
+      
+      // Insert the order
+      const { data, error } = await supabase
+        .from("orders")
+        .insert([orderData])
+        .select();
+      
+      if (error) {
+        console.error("Order creation error:", error);
+        
+        // If there was an error and we used the wallet, we should try to refund
+        if (formData.paymentMethod === 'wallet') {
+          const { error: refundError } = await supabase.rpc('add_to_wallet', {
+            user_id_param: userId,
+            amount_param: formData.price
+          });
+          
+          if (refundError) {
+            console.error("Failed to refund wallet after order error:", refundError);
+          } else {
+            console.log("Successfully refunded wallet after order error");
+          }
+        }
+        
+        setErrors({
+          ...errors,
+          form: t('errors.submitFailed') + ': ' + error.message
+        });
+        throw error;
+      }
+
+      console.log("Order created successfully:", data);
+      
+      // Update local wallet balance if we used wallet payment
+      if (formData.paymentMethod === 'wallet' && walletBalance !== null) {
+        setWalletBalance(walletBalance - formData.price);
+      }
+      
+      // Proceed with form submission
       await onSubmit({
-        ...formData,
-        walletBalance
+        ...formData
       });
+      
     } catch (error) {
       console.error('Error submitting order:', error);
-      setErrors({
-        ...errors,
-        form: t('errors.submitFailed')
-      });
+      if (!errors.form) {
+        setErrors({
+          ...errors,
+          form: t('errors.submitFailed')
+        });
+      }
     }
   };
 
@@ -410,78 +581,58 @@ const OrderForm: React.FC<OrderFormProps> = ({
                   distanceResult={distanceResult} 
                   service={service} 
                   price={formData.price}
-                  walletBalance={walletBalance}
-                  onPaymentMethodChange={handlePaymentMethodChange}
-                  selectedPaymentMethod={formData.paymentMethod}
                 />
               </div>
             )}
-
+            
             {/* Payment Method Selection */}
-            {handlePaymentMethodChange && (
-              <div className="mt-4 border-t border-stone-800/50 pt-3">
-                <p className="text-sm text-stone-300 mb-2">{t('price.paymentMethod')}</p>
-                
-                <div className="grid grid-cols-3 gap-2">
+            {distanceResult && !errors.distance && (
+              <div className="mt-4 border-t border-stone-800/50 pt-4">
+                <h4 className="text-sm font-medium text-stone-300 mb-3">{t('payment.methods')}</h4>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => handlePaymentMethodChange('wallet')}
                     className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-colors ${
                       formData.paymentMethod === 'wallet'
-                        ? 'bg-sunset-500/20 border-sunset-500 text-white'
+                        ? 'bg-purple-600/20 border-purple-600 text-white'
                         : 'bg-midnight-800 border-stone-700 text-stone-300 hover:bg-midnight-700'
                     }`}
                   >
-                    <FaWallet className={formData.paymentMethod === 'wallet' ? 'text-sunset-500' : 'text-stone-400'} />
-                    <span className="text-xs mt-1">{t('price.wallet')}</span>
-                    {walletBalance !== null && (
-                      <span className="text-xs mt-1">
-                        {formatCurrency(walletBalance || 0)}
+                    <FaWallet className={formData.paymentMethod === 'wallet' ? 'text-purple-400' : 'text-stone-400'} />
+                    <span className="text-xs mt-1">{t('payment.wallet')}</span>
+                    {isLoadingWallet ? (
+                      <span className="text-xs mt-1 text-stone-400">{t('loading')}</span>
+                    ) : walletBalance !== null ? (
+                      <span className={`text-xs mt-1 ${walletBalance < formData.price ? 'text-red-400' : 'text-green-400'}`}>
+                        {formatCurrency(walletBalance)}
                       </span>
-                    )}
-                    {errors.insufficientFunds && (
-                      <span className="text-xs text-red-500 mt-1">{t('price.insufficientFunds')}</span>
-                    )}
+                    ) : null}
                   </button>
+                  
                   <button
                     type="button"
                     onClick={() => handlePaymentMethodChange('cash')}
                     className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-colors ${
                       formData.paymentMethod === 'cash'
-                        ? 'bg-sunset-500/20 border-sunset-500 text-white'
+                        ? 'bg-purple-600/20 border-purple-600 text-white'
                         : 'bg-midnight-800 border-stone-700 text-stone-300 hover:bg-midnight-700'
                     }`}
                   >
-                    <FaMoneyBill className={formData.paymentMethod === 'cash' ? 'text-sunset-500' : 'text-stone-400'} />
-                    <span className="text-xs mt-1">{t('price.cash')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePaymentMethodChange('card')}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-colors ${
-                      formData.paymentMethod === 'card'
-                        ? 'bg-sunset-500/20 border-sunset-500 text-white'
-                        : 'bg-midnight-800 border-stone-700 text-stone-300 hover:bg-midnight-700'
-                    }`}
-                  >
-                    <FaCreditCard className={formData.paymentMethod === 'card' ? 'text-sunset-500' : 'text-stone-400'} />
-                    <span className="text-xs mt-1">{t('price.card')}</span>
+                    <FaMoneyBill className={formData.paymentMethod === 'cash' ? 'text-purple-400' : 'text-stone-400'} />
+                    <span className="text-xs mt-1">{t('payment.cash')}</span>
                   </button>
                 </div>
-              </div>
-            )}
-
-            {/* Loading Wallet Balance */}
-            {isLoadingWallet && (
-              <div className="mt-4 p-3 bg-blue-900/30 border border-blue-800 rounded-lg text-blue-300">
-                {t('loading.walletBalance')}
-              </div>
-            )}
-
-            {/* Insufficient funds error */}
-            {errors.insufficientFunds && (
-              <div className="mt-4 p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-300">
-                {errors.insufficientFunds}
+                
+                {errors.insufficientFunds && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 text-sm text-red-400"
+                  >
+                    {errors.insufficientFunds}
+                  </motion.p>
+                )}
               </div>
             )}
           </div>
@@ -542,9 +693,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
         <div className="flex items-center justify-center pt-4 pb-6">
           <button
             type="submit"
-            disabled={isSubmitting || (!locationValidations.pickupLocation || !locationValidations.destination) || !!errors.form}
+            disabled={
+              isSubmitting || 
+              (!locationValidations.pickupLocation || !locationValidations.destination) || 
+              !!errors.form || 
+              (formData.paymentMethod === 'wallet' && (walletBalance === null || walletBalance < formData.price))
+            }
             className={`w-full px-6 py-3 rounded-lg text-white font-medium flex items-center justify-center 
-              ${isSubmitting || !locationValidations.pickupLocation || !locationValidations.destination || !!errors.form
+              ${isSubmitting || 
+                 !locationValidations.pickupLocation || 
+                 !locationValidations.destination || 
+                 !!errors.form ||
+                 (formData.paymentMethod === 'wallet' && (walletBalance === null || walletBalance < formData.price))
                 ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
                 : 'bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-300'
               }
@@ -620,69 +780,37 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 {formatCurrency(formData.price || 0)}
               </span>
             </div>
-          </div>
-          
-          {/* Payment Method Selection */}
-          <div className="mt-4 border-t border-gray-200 dark:border-stone-600/10 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-white mb-3">
-              {t('pages.orders.paymentMethod')}
-            </h4>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handlePaymentMethodChange('wallet')}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
-                  ${formData.paymentMethod === 'wallet' 
-                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
-                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
-                  transition-colors`}
-              >
-                <FaWallet className={`text-lg ${formData.paymentMethod === 'wallet' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
-                <span className={`text-xs mt-1 ${formData.paymentMethod === 'wallet' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
-                  {t('common.wallet')}
-                </span>
-                {walletBalance !== null && (
-                  <span className="text-xs text-sunset mt-1">
-                    {formatCurrency(walletBalance || 0)}
-                  </span>
+            
+            {/* Payment Method Display */}
+            <div className="flex justify-between mt-3 pt-2">
+              <span className="text-sm text-gray-500 dark:text-stone-400">
+                {t('pages.orders.paymentMethod')}
+              </span>
+              <span className="text-sm font-medium flex items-center gap-1 text-gray-900 dark:text-white">
+                {formData.paymentMethod === 'wallet' ? (
+                  <>
+                    <FaWallet className="text-purple-400" />
+                    {t('payment.wallet')}
+                  </>
+                ) : (
+                  <>
+                    <FaMoneyBill className="text-green-400" />
+                    {t('payment.cash')}
+                  </>
                 )}
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handlePaymentMethodChange('cash')}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
-                  ${formData.paymentMethod === 'cash' 
-                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
-                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
-                  transition-colors`}
-              >
-                <FaMoneyBill className={`text-lg ${formData.paymentMethod === 'cash' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
-                <span className={`text-xs mt-1 ${formData.paymentMethod === 'cash' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
-                  {t('common.cash')}
-                </span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handlePaymentMethodChange('card')}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border 
-                  ${formData.paymentMethod === 'card' 
-                    ? 'border-sunset bg-sunset/10 dark:bg-sunset/20' 
-                    : 'border-gray-200 dark:border-stone-600/10 hover:border-sunset/50 dark:hover:border-sunset/30'}
-                  transition-colors`}
-              >
-                <FaCreditCard className={`text-lg ${formData.paymentMethod === 'card' ? 'text-sunset' : 'text-gray-400 dark:text-stone-500'}`} />
-                <span className={`text-xs mt-1 ${formData.paymentMethod === 'card' ? 'text-sunset font-medium' : 'text-gray-500 dark:text-stone-400'}`}>
-                  {t('common.card')}
-                </span>
-              </button>
+              </span>
             </div>
             
-            {formData.paymentMethod === 'wallet' && walletBalance !== null && (walletBalance || 0) < formData.price && (
-              <p className="text-xs text-red-500 mt-2">
-                {t('pages.orders.insufficientFunds')}
-              </p>
+            {/* Wallet Balance Display (if wallet selected) */}
+            {formData.paymentMethod === 'wallet' && walletBalance !== null && (
+              <div className="flex justify-between mt-1">
+                <span className="text-sm text-gray-500 dark:text-stone-400">
+                  {t('pages.orders.walletBalance')}
+                </span>
+                <span className={`text-sm font-medium ${walletBalance < formData.price ? 'text-red-500' : 'text-green-500'}`}>
+                  {formatCurrency(walletBalance)}
+                </span>
+              </div>
             )}
           </div>
         </div>

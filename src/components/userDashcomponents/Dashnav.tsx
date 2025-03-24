@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { logout } from '../../utils/supabase'; // Only import the logout function
+import { useAuth } from '../../context/AuthContext';
 import {
   FaBell,
   FaMoon,
@@ -10,7 +10,8 @@ import {
   FaSignOutAlt,
   FaChevronDown,
   FaCog,
-  FaSearch
+  FaSearch,
+  FaShippingFast
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -25,27 +26,15 @@ interface Notification {
 interface DashNavProps {
   isSidebarOpen?: boolean;
 }
-interface Order {
-  id: string;
-  date: string;
-  status: 'active' | 'in-transit' | 'completed';
-  destination: string;
-}
-
-interface Analytics {
-  monthlyOrders: number[];
-  statusCount: Record<string, number>;
-  topDestinations: [string, number][];
-}
 
 const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const { t, i18n } = useTranslation();
+  const { logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
   const navigate = useNavigate();
   const [notifications] = useState<Notification[]>([
@@ -76,25 +65,14 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
     try {
       setIsLoggingOut(true);
       
-      // Use our custom logout function
-      const { success, error } = await logout();
+      await logout();
       
-      if (!success) {
-        throw error || new Error('Failed to log out');
-      }
-
-      // Clear any other local storage or state
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userProfile');
+      toast.success(t('auth.logoutSuccess'));
       
-      // Show success message
-      toast.success('Déconnexion réussie');
-      
-      // Redirect to login
       navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Erreur lors de la déconnexion. Veuillez réessayer.');
+      toast.error(t('auth.logoutError'));
     } finally {
       setIsLoggingOut(false);
     }
@@ -110,79 +88,45 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
       <nav
         className={`fixed top-0 right-0 ${
           isSidebarOpen ? "lg:left-64" : "lg:left-20"
-        } left-0 bg-midnight-900 border-b border-stone-600/10 z-30 transition-all duration-300`}
+        } left-0 bg-white dark:bg-midnight-900 border-b border-gray-200 dark:border-stone-600/10 z-30 transition-all duration-300`}
       >
         <div className="px-4 lg:px-6 py-3">
           {/* Desktop View */}
-          <div className="hidden lg:flex items-center justify-between">
-            {/* Search Bar */}
-            <div className="flex-1 max-w-xl">
-              <div className="relative">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sunset/70" />
-                <input
-                  type="text"
-                  placeholder={t('common.search')}
-                  className="input w-full"
-                />
+          <div className="flex items-center justify-between">
+            {/* Page Title */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Shipment Track</h1>
+                <div className="ml-2 relative">
+                  <button className="flex items-center text-sm text-gray-500 dark:text-stone-400 border border-gray-300 dark:border-stone-600 rounded-md px-2 py-1">
+                    <span>Status</span>
+                    <FaChevronDown className="ml-1 text-xs" />
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Right Side Icons */}
             <div className="flex items-center gap-4">
-              {/* Language Selector */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                  className="p-2 hover:bg-midnight-800/50 rounded-full transition-colors duration-300 flex items-center gap-2"
-                >
-                  <FaGlobe className="text-stone-400" />
-                  <span className="text-stone-400 text-sm uppercase">{i18n.language}</span>
-                </button>
-
-                {showLanguageMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-midnight-800 rounded-xl shadow-lg border border-stone-600/10 py-2">
-                    <button
-                      onClick={() => handleLanguageChange('en')}
-                      className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 text-white transition-colors duration-300"
-                    >
-                      English
-                    </button>
-                    <button
-                      onClick={() => handleLanguageChange('fr')}
-                      className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 text-white transition-colors duration-300"
-                    >
-                      Français
-                    </button>
-                    <button
-                      onClick={() => handleLanguageChange('es')}
-                      className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 text-white transition-colors duration-300"
-                    >
-                      Español
-                    </button>
-                  </div>
-                )}
+              {/* Search */}
+              <div className="hidden md:block relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-stone-400" />
+                <input
+                  type="text"
+                  placeholder={t('common.search')}
+                  className="pl-10 pr-4 py-2 bg-gray-100 dark:bg-midnight-800 border border-gray-200 dark:border-stone-700 rounded-lg text-gray-700 dark:text-stone-300 focus:outline-none focus:ring-2 focus:ring-sunset dark:focus:ring-sunset w-64"
+                />
               </div>
-
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 hover:bg-midnight-800/50 rounded-full transition-colors duration-300"
-              >
-                {isDarkMode ? (
-                  <FaSun className="text-sunset" />
-                ) : (
-                  <FaMoon className="text-stone-400" />
-                )}
-              </button>
 
               {/* Notifications */}
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 hover:bg-midnight-800/50 rounded-full relative transition-colors duration-300"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-full relative transition-colors duration-300"
                 >
-                  <FaBell className="text-stone-400" />
+                  <FaBell className="text-gray-500 dark:text-stone-400" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 transform translate-x-1 -translate-y-1 bg-sunset text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className="absolute top-0 right-0 transform translate-x-1 -translate-y-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {unreadCount}
                     </span>
                   )}
@@ -190,29 +134,29 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
 
                 {/* Notifications Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-midnight-800 rounded-xl shadow-lg border border-stone-600/10 py-2">
-                    <div className="px-4 py-2 border-b border-stone-600/10">
-                      <h3 className="font-semibold text-white">
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-stone-600/10 py-2">
+                    <div className="px-4 py-2 border-b border-gray-200 dark:border-stone-600/10">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
                         {t('common.notifications')}
                       </h3>
                     </div>
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`px-4 py-3 hover:bg-midnight-700/50 ${
-                          !notification.isRead ? "bg-sunset/5" : ""
+                        className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-midnight-700/50 ${
+                          !notification.isRead ? "bg-sunset/10 dark:bg-sunset/5" : ""
                         } transition-colors duration-300`}
                       >
-                        <p className="text-sm text-white">
+                        <p className="text-sm text-gray-800 dark:text-white">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-stone-400 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
                           {notification.time}
                         </p>
                       </div>
                     ))}
-                    <div className="px-4 py-2 border-t border-stone-600/10">
-                      <button className="text-sunset text-sm hover:text-sunset/80 w-full text-center transition-colors duration-300">
+                    <div className="px-4 py-2 border-t border-gray-200 dark:border-stone-600/10">
+                      <button className="text-sunset dark:text-sunset text-sm hover:text-purple-500 dark:hover:text-purple-400 w-full text-center transition-colors duration-300">
                         {t('notifications.viewAll')}
                       </button>
                     </div>
@@ -220,83 +164,60 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                 )}
               </div>
 
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-full transition-colors duration-300"
+              >
+                {isDarkMode ? (
+                  <FaSun className="text-amber-500 dark:text-sunset" />
+                ) : (
+                  <FaMoon className="text-gray-500 dark:text-stone-400" />
+                )}
+              </button>
+
               {/* Profile */}
               <div className="relative">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center gap-2 hover:bg-midnight-800/50 rounded-lg px-2 py-1 transition-colors duration-300"
+                  className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-lg px-2 py-1 transition-colors duration-300"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-sunset flex items-center justify-center text-white">
-                    D
+                  <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white overflow-hidden">
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User Avatar" className="w-full h-full object-cover" />
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-midnight-900"></div>
                   </div>
-                  <span className="font-medium text-white">David</span>
-                  <FaChevronDown className="text-stone-400 text-sm" />
+                  <div className="hidden md:block text-left">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">Michael K.</span>
+                    <p className="text-xs text-gray-500 dark:text-stone-400">Manager</p>
+                  </div>
+                  <FaChevronDown className="text-gray-500 dark:text-stone-400 text-xs ml-1 hidden md:block" />
                 </button>
 
                 {/* Profile Dropdown */}
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-midnight-800 rounded-xl shadow-lg border border-stone-600/10 py-2">
-                    <button className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 flex items-center gap-2 text-white transition-colors duration-300">
-                      <FaUser className="text-sunset/70" />
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-stone-600/10 py-2">
+                    <button className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-gray-700 dark:text-white transition-colors duration-300">
+                      <FaUser className="text-sunset dark:text-sunset" />
                       <span>{t('Profile')}</span>
                     </button>
-                    <button className="w-full px-4 py-2 text-left hover:bg-midnight-700/50 flex items-center gap-2 text-white transition-colors duration-300">
-                      <FaCog className="text-sunset/70" />
+                    <button className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-gray-700 dark:text-white transition-colors duration-300">
+                      <FaCog className="text-sunset dark:text-sunset" />
                       <span>{t('Settings')}</span>
                     </button>
-                    <div className="border-t border-stone-600/10 my-1"></div>
+                    <div className="border-t border-gray-200 dark:border-stone-600/10 my-1"></div>
                     <button
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex items-center justify-center space-x-3 px-4 py-3 w-full rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-red-600 transition-colors duration-300"
                     >
-                      <FaSignOutAlt className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                      <span>{isLoggingOut ? 'Déconnexion...' : t('logout')}</span>
+                      <FaSignOutAlt />
+                      <span>{isLoggingOut ? t('auth.loggingOut') : t('auth.logout')}</span>
                     </button>
                   </div>
                 )}
               </div>
             </div>
           </div>
-
-          {/* Mobile View */}
-          <div className="flex lg:hidden items-center justify-between gap-4">
-            <button
-              onClick={() => setShowMobileSearch(!showMobileSearch)}
-              className="p-2 hover:bg-midnight-800/50 rounded-full transition-colors duration-300"
-            >
-              <FaSearch className="text-stone-400" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <button className="p-2 hover:bg-midnight-800/50 rounded-full relative transition-colors duration-300">
-                <FaBell className="text-stone-400" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 transform translate-x-1 -translate-y-1 bg-sunset text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <div className="w-8 h-8 rounded-full bg-gradient-sunset flex items-center justify-center text-white">
-                D
-              </div>
-            </div>
-          </div>
         </div>
-
-        {/* Mobile Search Bar */}
-        {showMobileSearch && (
-          <div className="p-4 border-t border-stone-600/10 lg:hidden">
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sunset/70" />
-              <input
-                type="text"
-                placeholder={t('common.search')}
-                className="input w-full"
-              />
-            </div>
-          </div>
-        )}
       </nav>
     </>
   );

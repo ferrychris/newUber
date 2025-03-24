@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaDollarSign, FaClock, FaShippingFast } from 'react-icons/fa';
-import { Service, ServiceType } from '../types';
+import { Service } from '../types';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../../../../utils/i18n';
 import { SERVICES } from '../constants';
@@ -17,13 +17,13 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const getColorScheme = (type: ServiceType) => {
+  const getColorScheme = (type: string) => {
     switch (type) {
-      case ServiceType.EXPRESS:
+      case 'express':
         return 'sunset'; // Using sunset color for express services
-      case ServiceType.DELIVERY:
+      case 'delivery':
         return 'purple'; // Using purple for delivery services
-      case ServiceType.TRANSPORT:
+      case 'transport':
         return 'emerald'; // Keep emerald for transport
       default:
         return 'sunset'; // Default to sunset
@@ -48,30 +48,32 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
           className="bg-white dark:bg-midnight-800 rounded-2xl shadow-xl overflow-hidden max-w-lg w-full border border-gray-200 dark:border-stone-600/10"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-stone-600/10">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {t('pages.orders.selectService')}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-stone-600/10 bg-sunset">
+            <h2 className="text-xl font-semibold text-white">
+              {t('orders.selectService')}
             </h2>
-            <button
-              className="p-2 text-gray-400 hover:text-gray-500 dark:text-stone-400 dark:hover:text-stone-300 rounded-full"
+            <button 
+              className="p-2 text-white/80 hover:text-white rounded-full focus:outline-none focus:ring-2 focus:ring-white/20"
               onClick={onClose}
             >
               <FaTimes className="w-5 h-5" />
             </button>
           </div>
+          
+          <div className="p-4 bg-gray-50 dark:bg-midnight-800">
+            <p className="text-gray-500 dark:text-stone-400 text-center">
+              {t('Select a service to continue')}
+            </p>
+          </div>
 
           <div className="p-4 max-h-[70vh] overflow-y-auto">
-            <p className="text-sm text-gray-500 dark:text-stone-400 mb-4">
-              {t('pages.orders.selectServiceDesc')}
-            </p>
-
             <div className="grid grid-cols-1 gap-4">
               {SERVICES.map((service) => {
                 const colorKey = getColorScheme(service.type);
                 const colorClass = {
-                  sunset: 'from-sunset to-sunset-600',
-                  purple: 'from-purple-500 to-purple-600',
-                  emerald: 'from-emerald-500 to-emerald-600'
+                  sunset: 'bg-sunset',
+                  purple: 'bg-purple-500',
+                  emerald: 'bg-emerald-500'
                 }[colorKey];
 
                 return (
@@ -83,7 +85,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                     onClick={() => onSelectService(service)}
                   >
                     <div className="flex items-center p-4">
-                      <div className={`p-3 rounded-xl bg-gradient-to-r ${colorClass} text-white mr-4`}>
+                      <div className={`p-3 rounded-xl ${colorClass} text-white mr-4`}>
                         {service.icon || <FaShippingFast />}
                       </div>
                       <div>
@@ -97,15 +99,15 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                         <div className="mt-2 flex items-center gap-4">
                           <div className="flex items-center text-sm text-gray-500 dark:text-stone-400">
                             <FaDollarSign className="text-sunset mr-1" />
-                            <span>
-                              {t('pages.orders.startingAt', {
-                                price: formatCurrency(service.basePrice),
+                            <span className="text-xs text-gray-500 dark:text-stone-400">
+                              {t('orders.startingAt', {
+                                price: formatCurrency(service.minPrice)
                               })}
                             </span>
                           </div>
                           <div className="flex items-center text-sm text-gray-500 dark:text-stone-400">
                             <FaClock className="text-purple-500 mr-1" />
-                            <span>{service.estimatedTime}</span>
+                            <span>{'30-60 min'}</span>
                           </div>
                         </div>
                       </div>
@@ -121,7 +123,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-stone-300 bg-white dark:bg-midnight-800 border border-gray-300 dark:border-stone-600 rounded-md hover:bg-gray-50 dark:hover:bg-midnight-700 focus:outline-none focus:ring-2 focus:ring-sunset"
               onClick={onClose}
             >
-              {t('common.cancel')}
+              {t('Cancel')}
             </button>
           </div>
         </motion.div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { FaMoneyBillWave, FaCreditCard, FaSpinner, FaTimes } from 'react-icons/fa';
+import { FaMoneyBillWave, FaCreditCard, FaSpinner, FaTimes, FaWallet, FaCheck } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -46,7 +46,7 @@ const WalletFundDialog: React.FC<WalletFundDialogProps> = ({ isOpen, onClose, on
           >
             <div className="flex justify-between items-center p-4 border-b border-midnight-700">
               <div className="flex items-center">
-                <FaMoneyBillWave className="text-sunset-500 mr-2" />
+                <FaWallet className="text-purple-600 dark:text-purple-400 mr-2" />
                 <h2 className="text-xl font-semibold">{t('wallet.addFunds')}</h2>
               </div>
               <button
@@ -82,6 +82,11 @@ const CheckoutForm: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [wallet, setWallet] = useState<any | null>(null);
   const [paymentStep, setPaymentStep] = useState<'input' | 'processing' | 'success' | 'error'>('input');
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [paymentMethods] = useState([
+    { id: 'card', name: 'Credit Card', icon: <FaCreditCard className="text-purple-600 dark:text-purple-400" /> },
+    { id: 'bank', name: 'Bank Transfer', icon: <FaMoneyBillWave className="text-purple-600 dark:text-purple-400" /> },
+  ]);
 
   useEffect(() => {
     async function fetchWallet() {
@@ -98,191 +103,285 @@ const CheckoutForm: React.FC<{
     fetchWallet();
   }, [userId]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  // Function to handle submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (!stripe || !elements || !userId || !wallet) {
+    if (!stripe || !elements || amount <= 0 || !selectedMethod) {
+      setError('Please select a payment method and enter a valid amount');
       return;
     }
 
-    setError(null);
     setIsProcessing(true);
-    setPaymentStep('processing');
+    setError(null);
 
     try {
-      // Create a payment intent with the specified amount (convert to cents)
-      const amountInCents = Math.round(amount * 100);
-      const clientSecret = await createPaymentIntent(amountInCents, userId);
-      setClientSecret(clientSecret);
+      // Create a payment intent on the server
+      const response = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount,
+          walletId: wallet?.id,
+          userId,
+        }),
+      });
 
-      // Get the card element
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error('Card element not found');
+      const data = await response.json();
+      
+      if (data.error) {
+        setError(data.error);
+        setIsProcessing(false);
+        return;
       }
 
-      // Confirm the payment
-      const result = await stripe.confirmCardPayment(clientSecret, {
+      // Confirm card payment
+      const cardElement = elements.getElement(CardElement);
+      
+      if (!cardElement) {
+        setError('Card element not found');
+        setIsProcessing(false);
+        return;
+      }
+
+      const paymentResult = await stripe.confirmCardPayment(data.clientSecret, {
         payment_method: {
           card: cardElement,
           billing_details: {
-            name: 'User Payment',
+            email: userId, // Use actual email if available
           },
         },
       });
 
-      if (result.error) {
-        // Show error to customer
-        setError(result.error.message || 'An error occurred with your payment');
+      if (paymentResult.error) {
+        setError(paymentResult.error.message || 'Payment failed');
         setPaymentStep('error');
-      } else {
-        if (result.paymentIntent.status === 'succeeded') {
-          // Process the successful payment on the backend
-          await processSuccessfulPayment(
-            result.paymentIntent.id,
-            wallet.id,
-            amountInCents
-          );
-          
-          setPaymentStep('success');
-          toast.success(t('wallet.fundSuccess'));
-          onSuccess();
-          setTimeout(() => {
-            onClose();
-          }, 2000);
-        }
+      } else if (paymentResult.paymentIntent.status === 'succeeded') {
+        setPaymentStep('success');
+        onSuccess();
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Payment error:', err);
-      setError(err.message || 'Failed to process payment');
+      setError('An error occurred while processing your payment');
       setPaymentStep('error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const predefinedAmounts = [10, 25, 50, 100, 200];
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Amount selector component
+  const AmountSelector: React.FC<{
+    selectedAmount: number;
+    onSelect: (amount: number) => void;
+  }> = ({ selectedAmount, onSelect }) => {
+    const amounts = [10, 25, 50, 100, 250, 500];
+    
+    return (
+      <div className="mb-6">
+        <div className="grid grid-cols-3 gap-3">
+          {amounts.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              className={`py-2 px-4 rounded-lg text-center ${
+                selectedAmount === amount
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 dark:bg-stone-800 text-gray-700 dark:text-stone-300 hover:bg-gray-200 dark:hover:bg-stone-700'
+              }`}
+              onClick={() => onSelect(amount)}
+            >
+              ${amount}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-md mx-auto">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <FaWallet className="text-purple-600 dark:text-purple-400 text-xl" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          {t('wallet.addFunds')}
+        </h2>
+      </div>
+
       {paymentStep === 'input' && (
-        <form onSubmit={handleSubmit}>
+        <>
+          {/* Amount Selection */}
           <div className="mb-6">
-            <label className="block text-pearl-300 mb-2">{t('wallet.selectAmount')}</label>
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              {predefinedAmounts.map((predefinedAmount) => (
+            <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
+              {t('wallet.selectAmount')}
+            </label>
+            <AmountSelector selectedAmount={amount} onSelect={setAmount} />
+            
+            <div className="relative mt-4">
+              <div className="flex items-center">
+                <span className="text-gray-500 dark:text-stone-400 absolute left-3">$</span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-gray-900 dark:text-white focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Payment Method Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
+              {t('price.paymentMethod')}
+            </label>
+            
+            <div className="space-y-3">
+              {paymentMethods.map((method) => (
                 <button
-                  key={predefinedAmount}
+                  key={method.id}
                   type="button"
-                  className={`py-2 rounded-lg transition-colors ${
-                    amount === predefinedAmount
-                      ? 'bg-sunset-500 text-white'
-                      : 'bg-midnight-700 text-pearl-300 hover:bg-midnight-600'
+                  onClick={() => setSelectedMethod(method.id)}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg ${
+                    selectedMethod === method.id
+                      ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800'
+                      : 'bg-gray-100 dark:bg-stone-800 border border-transparent hover:bg-gray-200 dark:hover:bg-stone-700'
                   }`}
-                  onClick={() => setAmount(predefinedAmount)}
                 >
-                  ${predefinedAmount}
+                  <div className="flex items-center">
+                    <div className="mr-3">
+                      {method.icon}
+                    </div>
+                    <span className="font-medium text-gray-700 dark:text-stone-300">
+                      {method.name}
+                    </span>
+                  </div>
+                  
+                  {selectedMethod === method.id && (
+                    <div className="h-5 w-5 bg-purple-600 dark:bg-purple-500 rounded-full flex items-center justify-center">
+                      <FaCheck className="text-white text-xs" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
-            <div className="relative mt-4">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pearl-400">$</span>
-              <input
-                type="number"
-                min="5"
-                max="1000"
-                value={amount}
-                onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                className="w-full pl-8 pr-4 py-3 rounded-lg bg-midnight-700 text-white border border-midnight-600 focus:border-sunset-500 focus:outline-none"
-                placeholder="Enter amount"
-              />
-            </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-pearl-300 mb-2">
-              <div className="flex items-center">
-                <FaCreditCard className="mr-2 text-sunset-500" />
+          {/* Card Details */}
+          {selectedMethod === 'card' && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
                 {t('wallet.cardDetails')}
-              </div>
-            </label>
-            <div className="bg-midnight-700 rounded-lg p-4 border border-midnight-600">
+              </label>
+              
               <CardElement
                 options={{
                   style: {
                     base: {
                       fontSize: '16px',
-                      color: '#FFFFFF',
+                      color: '#424770',
                       '::placeholder': {
-                        color: '#AAAAAA',
+                        color: '#aab7c4',
                       },
                     },
                     invalid: {
-                      color: '#FA5252',
+                      color: '#9e2146',
                     },
                   },
                 }}
+                className="p-3 border border-gray-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800"
               />
             </div>
-          </div>
-
+          )}
+          
           {error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-800 rounded-lg text-red-200 text-sm">
+            <div className="mb-4 text-red-600 dark:text-red-400 text-sm">
               {error}
             </div>
           )}
-
-          <button
-            type="submit"
-            disabled={!stripe || isProcessing || amount <= 0}
-            className="w-full py-3 rounded-lg bg-sunset-500 text-white font-semibold hover:bg-sunset-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? (
-              <span className="flex items-center justify-center">
-                <FaSpinner className="animate-spin mr-2" />
-                {t('wallet.processing')}
-              </span>
-            ) : (
-              t('wallet.payNow', { amount: `$${amount.toFixed(2)}` })
-            )}
-          </button>
-        </form>
+          
+          {/* Action Buttons */}
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2 px-4 border border-gray-300 dark:border-stone-600 rounded-lg text-gray-700 dark:text-stone-300 bg-white dark:bg-stone-800 hover:bg-gray-50 dark:hover:bg-stone-700"
+            >
+              {t('common.cancel')}
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedMethod || isProcessing || amount <= 0}
+              className={`flex-1 py-2 px-4 rounded-lg text-white ${
+                !selectedMethod || isProcessing || amount <= 0
+                  ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600'
+              }`}
+            >
+              {isProcessing ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {t('common.submitting')}
+                </span>
+              ) : (
+                formatCurrency(amount)
+              )}
+            </button>
+          </div>
+        </>
       )}
 
       {paymentStep === 'processing' && (
         <div className="text-center py-10">
-          <FaSpinner className="animate-spin text-sunset-500 text-4xl mx-auto mb-4" />
+          <FaSpinner className="animate-spin text-4xl text-purple-600 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">{t('wallet.processingPayment')}</h3>
-          <p className="text-pearl-400">{t('wallet.dontClosePage')}</p>
+          <p className="text-pearl-300">{t('wallet.doNotClose')}</p>
         </div>
       )}
 
       {paymentStep === 'success' && (
         <div className="text-center py-10">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
             </svg>
           </div>
-          <h3 className="text-xl font-semibold mb-2">{t('wallet.paymentSuccessful')}</h3>
-          <p className="text-pearl-400">{t('wallet.fundsAdded', { amount: `$${amount.toFixed(2)}` })}</p>
+          <h3 className="text-xl font-semibold mb-2">{t('wallet.paymentSuccess')}</h3>
+          <p className="text-pearl-300">{t('wallet.fundsAdded')}</p>
         </div>
       )}
 
       {paymentStep === 'error' && (
         <div className="text-center py-10">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
           </div>
           <h3 className="text-xl font-semibold mb-2">{t('wallet.paymentFailed')}</h3>
-          <p className="text-pearl-400">{error || t('wallet.genericError')}</p>
+          <p className="text-red-400 mb-4">{error}</p>
           <button
             onClick={() => setPaymentStep('input')}
-            className="mt-4 px-4 py-2 bg-sunset-500 text-white rounded-lg hover:bg-sunset-600 transition-colors"
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg"
           >
-            {t('wallet.tryAgain')}
+            {t('common.tryAgain')}
           </button>
         </div>
       )}

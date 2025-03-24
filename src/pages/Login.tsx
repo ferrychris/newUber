@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 import { useTheme } from '../utils/theme';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -14,7 +14,10 @@ interface LoginFormData {
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useTheme();
+  const { login } = useAuth();
+  
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -23,6 +26,9 @@ export default function Login() {
     password: ''
   });
   const [formErrors, setFormErrors] = useState<Partial<LoginFormData>>({});
+
+  // Get the redirect path from location state
+  const from = location.state?.from || '/dashboard';
 
   const validateForm = (): boolean => {
     const errors: Partial<LoginFormData> = {};
@@ -61,87 +67,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Trim email to prevent whitespace issues
-      const cleanEmail = formData.email.trim().toLowerCase();
+      // Use the login function from AuthContext
+      const result = await login(formData.email, formData.password);
       
-      console.log('Attempting login for:', cleanEmail);
-      
-      // Check if the user exists in our custom users table
-      const { data: userInDb, error: userCheckError } = await supabase
-        .from('users')
-        .select('id, full_name, password, email, role, phone, profile_image')
-        .eq('email', cleanEmail)
-        .maybeSingle();
+      if (result.success) {
+        toast.success('Login successful! Redirecting...');
         
-      if (userCheckError) {
-        console.error('Error checking user in DB:', userCheckError);
-        toast.error('Error checking user credentials. Please try again.');
-        setLoading(false);
-        return;
-      }
-      
-      // If user doesn't exist
-      if (!userInDb) {
-        console.error('User not found in database');
-        toast.error('Invalid email or password');
-        setLoading(false);
-        return;
-      }
-      
-      // Check password
-      if (userInDb.password === formData.password) {
-        console.log('Password matched for user in custom table');
-        
-        // Store user session info in localStorage with all relevant user data
-        const sessionData = {
-          id: userInDb.id,
-          email: userInDb.email,
-          full_name: userInDb.full_name,
-          role: userInDb.role || 'customer',
-          phone: userInDb.phone || null,
-          profile_image: userInDb.profile_image || null,
-          created_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString()
-        };
-        
-        // Save session to localStorage
-        localStorage.setItem('userSession', JSON.stringify(sessionData));
-        
-        // Log information for debugging
-        console.log('Using custom authentication via localStorage');
-        console.log('User logged in:', userInDb.full_name);
-        console.log('User role:', userInDb.role || 'customer');
-        console.log('User ID stored in session:', sessionData.id);
-        
-        toast.success(`Welcome back, ${userInDb.full_name}!`);
-        
-        // Add a slight delay to ensure the toast is seen and localStorage is set
+        // Add a slight delay to ensure the toast is seen
         setTimeout(() => {
-          // Redirect based on role
-          const userRole = userInDb.role || 'customer';
-          console.log('Redirecting user with role:', userRole);
-          
-          if (userRole === 'driver') {
-            console.log('Navigating to driver dashboard');
-            navigate('/driver/dashboard');
-          } else if (userRole === 'admin') {
-            console.log('Navigating to admin dashboard');
-            navigate('/admin/dashboard');
-          } else {
-            // Default to customer dashboard for any other role
-            console.log('Navigating to customer dashboard');
-            navigate('/dashboard');
-          }
+          navigate(from);
         }, 1000);
       } else {
-        // Passwords don't match
-        console.error('Password incorrect for user');
-        toast.error('Incorrect password');
-        setLoading(false);
+        toast.error(result.error || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
       toast.error('An unexpected error occurred. Please try again.');
+    } finally {
       setLoading(false);
     }
   };

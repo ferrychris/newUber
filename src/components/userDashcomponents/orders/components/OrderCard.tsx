@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { FaCalendarAlt, FaMapMarkerAlt, FaAngleRight } from 'react-icons/fa';
+import { FaCalendarAlt, FaMapMarkerAlt, FaAngleRight, FaWallet, FaMoneyBill } from 'react-icons/fa';
 import { Order, Service } from '../types';
 import { getStatusConfig, formatCurrency, formatDate } from '../utils';
 
@@ -14,6 +14,27 @@ interface OrderCardProps {
 const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
   const { t } = useTranslation();
   const statusConfig = getStatusConfig(order.status);
+
+  // Payment method icon and text
+  const renderPaymentMethod = () => {
+    const paymentMethod = order.payment_method || 'cash';
+    
+    if (paymentMethod === 'wallet') {
+      return (
+        <div className="flex items-center">
+          <FaWallet className="text-purple-500 mr-1" />
+          <span className="text-xs text-gray-700 dark:text-stone-300">{t('payment.wallet')}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center">
+          <FaMoneyBill className="text-green-500 mr-1" />
+          <span className="text-xs text-gray-700 dark:text-stone-300">{t('payment.cash')}</span>
+        </div>
+      );
+    }
+  };
 
   return (
     <motion.div
@@ -35,9 +56,9 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-2 items-center">
             <div 
-              className={`p-2 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-indigo-100 dark:bg-indigo-900/30'}`}
+              className={`p-2 rounded-lg ${service.theme.bg ? service.theme.bg.replace('bg-', 'bg-') : 'bg-sunset/10 dark:bg-sunset/20'}`}
             >
-              {service.icon || <FaMapMarkerAlt className={`w-4 h-4 ${service.theme.text || 'text-indigo-600 dark:text-indigo-400'}`} />}
+              {service.icon || <FaMapMarkerAlt className={`w-4 h-4 ${service.theme.text || 'text-sunset dark:text-sunset'}`} />}
             </div>
             <h3 className="font-medium text-gray-900 dark:text-white">
               {service.name}
@@ -47,7 +68,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
             className={`px-2 py-1 text-xs font-medium rounded-full
               ${statusConfig.bgClass} ${statusConfig.textClass}`}
           >
-            {t(`status.${order.status}`)}
+            {t(`orders.status.${order.status}`)}
           </span>
         </div>
         
@@ -55,7 +76,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
         <div className="mb-4 text-sm">
           <div className="flex items-start">
             <div className="min-w-8 pt-1">
-              <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400 mx-auto"></div>
+              <div className="w-2 h-2 rounded-full bg-sunset dark:bg-sunset mx-auto"></div>
             </div>
             <div className="flex-1">
               <p className="text-gray-900 dark:text-white font-medium">
@@ -73,7 +94,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
           
           <div className="flex items-start">
             <div className="min-w-8 pt-1">
-              <div className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400 mx-auto"></div>
+              <div className="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-500 mx-auto"></div>
             </div>
             <div className="flex-1">
               <p className="text-gray-900 dark:text-white font-medium">
@@ -86,7 +107,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
           </div>
         </div>
         
-        {/* Price */}
+        {/* Price and Payment Method */}
         <div className="flex justify-between items-center mb-4">
           <div>
             <p className="text-xs text-gray-500 dark:text-stone-400">
@@ -96,16 +117,21 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
               {formatCurrency(order.estimated_price)}
             </p>
           </div>
-          {order.actual_price && (
-            <div>
-              <p className="text-xs text-gray-500 dark:text-stone-400 text-right">
-                {t('orders.actualPrice')}
-              </p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(order.actual_price)}
-              </p>
-            </div>
-          )}
+          
+          <div className="flex flex-col items-end">
+            {order.actual_price && (
+              <>
+                <p className="text-xs text-gray-500 dark:text-stone-400 text-right">
+                  {t('orders.actualPrice')}
+                </p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {formatCurrency(order.actual_price)}
+                </p>
+              </>
+            )}
+            {/* Payment Method */}
+            {renderPaymentMethod()}
+          </div>
         </div>
         
         {/* Date and View Details */}
@@ -118,7 +144,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
           </div>
           <motion.div
             whileHover={{ x: 5 }}
-            className={`flex items-center gap-1 text-sm font-medium ${service.theme.text || 'text-indigo-600 dark:text-indigo-400'}`}
+            className={`flex items-center gap-1 text-sm font-medium ${service.theme.text || 'text-sunset dark:text-sunset'}`}
           >
             <span className="group-hover:underline">{t('orders.viewDetails')}</span>
             <FaAngleRight className="w-3 h-3" />
@@ -138,7 +164,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, service, onClick }) => {
                 return Array.isArray(features) 
                   ? features.slice(0, 2).map((feature: string, idx: number) => (
                       <li key={idx} className="text-xs text-gray-500 dark:text-stone-400 flex items-start">
-                        <span className={`mr-2 text-xs mt-0.5 ${service.theme.text || 'text-indigo-600 dark:text-indigo-400'}`}>•</span>
+                        <span className={`mr-2 text-xs mt-0.5 ${service.theme.text || 'text-sunset dark:text-sunset'}`}>•</span>
                         <span>{feature}</span>
                       </li>
                     ))

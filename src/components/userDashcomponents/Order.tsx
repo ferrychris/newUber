@@ -285,8 +285,8 @@ const Order: React.FC = () => {
         status: "pending",
         pickup_location: formData.pickupLocation,
         dropoff_location: formData.destination,
-        estimated_price: estimatedPrice
-        // Remove metadata field as it's not in the database schema
+        estimated_price: estimatedPrice,
+        payment_method: formData.paymentMethod || 'cash'
       };
       
       console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
@@ -377,14 +377,14 @@ const Order: React.FC = () => {
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          {t('pages.orders.title')}
+          {t('orders.title')}
         </h1>
         <div className="mt-4 sm:mt-0">
           <button
             onClick={() => setShowServiceDialog(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
           >
-            {t('pages.orders.createOrder')}
+            {t('orders.createOrder')}
           </button>
         </div>
       </div>
@@ -427,17 +427,17 @@ const Order: React.FC = () => {
         <div className="bg-white dark:bg-midnight-800 shadow-sm overflow-hidden rounded-xl border border-gray-200 dark:border-stone-600/10">
           <div className="px-4 py-5 sm:p-6 text-center">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-              {t('pages.orders.noOrders')}
+              {t('orders.noOrders')}
             </h3>
             <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-stone-400 mx-auto">
-              <p>{t('pages.orders.createFirstOrder')}</p>
+              <p>{t('orders.createFirstOrder')}</p>
             </div>
             <div className="mt-5">
               <button
                 onClick={() => setShowServiceDialog(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-sunset to-purple-600 hover:from-sunset/90 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset"
               >
-                {t('pages.orders.createOrder')}
+                {t('orders.createOrder')}
               </button>
             </div>
           </div>
@@ -446,22 +446,22 @@ const Order: React.FC = () => {
         <div className="overflow-hidden shadow rounded-xl border border-gray-200 dark:border-stone-600/10 bg-white dark:bg-midnight-800">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-stone-600/10">
-              <thead className="bg-gray-50 dark:bg-midnight-700">
+              <thead className="bg-gray-50 dark:bg-midnight-700/30">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('pages.orders.service')}
+                    {t('orders.service')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('pages.orders.locations')}
+                    {t('orders.locations')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('pages.orders.price')}
+                    {t('orders.price')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('pages.orders.status')}
+                    {t('orders.status.title')}
                   </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('common.actions')}
+                  <th scope="col" className="relative px-6 py-3">
+                    <span className="sr-only">View</span>
                   </th>
                 </tr>
               </thead>
@@ -481,7 +481,7 @@ const Order: React.FC = () => {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-sunset to-purple-600 flex items-center justify-center text-white">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-sunset flex items-center justify-center text-white">
                             {findServiceForOrder(order)?.icon}
                           </div>
                           <div className="ml-4">
@@ -512,9 +512,11 @@ const Order: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                          {t(`orderStatus.${order.status}`)}
+                          {t(`orders.status.${order.status}`)}
                         </span>
                       </td>
+                      
+                     
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 
                           className="text-sunset hover:text-purple-600 transition-colors duration-200"
@@ -524,7 +526,7 @@ const Order: React.FC = () => {
                             setSelectedService(findServiceForOrder(order));
                           }}
                         >
-                          {t('common.details')}
+                          {t('common.actions')}
                         </button>
                       </td>
                     </tr>
@@ -562,10 +564,7 @@ const Order: React.FC = () => {
             onSubmit={async (orderData: OrderFormData) => {
               setIsCreatingOrder(true);
 
-              const loadingToast = toast.loading(
-                t('pages.orders.creatingOrder'),
-                getToastConfig("error")
-              );
+              const loadingToast = toast.loading(t('orders.creating'));
 
               try {
                 // ... existing code ...

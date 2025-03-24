@@ -1,4 +1,177 @@
 {
     "welcome": "Welcome to React",
-    "changeLanguage": "Change Language"
+    "changeLanguage": "Change Language",
+    "common": {
+      "close": "Close",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "submitting": "Submitting...",
+      "wallet": "Wallet",
+      "cash": "Cash",
+      "card": "Credit Card",
+      "error": "An error occurred",
+      "notProvided": "Not provided",
+      "noDescription": "No description available",
+      "unknownService": "Unknown Service",
+      "actions": "Actions",
+      "authError": "Authentication error",
+      "search": "Search",
+      "tryAgain": "Try Again",
+      "processing": "Processing..."
+    },
+    "location": {
+      "pickup": "Pickup Location",
+      "destination": "Destination",
+      "franceOnly": "Note: Currently we only support addresses in France",
+      "enterBothLocations": "Please enter both pickup and destination locations",
+      "noRouteFound": "No route found between these locations",
+      "required": "This field is required",
+      "sameAddressError": "Pickup and destination cannot be the same",
+      "distanceError": "Unable to calculate distance. Please try again.",
+      "notFranchAddress": "Both addresses must be located in France"
+    },
+    "form": {
+      "pickupLocation": "Pickup Location",
+      "destination": "Destination",
+      "scheduledDate": "Scheduled Date",
+      "scheduledTime": "Scheduled Time",
+      "calculating": "Calculating distance...",
+      "calculateDistance": "Calculate Distance"
+    },
+    "orders": {
+      "title": "Orders",
+      "createOrder": "Create Order",
+      "service": "Service",
+      "detailsTab": "Details",
+      "peopleTab": "People",
+      "baseRate": "Base Rate",
+      "distance": "Distance",
+      "distanceRate": "Distance Rate",
+      "estimatedTime": "Estimated Time",
+      "total": "Total",
+      "price": "Price",
+      "priceDetails": "Price Details",
+      "estimatedPrice": "Estimated Price",
+      "actualPrice": "Actual Price",
+      "paymentMethod": "Payment Method",
+      "creationDate": "Created On",
+      "status": {
+        "title": "Status",
+        "pending": "Pending",
+        "active": "Active",
+        "in_transit": "In Transit",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "unknown": "Unknown"
+      },
+      "viewDetails": "View Details",
+      "submitOrder": "Submit Order",
+      "acceptOrder": "Accept Order",
+      "cancelOrder": "Cancel Order",
+      "markComplete": "Mark as Complete",
+      "detailsTitle": "Order Details",
+      "orderId": "Order ID",
+      "createdAt": "Created At",
+      "insufficientFunds": "Insufficient funds in wallet",
+      "confirmCancel": "Are you sure you want to cancel this order?",
+      "customerInfo": "Customer Information",
+      "driverInfo": "Driver Information",
+      "messageDriver": "Message Driver",
+      "messageCustomer": "Message Customer",
+      "messageSent": "Message sent successfully!",
+      "orderDetails": "Order Details",
+      "selectService": "Select a Service",
+      "selectServiceDesc": "Choose from our range of available services",
+      "startingAt": "Starting at {{price}}",
+      "creating": "Creating your order...",
+      "noOrders": "No Orders Found",
+      "createFirstOrder": "Create your first order to get started",
+      "locations": "Locations",
+      "loadError": "Failed to load orders"
+    },
+    "price": {
+      "wallet": "Wallet",
+      "cash": "Cash",
+      "card": "Credit Card",
+      "total": "Total",
+      "baseRate": "Base Rate",
+      "distanceRate": "Distance Rate ({{rate}} × {{distance}} km)",
+      "paymentMethod": "Payment Method",
+      "insufficientFunds": "Insufficient funds"
+    },
+    "payment": {
+      "cardSetupError": "Error setting up card payment",
+      "processingError": "Error processing payment"
+    },
+    "loading": {
+      "walletBalance": "Loading wallet balance..."
+    },
+    "errors": {
+      "submitFailed": "Failed to submit order"
+    },
+    "profile": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email"
+    },
+    "auth": {
+      "profileIncomplete": "Your profile is incomplete",
+      "requiredLogin": "Please login to continue",
+      "logout": "Logout",
+      "loggingOut": "Logging out...",
+      "logoutSuccess": "Successfully logged out",
+      "logoutError": "Error logging out. Please try again."
+    },
+    "wallet": {
+      "title": "Wallet",
+      "balance": "Total Balance",
+      "availableBalance": "Available for transactions",
+      "lastUpdated": "Last updated",
+      "cards": "My Cards",
+      "transactions": "Transactions",
+      "recentTransactions": "Recent Transactions",
+      "paymentMethods": "Payment Methods",
+      "addCard": "Add New Card",
+      "viewAll": "View All",
+      "deposit": "Deposit",
+      "withdrawal": "Withdraw",
+      "transfer": "Transfer",
+      "history": "History",
+      "savingsGoal": "Savings Goal",
+      "quickActions": "Quick Actions",
+      "addFunds": "Add Funds",
+      "selectAmount": "Select Amount",
+      "cardDetails": "Card Details",
+      "addAmount": "Add",
+      "processingPayment": "Processing Payment",
+      "doNotClose": "Please do not close this window",
+      "paymentSuccess": "Payment Successful",
+      "fundsAdded": "Funds have been added to your wallet",
+      "paymentFailed": "Payment Failed",
+      "fundSuccess": "Funds added successfully",
+      "noWallet": "No wallet found. Please contact support.",
+      "authRequired": "You must be logged in to view your wallet",
+      "loadError": "Unable to load wallet data. Please try again later.",
+      "status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed",
+        "processing": "Processing"
+      },
+      "transaction": {
+        "deposit": "Deposit",
+        "withdrawal": "Withdrawal",
+        "payment": "Payment",
+        "earnings": "Earnings",
+        "transfer": "Transfer"
+      }
+    },
+    "notifications": {
+      "rideArriving": "Your ride is arriving",
+      "packageDelivered": "Package #{{id}} has been delivered",
+      "orderConfirmed": "Your order has been confirmed",
+      "justNow": "Just now",
+      "hoursAgo": "{{count}} hours ago",
+      "viewAll": "View All Notifications"
+    }
   }
