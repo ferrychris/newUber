@@ -1,0 +1,19 @@
+{
+  "translation": {
+    "common": {
+      "error": "An error occurred",
+      "success": "Success!",
+      "loading": "Loading...",
+      "service": "Service"
+    },
+    "messages": {
+      "chat": "Message",
+      "noRecipient": "No recipient available for messaging",
+      "orderConversation": "Order Conversation",
+      "noMessages": "No messages yet. Start the conversation!",
+      "typeMessage": "Type a message...",
+      "customer": "Customer",
+      "driver": "Driver"
+    }
+  }
+} 

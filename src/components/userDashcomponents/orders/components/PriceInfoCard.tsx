@@ -18,7 +18,7 @@ const PriceInfoCard: React.FC<PriceInfoCardProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-lg overflow-hidden bg-midnight-800/90 border border-stone-800/50 shadow-lg">
+    <div className="bg-stone-800/50 shadow-lg">
       {/* Header */}
       <div className={`${service.theme.bg} px-4 py-3 flex justify-between items-center`}>
         <h3 className="text-white font-medium">{t('price.estimatedPrice')}</h3>

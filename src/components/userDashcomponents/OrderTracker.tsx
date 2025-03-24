@@ -4,13 +4,14 @@ import { supabase, getCurrentUser } from '../../utils/supabase';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { FaTruck, FaShoppingBag, FaMapMarkerAlt, FaPhoneAlt, FaUser, FaSpinner, FaArrowRight, FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, FaWallet, FaMoneyBill, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaTruck, FaShoppingBag, FaMapMarkerAlt, FaPhoneAlt, FaUser, FaSpinner, FaArrowRight, FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, FaWallet, FaMoneyBill, FaExternalLinkAlt, FaComments } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { ServiceType, Order, Service } from './orders/types';
 import { formatCurrency, formatDate } from '../../utils/i18n';
 import { getStatusConfig } from './orders/utils';
 import toast from 'react-hot-toast';
 import OrderDetailsDialog from './orders/components/OrderDetailsDialog';
+import Message from './Message';
 
 // Custom CSS to fix z-index issues with the map
 const mapContainerStyle = {
@@ -86,6 +87,14 @@ const OrderTracker: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [driverDetails, setDriverDetails] = useState<any | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Messaging feature states
+  const [showMessageDialog, setShowMessageDialog] = useState<boolean>(false);
+  const [messageRecipientId, setMessageRecipientId] = useState<string>('');
+  const [isDriverViewActive, setIsDriverViewActive] = useState<boolean>(false);
+
+  // At the top of the component add this state
+  const [unreadMessageCounts, setUnreadMessageCounts] = useState<{[key: string]: number}>({});
 
   // Fetch current user
   useEffect(() => {
@@ -272,6 +281,11 @@ const OrderTracker: React.FC = () => {
 
   // Handle order selection
   const handleSelectOrder = (order: any) => {
+    // Close any open message dialog
+    setShowMessageDialog(false);
+    setMessageRecipientId('');
+    
+    // Set the selected order
     setSelectedOrder(order);
     fetchOrderLocations(order);
     if (order.driver_id) {
@@ -322,6 +336,35 @@ const OrderTracker: React.FC = () => {
     }
   };
 
+  // Handle open message dialog
+  const handleOpenMessageDialog = () => {
+    if (!selectedOrder) {
+      console.error("No order selected");
+      return;
+    }
+    
+    if (!selectedOrder.driver_id) {
+      toast.error(t('messages.noRecipient'));
+      return;
+    }
+    
+    // Ensure we have a valid driver ID string
+    if (typeof selectedOrder.driver_id !== 'string' || selectedOrder.driver_id.trim() === '') {
+      console.error("Invalid driver ID:", selectedOrder.driver_id);
+      toast.error(t('common.error'));
+      return;
+    }
+    
+    // Set recipient ID and show dialog
+    setMessageRecipientId(selectedOrder.driver_id);
+    setShowMessageDialog(true);
+    
+    console.log("Opening message dialog with:", {
+      orderId: selectedOrder.id,
+      recipientId: selectedOrder.driver_id
+    });
+  };
+
   // Format order status
   const getOrderStatus = (status: string) => {
     const statusConfig = getStatusConfig(status);
@@ -331,6 +374,96 @@ const OrderTracker: React.FC = () => {
       </span>
     );
   };
+
+  // Add this function to fetch unread message counts
+  const fetchUnreadMessageCounts = async () => {
+    if (!orders.length) return;
+    
+    try {
+      const { data: userSession } = await supabase.auth.getSession();
+      if (!userSession?.session?.user) return;
+      
+      const userId = userSession.session.user.id;
+      
+      // Fetch unread message counts for each order
+      const orderIds = orders.map(order => order.id);
+      
+      // Run a raw query to get the counts since group by is not directly supported in the JS client
+      const { data, error } = await supabase
+        .rpc('get_unread_message_counts', { 
+          user_id: userId,
+          order_ids: orderIds 
+        });
+        
+      if (error) {
+        console.error('Error in RPC, falling back to manual count:', error);
+        
+        // Fallback: fetch all unread messages and count manually
+        const { data: messages, error: messagesError } = await supabase
+          .from('messages')
+          .select('order_id')
+          .eq('recipient_id', userId)
+          .eq('read', false)
+          .in('order_id', orderIds);
+          
+        if (messagesError) throw messagesError;
+        
+        if (messages) {
+          const counts: {[key: string]: number} = {};
+          messages.forEach((message: any) => {
+            if (!counts[message.order_id]) {
+              counts[message.order_id] = 0;
+            }
+            counts[message.order_id]++;
+          });
+          setUnreadMessageCounts(counts);
+        }
+        
+        return;
+      }
+      
+      if (data) {
+        const counts: {[key: string]: number} = {};
+        data.forEach((item: any) => {
+          counts[item.order_id] = item.count;
+        });
+        setUnreadMessageCounts(counts);
+      }
+    } catch (error) {
+      console.error('Error fetching unread message counts:', error);
+    }
+  };
+
+  // Call this in useEffect after orders are loaded
+  useEffect(() => {
+    if (orders.length > 0) {
+      fetchUnreadMessageCounts();
+      
+      // Set up subscription for new messages
+      const messageSubscription = supabase
+        .channel('public:messages')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages' 
+        }, () => {
+          // Refresh unread counts when new messages arrive
+          fetchUnreadMessageCounts();
+        })
+        .subscribe();
+        
+      return () => {
+        messageSubscription.unsubscribe();
+      };
+    }
+  }, [orders]);
+
+  // Add cleanup logic for message dialog when selectedOrder changes
+  useEffect(() => {
+    // Reset message dialog state when selected order changes
+    setShowMessageDialog(false);
+    setMessageRecipientId('');
+  }, [selectedOrder]);
 
   return (
     <div className="container mx-auto pb-8">
@@ -544,13 +677,30 @@ const OrderTracker: React.FC = () => {
                       {t('tracking.orderDetails')}
                     </h3>
                     
-                    <button 
-                      onClick={handleOpenOrderDetails}
-                      className="flex items-center text-xs text-purple-600 hover:text-purple-700 font-medium"
-                    >
-                      {t('orders.viewDetails')}
-                      <FaExternalLinkAlt className="ml-1 w-3 h-3" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleOpenOrderDetails}
+                        className="inline-flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                      >
+                        <FaInfoCircle className="mr-1" /> {t('orders.viewDetails')}
+                      </button>
+                      
+                      {/* Message button - only show if we have a driver for the order */}
+                      {selectedOrder && selectedOrder.driver_id && (
+                        <button
+                          onClick={handleOpenMessageDialog}
+                          className="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                        >
+                          <FaComments className="mr-1" /> 
+                          {t('messages.chat')}
+                          {unreadMessageCounts[selectedOrder.id] > 0 && (
+                            <span className="ml-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                              {unreadMessageCounts[selectedOrder.id]}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="space-y-4">
@@ -724,6 +874,29 @@ const OrderTracker: React.FC = () => {
             viewOnly={true}
             onSubmit={async () => {}}
             onCancelOrder={handleCancelOrder}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Message Dialog */}
+      <AnimatePresence>
+        {showMessageDialog === true && 
+         selectedOrder && 
+         selectedOrder.id && 
+         messageRecipientId && 
+         typeof selectedOrder.id === 'string' && 
+         typeof messageRecipientId === 'string' && 
+         selectedOrder.id.trim() !== '' && 
+         messageRecipientId.trim() !== '' && (
+          <Message
+            key="message-dialog"
+            orderId={selectedOrder.id}
+            recipientId={messageRecipientId}
+            isDriver={Boolean(isDriverViewActive)}
+            onClose={() => {
+              setShowMessageDialog(false);
+              setMessageRecipientId('');
+            }}
           />
         )}
       </AnimatePresence>

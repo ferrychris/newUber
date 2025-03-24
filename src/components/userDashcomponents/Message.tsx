@@ -1,284 +1,375 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  FaSearch, FaEllipsisH, FaPaperPlane, FaPaperclip,
-  FaSmile, FaUser, FaCircle, FaCheckDouble, FaMicrophone
-} from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaTimes, FaPaperPlane, FaSpinner, FaUser } from 'react-icons/fa';
+import { useTranslation } from 'react-i18next';
+import { supabase, getCurrentUser } from '../../utils/supabase';
+import toast from 'react-hot-toast';
 
-// Types for our message component
-interface Conversation {
-  id: number;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  isOnline: boolean;
+interface MessageProps {
+  orderId: string;
+  recipientId: string;
+  isDriver: boolean;
+  onClose: () => void;
 }
 
 interface Message {
-  id: number;
-  text: string;
-  time: string;
-  isMe: boolean;
-  isRead: boolean;
+  id: string;
+  order_id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+  read: boolean;
 }
 
-const Message: React.FC = () => {
-  const [activeConversation, setActiveConversation] = useState<number>(1);
-  const [message, setMessage] = useState<string>('');
+const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClose }) => {
+  const { t } = useTranslation();
+  const [error, setError] = useState<string | null>(null);
+  
+  // More robust validation of required props
+  if (!orderId || !recipientId || orderId.trim() === '' || recipientId.trim() === '') {
+    console.error("Message component missing or invalid required props:", { 
+      orderId: orderId ?? 'undefined', 
+      recipientId: recipientId ?? 'undefined',
+      orderId_isEmpty: orderId?.trim() === '',
+      recipientId_isEmpty: recipientId?.trim() === ''
+    });
+    // Close the dialog safely after logging the error
+    setTimeout(onClose, 0);
+    return null;
+  }
+  
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [recipientInfo, setRecipientInfo] = useState<{ name: string; image?: string } | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch current user
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      try {
+        const userSessionStr = localStorage.getItem('userSession');
+        if (userSessionStr) {
+          try {
+            const userSession = JSON.parse(userSessionStr);
+            if (userSession && userSession.id) {
+              setUserId(userSession.id);
+              return;
+            }
+          } catch (e) {
+            console.error("Error parsing localStorage session:", e);
+          }
+        }
 
-  // Demo conversations data
-  const conversations: Conversation[] = [
-    {
-      id: 1,
-      name: 'Sarah Miller',
-      avatar: 'S',
-      lastMessage: 'When will my package arrive?',
-      time: '10:30 AM',
-      unread: 2,
-      isOnline: true
-    },
-    {
-      id: 2,
-      name: 'John Doe',
-      avatar: 'J',
-      lastMessage: 'Thanks for the quick delivery!',
-      time: 'Yesterday',
-      unread: 0,
-      isOnline: false
-    },
-    {
-      id: 3,
-      name: 'Emma Wilson',
-      avatar: 'E',
-      lastMessage: 'I need to change my delivery address',
-      time: 'Yesterday',
-      unread: 1,
-      isOnline: true
-    },
-    {
-      id: 4,
-      name: 'Michael Brown',
-      avatar: 'M',
-      lastMessage: 'Is the driver on the way?',
-      time: 'Tue',
-      unread: 0,
-      isOnline: false
-    },
-    {
-      id: 5,
-      name: 'David Chen',
-      avatar: 'D',
-      lastMessage: 'Package received, thank you!',
-      time: 'Mon',
-      unread: 0,
-      isOnline: true
+        const user = await getCurrentUser();
+        if (user) {
+          setUserId(user.id);
+        } else {
+          setError(t('common.authError'));
+        }
+      } catch (error) {
+        console.error("Error getting user session:", error);
+        setError(t('common.authError'));
+      }
     }
-  ];
+    
+    fetchCurrentUser();
+  }, [t]);
 
-  // Demo messages for the active conversation
-  const messages: Message[] = [
-    {
-      id: 1,
-      text: 'Hello! I was wondering about my recent shipment.',
-      time: '10:22 AM',
-      isMe: false,
-      isRead: true
-    },
-    {
-      id: 2,
-      text: 'Hi Sarah, how can I help you today?',
-      time: '10:25 AM',
-      isMe: true,
-      isRead: true
-    },
-    {
-      id: 3,
-      text: 'When will my package arrive? The tracking shows it\'s in transit.',
-      time: '10:30 AM',
-      isMe: false,
-      isRead: true
-    },
-    {
-      id: 4,
-      text: 'I\'ve checked your shipment. It\'s currently out for delivery and should arrive by 3 PM today.',
-      time: '10:32 AM',
-      isMe: true,
-      isRead: false
+  // Fetch recipient info
+  useEffect(() => {
+    async function fetchRecipientInfo() {
+      if (!recipientId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, profile_image')
+          .eq('id', recipientId)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setRecipientInfo({
+            name: data.full_name || 'Unknown User',
+            image: data.profile_image
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching recipient details:', error);
+        toast.error(t('messages.errorFetchingRecipient'));
+      }
     }
-  ];
+    
+    fetchRecipientInfo();
+  }, [recipientId, t]);
 
-  const handleSendMessage = () => {
-    if (message.trim() === '') return;
-    // In a real app, you would add the message to the conversation
-    // and send it to the server
-    setMessage('');
+  // Fetch existing messages
+  useEffect(() => {
+    if (!orderId || !userId) return;
+    
+    async function fetchMessages() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('order_id', orderId)
+          .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+          .order('created_at', { ascending: true });
+          
+        if (error) throw error;
+        
+        if (data) {
+          setMessages(data);
+          
+          // Mark messages as read
+          const unreadMessages = data.filter(msg => 
+            msg.recipient_id === userId && !msg.read
+          );
+          
+          if (unreadMessages.length > 0) {
+            const unreadIds = unreadMessages.map(msg => msg.id);
+            const { error: updateError } = await supabase
+              .from('messages')
+              .update({ read: true })
+              .in('id', unreadIds);
+              
+            if (updateError) {
+              console.error('Error marking messages as read:', updateError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        setError(t('messages.errorFetching'));
+        toast.error(t('messages.errorFetching'));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchMessages();
+    
+    // Subscribe to new messages with a unique channel name per order
+    const messageSubscription = supabase
+      .channel(`messages-${orderId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages',
+        filter: `order_id=eq.${orderId}`
+      }, (payload) => {
+        // @ts-ignore
+        const newMsg = payload.new as Message;
+        if (newMsg.recipient_id === userId || newMsg.sender_id === userId) {
+          setMessages(prev => [...prev, newMsg]);
+          
+          // Mark message as read if we're the recipient
+          if (newMsg.recipient_id === userId) {
+            supabase
+              .from('messages')
+              .update({ read: true })
+              .eq('id', newMsg.id);
+          }
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      messageSubscription.unsubscribe();
+    };
+  }, [orderId, userId, t]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Handle sending a new message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !userId || !recipientId || !orderId) return;
+    
+    try {
+      setIsSending(true);
+      setError(null);
+      
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          order_id: orderId,
+          sender_id: userId,
+          recipient_id: recipientId,
+          content: newMessage.trim(),
+          read: false
+        });
+        
+      if (error) throw error;
+      
+      setNewMessage('');
+      toast.success(t('messages.sent'));
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError(t('messages.errorSending'));
+      toast.error(t('messages.errorSending'));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Close on escape key
+  useEffect(() => {
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [onClose]);
+
+  // Format date
+  const formatMessageDate = (date: string) => {
+    const messageDate = new Date(date);
+    return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <div className="container mx-auto">
-      <div className="bg-white dark:bg-midnight-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-stone-700/20">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 h-[calc(100vh-12rem)]">
-          {/* Conversation List */}
-          <motion.div 
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="col-span-1 border-r border-gray-200 dark:border-stone-700/20 h-full flex flex-col"
-          >
-            <div className="p-4 border-b border-gray-200 dark:border-stone-700/20">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Messages</h2>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search messages..."
-                  className="w-full bg-gray-100 dark:bg-midnight-700 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 focus:bg-white dark:focus:bg-midnight-600"
-                />
-                <div className="absolute left-3 top-2.5 text-gray-400 dark:text-stone-500">
-                  <FaSearch />
-                </div>
-              </div>
-            </div>
-            
-            <div className="overflow-y-auto flex-1">
-              {conversations.map((conversation) => (
-                <div 
-                  key={conversation.id}
-                  onClick={() => setActiveConversation(conversation.id)}
-                  className={`p-4 border-b border-gray-100 dark:border-stone-700/10 cursor-pointer transition-colors duration-150 ${
-                    activeConversation === conversation.id 
-                      ? 'bg-indigo-50 dark:bg-indigo-900/20' 
-                      : 'hover:bg-gray-50 dark:hover:bg-midnight-700/30'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
-                        {conversation.avatar}
-                      </div>
-                      {conversation.isOnline && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-midnight-800"></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between">
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {conversation.name}
-                        </h3>
-                        <span className="text-xs text-gray-500 dark:text-stone-400">{conversation.time}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-stone-400 truncate">{conversation.lastMessage}</p>
-                    </div>
-                    {conversation.unread > 0 && (
-                      <div className="bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {conversation.unread}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-          
-          {/* Message Thread */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col h-full"
-          >
-            {/* Active Conversation Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-stone-700/20 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
-                    {conversations.find(c => c.id === activeConversation)?.avatar || 'U'}
-                  </div>
-                  {conversations.find(c => c.id === activeConversation)?.isOnline && (
-                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-midnight-800"></div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                    {conversations.find(c => c.id === activeConversation)?.name || 'User'}
-                  </h3>
-                  <div className="flex items-center text-xs text-green-500">
-                    <FaCircle className="w-2 h-2 mr-1" />
-                    <span>Online</span>
-                  </div>
-                </div>
-              </div>
-              <button className="text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-white">
-                <FaEllipsisH />
-              </button>
-            </div>
-            
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((msg) => (
-                <div 
-                  key={msg.id}
-                  className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className="flex flex-col max-w-[75%]">
-                    <div 
-                      className={`px-4 py-3 rounded-2xl ${
-                        msg.isMe 
-                          ? 'bg-indigo-600 text-white rounded-tr-none' 
-                          : 'bg-gray-100 dark:bg-midnight-700 text-gray-800 dark:text-white rounded-tl-none'
-                      }`}
-                    >
-                      <p className="text-sm">{msg.text}</p>
-                    </div>
-                    <div className={`flex items-center mt-1 text-xs text-gray-500 dark:text-stone-400 ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-                      <span>{msg.time}</span>
-                      {msg.isMe && (
-                        <FaCheckDouble className={`ml-1 ${msg.isRead ? 'text-blue-500' : ''}`} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {/* Compose Message */}
-            <div className="p-4 border-t border-gray-200 dark:border-stone-700/20">
-              <div className="flex items-center space-x-2">
-                <button className="text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-white p-2">
-                  <FaPaperclip />
-                </button>
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    className="w-full bg-gray-100 dark:bg-midnight-700 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 focus:bg-white dark:focus:bg-midnight-600 pr-10"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSendMessage();
-                    }}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 20 }}
+          transition={{ duration: 0.2 }}
+          className="bg-white dark:bg-midnight-800 rounded-xl shadow-xl overflow-hidden max-w-lg w-full border border-gray-200 dark:border-stone-600/10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-stone-600/10 bg-purple-600 text-white">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center overflow-hidden">
+                {recipientInfo?.image ? (
+                  <img 
+                    src={recipientInfo.image} 
+                    alt={recipientInfo.name}
+                    className="h-full w-full object-cover"
                   />
-                  <button className="absolute right-3 top-2 text-gray-400 dark:text-stone-500 hover:text-gray-600 dark:hover:text-stone-300">
-                    <FaSmile />
-                  </button>
-                </div>
-                {message.trim() === '' ? (
-                  <button className="text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-white p-2">
-                    <FaMicrophone />
-                  </button>
                 ) : (
-                  <button 
-                    onClick={handleSendMessage}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-2 transition-colors duration-150"
-                  >
-                    <FaPaperPlane />
-                  </button>
+                  <FaUser className="h-5 w-5 text-white" />
                 )}
               </div>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {recipientInfo?.name || (isDriver ? t('messages.customer') : t('messages.driver'))}
+                </h2>
+                <p className="text-xs text-white/80">
+                  {t('messages.orderConversation')}
+                </p>
+              </div>
             </div>
-          </motion.div>
-        </div>
-      </div>
-    </div>
+            <button 
+              className="p-2 text-white/80 hover:text-white rounded-full focus:outline-none focus:ring-2 focus:ring-white/20"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <FaTimes className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {/* Error message */}
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+          
+          {/* Messages */}
+          <div className="p-4 h-80 overflow-y-auto bg-gray-50 dark:bg-midnight-700/30">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-full">
+                <FaSpinner className="animate-spin text-purple-500 h-8 w-8" />
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex justify-center items-center h-full text-gray-500 dark:text-gray-400 text-center">
+                <p>{t('messages.noMessages')}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender_id === userId ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`rounded-lg px-4 py-2 max-w-[80%] break-words ${
+                        message.sender_id === userId
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white dark:bg-midnight-600 text-gray-800 dark:text-white border border-gray-200 dark:border-stone-600/10'
+                      }`}
+                    >
+                      <p>{message.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender_id === userId
+                          ? 'text-purple-100'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {formatMessageDate(message.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+          
+          {/* Input */}
+          <div className="p-3 border-t border-gray-200 dark:border-stone-600/10">
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                className="flex-1 p-2 rounded-full border border-gray-300 dark:border-stone-600 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-midnight-700 dark:text-white"
+                placeholder={t('messages.typeMessage')}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                disabled={isSending}
+              />
+              <button
+                className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || isSending}
+              >
+                {isSending ? (
+                  <FaSpinner className="animate-spin h-5 w-5" />
+                ) : (
+                  <FaPaperPlane className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
