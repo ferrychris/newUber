@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, getCurrentUser } from '../../utils/supabase';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { FaTruck, FaShoppingBag, FaMapMarkerAlt, FaPhoneAlt, FaUser, FaSpinner, FaArrowRight, FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, FaWallet, FaMoneyBill, FaExternalLinkAlt, FaComments } from 'react-icons/fa';
+import { FaSpinner } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import { ServiceType, Order, Service } from './orders/types';
-import { formatCurrency, formatDate } from '../../utils/i18n';
-import { getStatusConfig } from './orders/utils';
+import { ServiceType } from './orders/types';
 import toast from 'react-hot-toast';
 import OrderDetailsDialog from './orders/components/OrderDetailsDialog';
 import Message from './Message';
+import OrderListPanel from './orderTracker/OrderListPanel';
+import OrderMapPanel from './orderTracker/OrderMapPanel';
+import OrderDetailsPanel from './orderTracker/OrderDetailsPanel';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 // Custom CSS to fix z-index issues with the map
 const mapContainerStyle = {
@@ -63,13 +63,13 @@ const destinationIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// Component to recenter map when location changes
-const MapUpdater = ({ center }: { center: [number, number] }) => {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, 14);
-  }, [center, map]);
-  return null;
+// Add this debounce utility at the component level
+const debounce = (fn: Function, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function(this: any, ...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), ms);
+  };
 };
 
 const OrderTracker: React.FC = () => {
@@ -83,18 +83,28 @@ const OrderTracker: React.FC = () => {
   const [pickupLocation, setPickupLocation] = useState<[number, number] | null>(null);
   const [destinationLocation, setDestinationLocation] = useState<[number, number] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [driverDetails, setDriverDetails] = useState<any | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Messaging feature states
   const [showMessageDialog, setShowMessageDialog] = useState<boolean>(false);
-  const [messageRecipientId, setMessageRecipientId] = useState<string>('');
+  const [messageReceiverId, setMessageReceiverId] = useState<string>('');
   const [isDriverViewActive, setIsDriverViewActive] = useState<boolean>(false);
 
   // At the top of the component add this state
   const [unreadMessageCounts, setUnreadMessageCounts] = useState<{[key: string]: number}>({});
+
+  // Add this to control fetch timing and prevent race conditions
+  const fetchController = useRef<AbortController | null>(null);
+
+  // Create debounced versions of frequently called functions
+  const debouncedFetchDriverLocation = useRef(
+    debounce((driverId: string) => fetchDriverLocation(driverId), 500)
+  ).current;
 
   // Fetch current user
   useEffect(() => {
@@ -128,7 +138,7 @@ const OrderTracker: React.FC = () => {
     fetchCurrentUser();
   }, [t]);
 
-  // Fetch active orders
+  // Fetch active orders when userId changes
   useEffect(() => {
     if (userId) {
       fetchActiveOrders();
@@ -150,14 +160,39 @@ const OrderTracker: React.FC = () => {
     }
   }, [selectedOrder]);
 
+  // Call this in useEffect after orders are loaded
+  useEffect(() => {
+    if (orders.length > 0) {
+      fetchUnreadMessageCounts();
+      
+      // Set up subscription for new messages
+      const messageSubscription = supabase
+        .channel('public:messages')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages' 
+        }, () => {
+          // Refresh unread counts when new messages arrive
+          fetchUnreadMessageCounts();
+        })
+        .subscribe();
+        
+      return () => {
+        messageSubscription.unsubscribe();
+      };
+    }
+  }, [orders]);
+
   // Fetch active orders (status = accepted or active, excluding carpooling)
   const fetchActiveOrders = async () => {
     if (!userId) return;
     
+    // Use the specific loading state for subsequent fetches
+    setIsLoadingOrders(true);
+    setError(null);
+    
     try {
-      setIsLoading(true);
-      setError(null);
-      
       // Fetch orders that are accepted or active
       const { data, error } = await supabase
         .from('orders')
@@ -177,24 +212,35 @@ const OrderTracker: React.FC = () => {
         setOrders(deliveryOrders);
         
         // If we have orders and none selected yet, select the first one
-        if (deliveryOrders.length > 0 && !selectedOrder) {
-          setSelectedOrder(deliveryOrders[0]);
-          fetchOrderLocations(deliveryOrders[0]);
-          if (deliveryOrders[0].driver_id) {
-            fetchDriverDetails(deliveryOrders[0].driver_id);
-          }
+        // Or if the previously selected order is no longer in the active list
+        const currentSelectedStillActive = selectedOrder && deliveryOrders.some(o => o.id === selectedOrder.id);
+        if (deliveryOrders.length > 0 && !currentSelectedStillActive) {
+          const firstOrder = deliveryOrders[0];
+          setSelectedOrder(firstOrder);
+          // Use Promise.all to fetch locations and driver details in parallel if possible
+          await Promise.all([
+            fetchOrderLocations(firstOrder),
+            firstOrder.driver_id ? fetchDriverDetails(firstOrder.driver_id) : Promise.resolve()
+          ]);
+        } else if (deliveryOrders.length === 0) {
+            setSelectedOrder(null); // Clear selection if no active orders
+            setDriverDetails(null);
+            setDriverLocation(null);
         }
       }
     } catch (error) {
       console.error('Error fetching active orders:', error);
       setError(t('common.error'));
+      setOrders([]); // Clear orders on error
+      setSelectedOrder(null);
     } finally {
-      setIsLoading(false);
+      // Ensure both loading states are set to false
+      setIsLoading(false); // For initial load
+      setIsLoadingOrders(false); // For subsequent loads
     }
   };
 
   // Simulate fetching driver's current location
-  // In a real app, this would come from a real-time database or API
   const fetchDriverLocation = async (driverId: string) => {
     if (!driverId) return;
     
@@ -259,7 +305,7 @@ const OrderTracker: React.FC = () => {
     }
   };
 
-  // Start polling for location updates
+  // Modify startLocationUpdates to use debounced function
   const startLocationUpdates = () => {
     // Clear any existing interval
     if (timerRef.current) {
@@ -274,25 +320,50 @@ const OrderTracker: React.FC = () => {
     // Set up an interval to fetch location updates every 5 seconds
     timerRef.current = setInterval(() => {
       if (selectedOrder?.driver_id) {
-        fetchDriverLocation(selectedOrder.driver_id);
+        debouncedFetchDriverLocation(selectedOrder.driver_id);
       }
     }, 5000);
   };
 
   // Handle order selection
   const handleSelectOrder = (order: any) => {
+    // Cancel any in-progress fetches
+    if (fetchController.current) {
+      fetchController.current.abort();
+    }
+    
+    // Create a new abort controller for this fetch session
+    fetchController.current = new AbortController();
+    
     // Close any open message dialog
     setShowMessageDialog(false);
-    setMessageRecipientId('');
+    setMessageReceiverId('');
     
     // Set the selected order
     setSelectedOrder(order);
-    fetchOrderLocations(order);
-    if (order.driver_id) {
-      fetchDriverDetails(order.driver_id);
-    } else {
-      setDriverDetails(null);
-    }
+    
+    // Start async fetches with the abort signal
+    const signal = fetchController.current.signal;
+    
+    // Create a fetch wrapper that respects the abort signal
+    const fetchWithSignal = async () => {
+      try {
+        await Promise.all([
+          fetchOrderLocations(order),
+          order.driver_id ? fetchDriverDetails(order.driver_id) : Promise.resolve()
+        ]);
+      } catch (error) {
+        // Check if this is an abort error (user switched selection quickly)
+        if ((error as any)?.name === 'AbortError') {
+          console.log('Fetch was aborted as user changed selection');
+        } else {
+          console.error('Error fetching order data:', error);
+          toast.error(t('common.fetchError'));
+        }
+      }
+    };
+    
+    fetchWithSignal();
   };
 
   // Handle open order details
@@ -319,6 +390,11 @@ const OrderTracker: React.FC = () => {
 
   // Handle order cancellation
   const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm(t('orders.confirmCancel'))) {
+      return;
+    }
+    
+    setIsCancelling(true);
     try {
       const { error } = await supabase
         .from('orders')
@@ -330,9 +406,15 @@ const OrderTracker: React.FC = () => {
       toast.success(t('orders.cancelSuccess'));
       fetchActiveOrders();
       setShowOrderDetailsDialog(false);
+      // If the cancelled order was the selected one, clear selection
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(null);
+      }
     } catch (error) {
       console.error('Error cancelling order:', error);
       toast.error(t('common.error'));
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -355,24 +437,14 @@ const OrderTracker: React.FC = () => {
       return;
     }
     
-    // Set recipient ID and show dialog
-    setMessageRecipientId(selectedOrder.driver_id);
+    // Set receiver ID and show dialog
+    setMessageReceiverId(selectedOrder.driver_id);
     setShowMessageDialog(true);
     
     console.log("Opening message dialog with:", {
       orderId: selectedOrder.id,
-      recipientId: selectedOrder.driver_id
+      receiverId: selectedOrder.driver_id
     });
-  };
-
-  // Format order status
-  const getOrderStatus = (status: string) => {
-    const statusConfig = getStatusConfig(status);
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-        {t(`status.${status}`)}
-      </span>
-    );
   };
 
   // Add this function to fetch unread message counts
@@ -388,44 +460,52 @@ const OrderTracker: React.FC = () => {
       // Fetch unread message counts for each order
       const orderIds = orders.map(order => order.id);
       
-      // Run a raw query to get the counts since group by is not directly supported in the JS client
-      const { data, error } = await supabase
-        .rpc('get_unread_message_counts', { 
+      // Use Promise.race to implement a timeout for the RPC call
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC timeout')), 3000)
+      );
+      
+      try {
+        // Run a raw query to get the counts since group by is not directly supported in the JS client
+        const rpcPromise = supabase.rpc('get_unread_message_counts', { 
           user_id: userId,
           order_ids: orderIds 
         });
         
-      if (error) {
-        console.error('Error in RPC, falling back to manual count:', error);
+        const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
         
-        // Fallback: fetch all unread messages and count manually
-        const { data: messages, error: messagesError } = await supabase
-          .from('messages')
-          .select('order_id')
-          .eq('recipient_id', userId)
-          .eq('read', false)
-          .in('order_id', orderIds);
-          
-        if (messagesError) throw messagesError;
+        if (error) throw error;
         
-        if (messages) {
+        if (data) {
           const counts: {[key: string]: number} = {};
-          messages.forEach((message: any) => {
-            if (!counts[message.order_id]) {
-              counts[message.order_id] = 0;
-            }
-            counts[message.order_id]++;
+          data.forEach((item: any) => {
+            counts[item.order_id] = item.count;
           });
           setUnreadMessageCounts(counts);
+          return;
         }
-        
-        return;
+      } catch (rpcError) {
+        console.warn('RPC call failed or timed out, falling back to manual count:', rpcError);
+        // Continue to fallback
       }
       
-      if (data) {
+      // Fallback: fetch all unread messages and count manually
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select('order_id')
+        .eq('receiver_id', userId)
+        .eq('read', false)
+        .in('order_id', orderIds);
+        
+      if (messagesError) throw messagesError;
+      
+      if (messages) {
         const counts: {[key: string]: number} = {};
-        data.forEach((item: any) => {
-          counts[item.order_id] = item.count;
+        messages.forEach((message: any) => {
+          if (!counts[message.order_id]) {
+            counts[message.order_id] = 0;
+          }
+          counts[message.order_id]++;
         });
         setUnreadMessageCounts(counts);
       }
@@ -434,39 +514,40 @@ const OrderTracker: React.FC = () => {
     }
   };
 
-  // Call this in useEffect after orders are loaded
-  useEffect(() => {
-    if (orders.length > 0) {
-      fetchUnreadMessageCounts();
-      
-      // Set up subscription for new messages
-      const messageSubscription = supabase
-        .channel('public:messages')
-        .on('postgres_changes', { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages' 
-        }, () => {
-          // Refresh unread counts when new messages arrive
-          fetchUnreadMessageCounts();
-        })
-        .subscribe();
-        
-      return () => {
-        messageSubscription.unsubscribe();
-      };
-    }
-  }, [orders]);
-
   // Add cleanup logic for message dialog when selectedOrder changes
   useEffect(() => {
     // Reset message dialog state when selected order changes
     setShowMessageDialog(false);
-    setMessageRecipientId('');
+    setMessageReceiverId('');
   }, [selectedOrder]);
 
+  // Add cleanup for fetch controller on unmount
+  useEffect(() => {
+    return () => {
+      if (fetchController.current) {
+        fetchController.current.abort();
+      }
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // Main render function
+  // Loading state for the entire component
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
+      </div>
+    );
+  }
+  
+  // Main layout
   return (
     <div className="container mx-auto pb-8">
+      {/* Title and Subtitle */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -482,389 +563,52 @@ const OrderTracker: React.FC = () => {
         </p>
       </motion.div>
 
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 p-4 rounded-lg mb-6"
-        >
-          <p>{error}</p>
-        </motion.div>
-      )}
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+        {/* Order List Panel */}
+        <OrderListPanel 
+          orders={orders}
+          isLoading={isLoading}
+          isLoadingOrders={isLoadingOrders}
+          error={error}
+          selectedOrder={selectedOrder}
+          driverDetails={driverDetails}
+          handleSelectOrder={handleSelectOrder}
+        />
 
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
+        {/* Map and Order Details */}
+        <div className="lg:col-span-2">
+          {/* Map Panel */}
+          <OrderMapPanel 
+            selectedOrder={selectedOrder}
+            driverLocation={driverLocation}
+            pickupLocation={pickupLocation}
+            destinationLocation={destinationLocation}
+            driverDetails={driverDetails}
+            isLoadingLocation={isLoadingLocation}
+            mapContainerStyle={mapContainerStyle}
+            mapWrapperStyle={mapWrapperStyle}
+            driverIcon={driverIcon}
+            pickupIcon={pickupIcon}
+            destinationIcon={destinationIcon}
+          />
+          
+          {/* Order Details Panel - Only render if an order is selected */}
+          {selectedOrder && (
+            <OrderDetailsPanel
+              selectedOrder={selectedOrder}
+              unreadMessageCounts={unreadMessageCounts}
+              handleOpenOrderDetails={handleOpenOrderDetails}
+              handleOpenMessageDialog={handleOpenMessageDialog}
+              handleCancelOrder={handleCancelOrder}
+              isCancelling={isCancelling}
+            />
+          )}
         </div>
-      ) : orders.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-midnight-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 text-center"
-        >
-          <div className="mb-4 flex justify-center">
-            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-              <FaTruck className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            </div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            {t('tracking.noOrders')}
-          </h2>
-          <p className="text-gray-500 dark:text-stone-400 mb-6">
-            {t('tracking.noOrdersMessage')}
-          </p>
-        </motion.div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Order List */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden">
-              <div className="p-4 border-b border-gray-100 dark:border-stone-700/20">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                  {t('tracking.activeOrders')}
-                </h2>
-              </div>
-              <div className="divide-y divide-gray-100 dark:divide-stone-700/20 max-h-[400px] overflow-y-auto">
-                {orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors ${
-                      selectedOrder?.id === order.id ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''
-                    }`}
-                    onClick={() => handleSelectOrder(order)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        <div className={`p-2 rounded-lg ${order.services?.name === 'Shopping' ? 'bg-sunset-500/10' : order.services?.name === 'Parcels' ? 'bg-blue-500/10' : 'bg-teal-500/10'}`}>
-                          {order.services?.name === 'Shopping' ? (
-                            <FaShoppingBag className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : 'text-teal-500'}`} />
-                          ) : (
-                            <FaTruck className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : 'text-teal-500'}`} />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {order.services?.name || 'Delivery'}
-                          </p>
-                          <div className="mt-1">
-                            {getOrderStatus(order.status)}
-                          </div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400 mt-1">
-                            {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(order.estimated_price)}
-                        </p>
-                        <div className="flex items-center text-xs mt-1 text-gray-500">
-                          {order.payment_method === 'wallet' ? (
-                            <>
-                              <FaWallet className="w-3 h-3 text-purple-500 mr-1" />
-                              <span>{t('payment.wallet')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <FaMoneyBill className="w-3 h-3 text-green-500 mr-1" />
-                              <span>{t('payment.cash')}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Driver info */}
-            {selectedOrder && driverDetails && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4"
-              >
-                <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
-                  {t('tracking.driverInfo')}
-                </h3>
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center">
-                    {driverDetails.profile_image ? (
-                      <img 
-                        src={driverDetails.profile_image} 
-                        alt={driverDetails.full_name}
-                        className="h-12 w-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <FaUser className="h-6 w-6 text-gray-400 dark:text-gray-600" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {driverDetails.full_name}
-                    </p>
-                    <div className="flex items-center text-sm text-gray-500 dark:text-stone-400 mt-1">
-                      <FaPhoneAlt className="w-3 h-3 mr-1" />
-                      {driverDetails.phone || t('common.notAvailable')}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </div>
+      </div>
 
-          {/* Map and Order Details */}
-          <div className="lg:col-span-2">
-            {selectedOrder ? (
-              <>
-                {/* Map */}
-                <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden h-[400px]" style={mapWrapperStyle}>
-                  {pickupLocation && destinationLocation ? (
-                    <MapContainer
-                      style={mapContainerStyle}
-                      zoom={13}
-                      attributionControl={false}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      />
-                      
-                      {/* Driver marker */}
-                      {driverLocation && (
-                        <Marker position={driverLocation} icon={driverIcon as any}>
-                          <Popup>
-                            <div className="font-medium">{t('tracking.driverLocation')}</div>
-                            <div className="text-sm">{driverDetails?.full_name || t('tracking.driver')}</div>
-                          </Popup>
-                        </Marker>
-                      )}
-                      
-                      {/* Pickup marker */}
-                      <Marker position={pickupLocation} icon={pickupIcon as any}>
-                        <Popup>
-                          <div className="font-medium">{t('location.pickup')}</div>
-                          <div className="text-sm">{selectedOrder.pickup_location}</div>
-                        </Popup>
-                      </Marker>
-                      
-                      {/* Destination marker */}
-                      <Marker position={destinationLocation} icon={destinationIcon as any}>
-                        <Popup>
-                          <div className="font-medium">{t('location.destination')}</div>
-                          <div className="text-sm">{selectedOrder.dropoff_location}</div>
-                        </Popup>
-                      </Marker>
-                      
-                      {/* Update map center when driver location changes */}
-                      <MapUpdater center={driverLocation || pickupLocation} />
-                    </MapContainer>
-                  ) : (
-                    <div className="flex justify-center items-center h-full">
-                      <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Order details */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4"
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-md font-medium text-gray-900 dark:text-white">
-                      {t('tracking.orderDetails')}
-                    </h3>
-                    
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={handleOpenOrderDetails}
-                        className="inline-flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
-                      >
-                        <FaInfoCircle className="mr-1" /> {t('orders.viewDetails')}
-                      </button>
-                      
-                      {/* Message button - only show if we have a driver for the order */}
-                      {selectedOrder && selectedOrder.driver_id && (
-                        <button
-                          onClick={handleOpenMessageDialog}
-                          className="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                        >
-                          <FaComments className="mr-1" /> 
-                          {t('messages.chat')}
-                          {unreadMessageCounts[selectedOrder.id] > 0 && (
-                            <span className="ml-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                              {unreadMessageCounts[selectedOrder.id]}
-                            </span>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Order info */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                          <FaCalendarAlt className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.orderId')}</p>
-                          <p className="text-sm text-gray-900 dark:text-white font-mono">{selectedOrder.id?.slice(0, 8)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-midnight-600/50">
-                          <FaClock className="w-4 h-4 text-gray-500 dark:text-stone-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.createdAt')}</p>
-                          <p className="text-sm text-gray-900 dark:text-white">
-                            {formatDate(new Date(selectedOrder.created_at).toISOString().split('T')[0])}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Locations */}
-                    <div className="space-y-3 mt-4">
-                      <div className="flex items-start">
-                        <div className="min-w-10 pt-1 flex justify-center">
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.pickup')}</p>
-                          <p className="text-sm text-gray-900 dark:text-white font-medium">{selectedOrder.pickup_location}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center ml-5">
-                        <div className="border-l-2 border-dashed border-gray-300 dark:border-stone-600 h-8"></div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <div className="min-w-10 pt-1 flex justify-center">
-                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('location.destination')}</p>
-                          <p className="text-sm text-gray-900 dark:text-white font-medium">{selectedOrder.dropoff_location}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Payment details */}
-                    <div className="mt-4 p-3 bg-gray-50 dark:bg-midnight-700/30 rounded-lg">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.estimatedPrice')}</p>
-                          <p className="text-md font-medium text-gray-900 dark:text-white">{formatCurrency(selectedOrder.estimated_price)}</p>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm text-gray-500 dark:text-stone-400">{t('payment.method')}:</p>
-                          <div className="flex items-center">
-                            {selectedOrder.payment_method === 'wallet' ? (
-                              <>
-                                <FaWallet className="w-4 h-4 text-purple-500 mr-1" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">{t('payment.wallet')}</span>
-                              </>
-                            ) : (
-                              <>
-                                <FaMoneyBill className="w-4 h-4 text-green-500 mr-1" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">{t('payment.cash')}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Delivery status */}
-                  <div className="mt-6 border-t border-gray-100 dark:border-stone-700/20 pt-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <FaInfoCircle className="text-indigo-500 dark:text-indigo-400" />
-                      <h4 className="text-md font-medium text-gray-900 dark:text-white">
-                        {t('tracking.deliveryStatus')}
-                      </h4>
-                    </div>
-                    
-                    <div className="relative">
-                      <div className="flex items-center mb-6">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${selectedOrder.status === 'accepted' || selectedOrder.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                          <FaCheck className="h-4 w-4" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {t('tracking.orderAccepted')}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">
-                            {selectedOrder.status === 'pending' 
-                              ? t('tracking.waitingAcceptance')
-                              : t('tracking.driverAssigned')}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="absolute top-8 left-4 bottom-8 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
-                      
-                      <div className="flex items-center">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${selectedOrder.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                          <FaTruck className="h-4 w-4" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {t('tracking.inTransit')}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-stone-400">
-                            {selectedOrder.status === 'active' 
-                              ? t('tracking.itemInTransit') 
-                              : t('tracking.waitingPickup')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cancel button for pending orders */}
-                  {selectedOrder.status === 'pending' && (
-                    <div className="mt-6 border-t border-gray-100 dark:border-stone-700/20 pt-4 flex justify-end">
-                      <button
-                        onClick={() => {
-                          if (window.confirm(t('orders.confirmCancel'))) {
-                            handleCancelOrder(selectedOrder.id);
-                          }
-                        }}
-                        className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-sm font-medium transition-colors duration-200"
-                      >
-                        {t('orders.cancelOrder')}
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              </>
-            ) : (
-              <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-8 flex items-center justify-center">
-                <div className="text-center">
-                  <FaMapMarkerAlt className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    {t('tracking.selectOrder')}
-                  </h3>
-                  <p className="text-gray-500 dark:text-stone-400">
-                    {t('tracking.selectOrderMessage')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Order Details Dialog */}
+      {/* Dialogs remain in the main component as they overlay everything */}
       <AnimatePresence>
         {showOrderDetailsDialog && selectedOrder && selectedOrderService && (
           <OrderDetailsDialog
@@ -878,24 +622,16 @@ const OrderTracker: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Message Dialog */}
       <AnimatePresence>
-        {showMessageDialog === true && 
-         selectedOrder && 
-         selectedOrder.id && 
-         messageRecipientId && 
-         typeof selectedOrder.id === 'string' && 
-         typeof messageRecipientId === 'string' && 
-         selectedOrder.id.trim() !== '' && 
-         messageRecipientId.trim() !== '' && (
+        {showMessageDialog && selectedOrder && messageReceiverId && messageReceiverId.length > 0 && (
           <Message
-            key="message-dialog"
+            key={`${selectedOrder.id}-${messageReceiverId}`}
             orderId={selectedOrder.id}
-            recipientId={messageRecipientId}
-            isDriver={Boolean(isDriverViewActive)}
+            receiverId={messageReceiverId}
+            isDriver={false}
             onClose={() => {
               setShowMessageDialog(false);
-              setMessageRecipientId('');
+              setMessageReceiverId('');
             }}
           />
         )}
@@ -904,4 +640,4 @@ const OrderTracker: React.FC = () => {
   );
 };
 
-export default OrderTracker; 
+export default OrderTracker;

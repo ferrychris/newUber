@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../../context/AuthContext';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import {
   FaBell,
   FaMoon,
@@ -11,7 +12,8 @@ import {
   FaChevronDown,
   FaCog,
   FaSearch,
-  FaShippingFast
+  FaShippingFast,
+  FaSpinner
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -30,6 +32,7 @@ interface DashNavProps {
 const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const { t, i18n } = useTranslation();
   const { logout } = useAuth();
+  const { userProfile, isLoading } = useUserProfile();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -182,12 +185,44 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                   className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-lg px-2 py-1 transition-colors duration-300"
                 >
                   <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white overflow-hidden">
-                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User Avatar" className="w-full h-full object-cover" />
+                    {isLoading ? (
+                      <FaSpinner className="animate-spin" />
+                    ) : (
+                      userProfile?.full_name ? (
+                        <span>
+                          {typeof userProfile.full_name === 'object' 
+                            ? Object.values(userProfile.full_name)[0] || '?' 
+                            : userProfile.full_name.charAt(0)}
+                        </span>
+                      ) : (
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User Avatar" className="w-full h-full object-cover" />
+                      )
+                    )}
                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-midnight-900"></div>
                   </div>
                   <div className="hidden md:block text-left">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">Michael K.</span>
-                    <p className="text-xs text-gray-500 dark:text-stone-400">Manager</p>
+                    {isLoading ? (
+                      <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {userProfile?.full_name 
+                          ? (typeof userProfile.full_name === 'object'
+                              ? JSON.stringify(userProfile.full_name)
+                              : userProfile.full_name)
+                          : 'User'}
+                      </span>
+                    )}
+                    {isLoading ? (
+                      <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-stone-400">
+                        {userProfile?.role
+                          ? (typeof userProfile.role === 'object'
+                              ? JSON.stringify(userProfile.role)
+                              : userProfile.role)
+                          : 'User'}
+                      </p>
+                    )}
                   </div>
                   <FaChevronDown className="text-gray-500 dark:text-stone-400 text-xs ml-1 hidden md:block" />
                 </button>

@@ -210,24 +210,24 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
     <div className="flex items-start space-x-3 mb-4">
       <div className="flex-shrink-0 w-10 h-10 rounded-full bg-sunset flex items-center justify-center text-white">
         {icon}
-      </div>
-      <div>
+          </div>
+          <div>
         <p className="text-sm text-gray-500 dark:text-stone-400">{label}</p>
         <p className="font-medium text-gray-900 dark:text-white mt-0.5">{value}</p>
-      </div>
-    </div>
+            </div>
+          </div>
   );
   
   const renderContactItem = (icon: React.ReactNode, label: string, value: string) => (
     <div className="flex items-center space-x-3 mb-3">
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-sunset/10 dark:bg-sunset/20 flex items-center justify-center text-sunset">
         {icon}
-      </div>
-      <div>
+            </div>
+            <div>
         <p className="text-xs text-gray-500 dark:text-stone-400">{label}</p>
         <p className="text-sm font-medium text-gray-900 dark:text-white">{value}</p>
-      </div>
-    </div>
+            </div>
+          </div>
   );
   
   // Payment method renderer
@@ -239,7 +239,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
         <div className="flex items-center">
           <FaWallet className="text-purple-500 mr-2" />
           <span>{t('payment.wallet')}</span>
-        </div>
+            </div>
       );
     } else {
       return (
@@ -259,7 +259,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-        </div>
+            </div>
       ) : (
         <>
           {/* Tab Navigation */}
@@ -287,7 +287,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
               </button>
             )}
           </div>
-      
+          
           {activeTab === 'details' && (
             <>
               {/* Service Info */}
@@ -360,21 +360,21 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-gray-700 dark:text-stone-300">{t('orders.estimatedPrice')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.estimated_price)}</span>
-                  </div>
+            </div>
                   
                   {order.actual_price && (
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-gray-700 dark:text-stone-300">{t('orders.actualPrice')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.actual_price)}</span>
-                    </div>
-                  )}
-                  
+        </div>
+      )}
+
                   <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-stone-600/10">
                     <span className="text-gray-700 dark:text-stone-300">{t('payment.method')}</span>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {renderPaymentMethod()}
-                    </div>
-                  </div>
+            </div>
+                </div>
                 </div>
               </div>
               
@@ -391,7 +391,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
           )}
           
           {activeTab === 'people' && (
-            <div>
+                <div>
               {showUserDetails && customer && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -482,8 +482,8 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             >
               {t('orders.completeOrder')}
             </button>
-          )}
-        </div>
+        )}
+      </div>
       )}
     </div>
   );

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 interface MessageProps {
   orderId: string;
-  recipientId: string;
+  receiverId: string;
   isDriver: boolean;
   onClose: () => void;
 }
@@ -16,23 +16,23 @@ interface Message {
   id: string;
   order_id: string;
   sender_id: string;
-  recipient_id: string;
-  content: string;
+  receiver_id: string;
+  message: string;
   created_at: string;
   read: boolean;
 }
 
-const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClose }) => {
+const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClose }) => {
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   
   // More robust validation of required props
-  if (!orderId || !recipientId || orderId.trim() === '' || recipientId.trim() === '') {
+  if (!orderId || !receiverId || orderId.trim() === '' || receiverId.trim() === '') {
     console.error("Message component missing or invalid required props:", { 
       orderId: orderId ?? 'undefined', 
-      recipientId: recipientId ?? 'undefined',
+      receiverId: receiverId ?? 'undefined',
       orderId_isEmpty: orderId?.trim() === '',
-      recipientId_isEmpty: recipientId?.trim() === ''
+      receiverId_isEmpty: receiverId?.trim() === ''
     });
     // Close the dialog safely after logging the error
     setTimeout(onClose, 0);
@@ -50,25 +50,42 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
   // Fetch current user
   useEffect(() => {
     async function fetchCurrentUser() {
+      let fetchedUserId: string | null = null;
       try {
         const userSessionStr = localStorage.getItem('userSession');
         if (userSessionStr) {
           try {
             const userSession = JSON.parse(userSessionStr);
             if (userSession && userSession.id) {
-              setUserId(userSession.id);
-              return;
+              console.log('User ID from localStorage:', userSession.id);
+              fetchedUserId = userSession.id;
+              // Optional: Verify this ID is still valid with Supabase auth?
+            } else {
+               console.log('localStorage session found but no ID');
             }
           } catch (e) {
             console.error("Error parsing localStorage session:", e);
           }
         }
 
-        const user = await getCurrentUser();
-        if (user) {
-          setUserId(user.id);
+        // If not found or potentially invalid, fetch from Supabase auth
+        if (!fetchedUserId) {
+          console.log('Fetching user from Supabase auth...');
+          const user = await getCurrentUser();
+          if (user) {
+            console.log('User ID from Supabase auth:', user.id);
+            fetchedUserId = user.id;
+          } else {
+            console.error('Failed to get user from Supabase auth.');
+            setError(t('common.authError'));
+          }
+        }
+
+        if (fetchedUserId) {
+          setUserId(fetchedUserId);
         } else {
-          setError(t('common.authError'));
+          console.error('Could not determine valid User ID.');
+          // Consider preventing message sending entirely if no valid ID
         }
       } catch (error) {
         console.error("Error getting user session:", error);
@@ -82,13 +99,13 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
   // Fetch recipient info
   useEffect(() => {
     async function fetchRecipientInfo() {
-      if (!recipientId) return;
+      if (!receiverId) return;
       
       try {
         const { data, error } = await supabase
           .from('users')
           .select('id, full_name, profile_image')
-          .eq('id', recipientId)
+          .eq('id', receiverId)
           .single();
           
         if (error) throw error;
@@ -106,7 +123,7 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
     }
     
     fetchRecipientInfo();
-  }, [recipientId, t]);
+  }, [receiverId, t]);
 
   // Fetch existing messages
   useEffect(() => {
@@ -119,19 +136,25 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
         
         const { data, error } = await supabase
           .from('messages')
-          .select('*')
+          .select('id, order_id, sender_id, receiver_id, message, created_at, read')
           .eq('order_id', orderId)
-          .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
           .order('created_at', { ascending: true });
           
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase fetch error:', error);
+          throw error;
+        }
         
         if (data) {
-          setMessages(data);
+          const validMessages = data.map(item => ({
+            ...item,
+            read: item.read ?? false
+          })) as Message[];
+          setMessages(validMessages);
           
-          // Mark messages as read
-          const unreadMessages = data.filter(msg => 
-            msg.recipient_id === userId && !msg.read
+          const unreadMessages = validMessages.filter(msg => 
+            msg.receiver_id === userId && !msg.read
           );
           
           if (unreadMessages.length > 0) {
@@ -147,9 +170,10 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
           }
         }
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        const errorMessage = (error as any)?.message || 'Unknown error fetching messages';
+        console.error('Error fetching messages:', errorMessage);
         setError(t('messages.errorFetching'));
-        toast.error(t('messages.errorFetching'));
+        toast.error(`${t('messages.errorFetching')}: ${errorMessage}`);
       } finally {
         setIsLoading(false);
       }
@@ -157,7 +181,6 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
     
     fetchMessages();
     
-    // Subscribe to new messages with a unique channel name per order
     const messageSubscription = supabase
       .channel(`messages-${orderId}`)
       .on('postgres_changes', { 
@@ -166,17 +189,18 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
         table: 'messages',
         filter: `order_id=eq.${orderId}`
       }, (payload) => {
-        // @ts-ignore
         const newMsg = payload.new as Message;
-        if (newMsg.recipient_id === userId || newMsg.sender_id === userId) {
-          setMessages(prev => [...prev, newMsg]);
+        if (newMsg && newMsg.receiver_id && (newMsg.receiver_id === userId || newMsg.sender_id === userId)) {
+          setMessages(prev => [...prev, { ...newMsg, read: newMsg.read ?? false }]);
           
-          // Mark message as read if we're the recipient
-          if (newMsg.recipient_id === userId) {
+          if (newMsg.receiver_id === userId) {
             supabase
               .from('messages')
               .update({ read: true })
-              .eq('id', newMsg.id);
+              .eq('id', newMsg.id)
+              .then(({ error }) => {
+                 if (error) console.error('Error marking subscribed message as read:', error);
+              });
           }
         }
       })
@@ -194,30 +218,52 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
 
   // Handle sending a new message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !userId || !recipientId || !orderId) return;
+    // Log the state right before attempting to send
+    console.log('Attempting to send message with:', {
+      newMessage: newMessage.trim(),
+      userId, // Current sender ID state
+      receiverId,
+      orderId,
+    });
+    
+    // Explicit check for userId before proceeding
+    if (!newMessage.trim() || !userId || !receiverId || !orderId) {
+      console.error('Cannot send message, missing required data.', {
+         hasMessage: !!newMessage.trim(),
+         hasUserId: !!userId,
+         hasReceiverId: !!receiverId,
+         hasOrderId: !!orderId,
+      });
+      toast.error(t('messages.errorMissingData')); // Add a translation key for this
+      return;
+    }
     
     try {
       setIsSending(true);
       setError(null);
       
+      const messageData = {
+        order_id: orderId,
+        sender_id: userId, // This is the crucial value
+        receiver_id: receiverId,
+        message: newMessage.trim(),
+        read: false
+      };
+      console.log('Inserting message data:', messageData);
+
       const { error } = await supabase
         .from('messages')
-        .insert({
-          order_id: orderId,
-          sender_id: userId,
-          recipient_id: recipientId,
-          content: newMessage.trim(),
-          read: false
-        });
+        .insert(messageData);
         
       if (error) throw error;
       
       setNewMessage('');
       toast.success(t('messages.sent'));
     } catch (error) {
-      console.error('Error sending message:', error);
+      const errorMessage = (error as any)?.message || 'Unknown error sending message';
+      console.error('Error sending message:', error); // Log the full error object
       setError(t('messages.errorSending'));
-      toast.error(t('messages.errorSending'));
+      toast.error(`${t('messages.errorSending')}: ${errorMessage}`);
     } finally {
       setIsSending(false);
     }
@@ -321,7 +367,7 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
                           : 'bg-white dark:bg-midnight-600 text-gray-800 dark:text-white border border-gray-200 dark:border-stone-600/10'
                       }`}
                     >
-                      <p>{message.content}</p>
+                      <p>{message.message}</p>
                       <p className={`text-xs mt-1 ${
                         message.sender_id === userId
                           ? 'text-purple-100'
@@ -373,4 +419,233 @@ const Message: React.FC<MessageProps> = ({ orderId, recipientId, isDriver, onClo
   );
 };
 
+// Create a MessagePage wrapper component for the dashboard route
+const MessagePage: React.FC = () => {
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [messageThreads, setMessageThreads] = useState<any[]>([]);
+  const [selectedThread, setSelectedThread] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchMessageThreads();
+  }, []);
+
+  const fetchMessageThreads = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setError(t('common.authError'));
+        return;
+      }
+
+      // Fetch orders with messages
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .select('order_id, created_at')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (messageError) throw messageError;
+
+      if (messageData && messageData.length > 0) {
+        // Get unique order IDs
+        const uniqueOrderIds = [...new Set(messageData.map(msg => msg.order_id))];
+        
+        // Fetch order details for each order with messages
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('*, services(*)')
+          .in('id', uniqueOrderIds)
+          .order('created_at', { ascending: false });
+          
+        if (orderError) throw orderError;
+        
+        if (orderData) {
+          // Fetch unread message counts - using a different approach without groupBy
+          const { data: unreadData, error: unreadError } = await supabase
+            .from('messages')
+            .select('id, order_id')
+            .eq('receiver_id', user.id)
+            .eq('read', false)
+            .in('order_id', uniqueOrderIds);
+            
+          const unreadCounts: {[key: string]: number} = {};
+          
+          if (!unreadError && unreadData) {
+            // Process the data in JavaScript to count by order_id
+            unreadData.forEach((message: any) => {
+              if (!unreadCounts[message.order_id]) {
+                unreadCounts[message.order_id] = 0;
+              }
+              unreadCounts[message.order_id]++;
+            });
+          }
+          
+          // Fetch the other participant's info for each thread
+          const threads = await Promise.all(orderData.map(async (order) => {
+            // Determine if this user is the customer or driver
+            const isCustomer = order.user_id === user.id;
+            const otherParticipantId = isCustomer ? order.driver_id : order.user_id;
+            
+            let otherParticipant = { full_name: 'Unknown User' };
+            
+            if (otherParticipantId) {
+              const { data: userData } = await supabase
+                .from('users')
+                .select('id, full_name, profile_image')
+                .eq('id', otherParticipantId)
+                .single();
+                
+              if (userData) {
+                otherParticipant = userData;
+              }
+            }
+            
+            // Find the latest message for this order
+            const latestMessage = messageData
+              .filter(msg => msg.order_id === order.id)
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+            
+            return {
+              order,
+              otherParticipant,
+              latestMessage,
+              unreadCount: unreadCounts[order.id] || 0
+            };
+          }));
+          
+          setMessageThreads(threads);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching message threads:', error);
+      setError(t('messages.errorFetching'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloseMessage = () => {
+    setSelectedThread(null);
+    // Refresh the message threads to get updated unread counts
+    fetchMessageThreads();
+  };
+
+  // If a specific thread is selected, show the message component
+  if (selectedThread) {
+    return (
+      <Message
+        orderId={selectedThread.order.id}
+        receiverId={selectedThread.otherParticipant.id}
+        isDriver={false}
+        onClose={handleCloseMessage}
+      />
+    );
+  }
+
+  return (
+    <div className="container mx-auto pb-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
+        <div className="flex items-center mb-4">
+          <FaUser className="text-xl mr-2 text-indigo-600 dark:text-indigo-400" />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            {t('messages.title')}
+          </h1>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400">
+          {t('messages.subtitle')}
+        </p>
+      </motion.div>
+
+      {/* Main Content */}
+      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden">
+        {isLoading ? (
+          <div className="flex justify-center items-center p-8">
+            <FaSpinner className="text-indigo-600 dark:text-indigo-400 animate-spin text-2xl" />
+          </div>
+        ) : error ? (
+          <div className="p-6 text-center text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        ) : messageThreads.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaUser className="text-indigo-600 dark:text-indigo-400 text-2xl" />
+            </div>
+            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
+              {t('messages.noMessages')}
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+              {t('messages.noMessagesDescription')}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-stone-700/20">
+            {messageThreads.map((thread, index) => (
+              <div 
+                key={thread.order.id}
+                onClick={() => setSelectedThread(thread)}
+                className="p-4 hover:bg-gray-50 dark:hover:bg-midnight-700/30 cursor-pointer transition-colors duration-300"
+              >
+                <div className="flex items-start">
+                  <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center overflow-hidden mr-4">
+                    {thread.otherParticipant.profile_image ? (
+                      <img 
+                        src={thread.otherParticipant.profile_image} 
+                        alt={thread.otherParticipant.full_name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FaUser className="h-6 w-6 text-gray-400 dark:text-gray-600" />
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between">
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                        {thread.otherParticipant.full_name}
+                      </h3>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(thread.latestMessage.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
+                      Order: {thread.order.services?.name || 'Delivery'} - {thread.order.id.slice(0, 8)}
+                    </p>
+                    
+                    {thread.unreadCount > 0 && (
+                      <div className="mt-1 flex items-center">
+                        <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {thread.unreadCount}
+                        </span>
+                        <span className="ml-2 text-sm text-red-600 dark:text-red-400">
+                          {t('messages.unreadMessages')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Update the export to use MessagePage for the dashboard route
+export { MessagePage };
 export default Message; 

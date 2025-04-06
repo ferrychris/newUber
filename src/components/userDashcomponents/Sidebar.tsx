@@ -4,9 +4,10 @@ import {
   FaHome, FaClipboardList, FaPlus, FaUser,
   FaBars, FaTimes, FaChartLine, FaWallet,
   FaShippingFast, FaRegFileAlt, FaRegEnvelope, FaBox,
-  FaHeadset, FaCog, FaMapMarkedAlt
+  FaHeadset, FaCog, FaMapMarkedAlt, FaSpinner
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import logo from '../image/Fret.png'
 
 interface SidebarProps {
@@ -26,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const userName = "Michael K."; // This would come from user context/auth
+  const { userProfile, isLoading } = useUserProfile();
 
   const menuItems: MenuItem[] = [
     { 
@@ -183,15 +184,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={`flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-midnight-800/50 transition-all duration-300 cursor-pointer p-2 rounded-lg`}
         >
           <div className="relative">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white">
-              {userName.charAt(0)}
-            </div>
+            {isLoading ? (
+              <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                <FaSpinner className="animate-spin text-gray-400 dark:text-gray-500" />
+              </div>
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white">
+                {userProfile?.full_name ? userProfile.full_name.charAt(0) : '?'}
+              </div>
+            )}
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-midnight-900"></div>
           </div>
           {!isCollapsed && (
             <div className="overflow-hidden">
-              <h3 className="font-medium truncate text-gray-900 dark:text-white">{userName}</h3>
-              <p className="text-xs text-gray-500 dark:text-stone-400 truncate">Manager</p>
+              {isLoading ? (
+                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              ) : (
+                <h3 className="font-medium truncate text-gray-900 dark:text-white">
+                  {userProfile?.full_name ? 
+                    (typeof userProfile.full_name === 'object' ? 
+                      JSON.stringify(userProfile.full_name) : 
+                      userProfile.full_name) 
+                    : 'User'}
+                </h3>
+              )}
+              {isLoading ? (
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-stone-400 truncate">
+                  {userProfile?.role ? 
+                    (typeof userProfile.role === 'object' ? 
+                      JSON.stringify(userProfile.role) : 
+                      userProfile.role) 
+                    : 'User'}
+                </p>
+              )}
             </div>
           )}
         </Link>

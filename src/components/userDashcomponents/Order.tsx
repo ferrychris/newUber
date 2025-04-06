@@ -381,7 +381,7 @@ const Order: React.FC = () => {
         </h1>
         <div className="mt-4 sm:mt-0">
           <button
-            onClick={() => setShowServiceDialog(true)}
+          onClick={() => setShowServiceDialog(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
           >
             {t('orders.createOrder')}
@@ -434,7 +434,7 @@ const Order: React.FC = () => {
             </div>
             <div className="mt-5">
               <button
-                onClick={() => setShowServiceDialog(true)}
+            onClick={() => setShowServiceDialog(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset"
               >
                 {t('orders.createOrder')}
@@ -468,10 +468,10 @@ const Order: React.FC = () => {
               <tbody className="bg-white dark:bg-midnight-800 divide-y divide-gray-200 dark:divide-stone-600/10">
                 {orders.map((order) => {
                   const statusConfig = getStatusConfig(order.status);
-                  
-                  return (
+            
+            return (
                     <tr 
-                      key={order.id} 
+                key={order.id}
                       className="hover:bg-gray-50 dark:hover:bg-midnight-700/50 cursor-pointer transition-colors duration-200"
                       onClick={() => {
                         const orderService = findServiceForOrder(order);
@@ -530,12 +530,12 @@ const Order: React.FC = () => {
                         </button>
                       </td>
                     </tr>
-                  );
-                })}
+            );
+          })}
               </tbody>
             </table>
           </div>
-        </div>
+      </div>
       )}
 
       <AnimatePresence>

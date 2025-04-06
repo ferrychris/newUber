@@ -5,8 +5,10 @@ import DashIndex from '../components/userDashcomponents/DashIndex';
 import DashNav from '../components/userDashcomponents/Dashnav';
 import Order from '../components/userDashcomponents/Order';
 import Wallet from '../components/userDashcomponents/Wallet';
-import Message from '../components/userDashcomponents/Message';
+import { MessagePage } from '../components/userDashcomponents/Message';
 import OrderTracker from '../components/userDashcomponents/OrderTracker';
+import Support from '../components/userDashcomponents/Support';
+import Account from '../components/userDashcomponents/Account';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
@@ -106,7 +108,17 @@ export const UserDash = () => {
                 } />
                 <Route path="message" element={
                   <motion.div {...pageTransition}>
-                    <Message />
+                    <MessagePage />
+                  </motion.div>
+                } />
+                <Route path="support" element={
+                  <motion.div {...pageTransition}>
+                    <Support />
+                  </motion.div>
+                } />
+                <Route path="account" element={
+                  <motion.div {...pageTransition}>
+                    <Account />
                   </motion.div>
                 } />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
