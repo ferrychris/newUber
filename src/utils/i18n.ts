@@ -191,6 +191,62 @@ interface Resources {
         logout: string;
       };
 
+      wallet: {
+        title: string;
+        balance: string;
+        availableBalance: string;
+        lastUpdated: string;
+        addFunds: string;
+        history: string;
+        cards: string;
+        transactions: string;
+        paymentMethods: string;
+        addCard: string;
+        recentTransactions: string;
+        viewAll: string;
+        savingsGoal: string;
+        quickActions: string;
+        deposit: string;
+        withdrawal: string;
+        transfer: string;
+        noWallet: string;
+        authRequired: string;
+        noWalletId: string;
+        loadError: string;
+        createError: string;
+        created: string;
+        selectAmount: string;
+        cardDetails: string;
+        processingPayment: string;
+        paymentSuccess: string;
+        paymentFailed: string;
+        doNotClose: string;
+        fundsAdded: string;
+        addFundsError: string;
+        invalidAmount: string;
+        paymentMethod: string;
+        creditCard: string;
+        bankTransfer: string;
+        securePayment: string;
+        confirmPayment: string;
+        confirmDeposit: string;
+        transaction: {
+          deposit: string;
+          withdrawal: string;
+          payment: string;
+          refund: string;
+          transfer: string;
+          earnings: string;
+        };
+        status: {
+          pending: string;
+          completed: string;
+          failed: string;
+          processing: string;
+          cancelled: string;
+        };
+      };
+
       errors: {
         general: string;
         network: string;
@@ -227,7 +283,64 @@ interface Resources {
         waitingPickup: string;
         selectOrder: string;
         selectOrderMessage: string;
-      };
+      },
+      support: {
+        title: string;
+        subtitle: string;
+        contactUs: string;
+        subject: string;
+        subjectPlaceholder: string;
+        message: string;
+        messagePlaceholder: string;
+        submit: string;
+        submitting: string;
+        ticketSubmitted: string;
+        fillAllFields: string;
+        replySent: string;
+        newTicket: string;
+        myTickets: string;
+        noTickets: string;
+        noTicketsDesc: string;
+        created: string;
+        createTicket: string;
+        typeReply: string;
+        supportTeam: string;
+        contactInfo: string;
+        email: string;
+        phone: string;
+        hours: string;
+        availability: string;
+        faq: {
+          title: string;
+          deliveryTime: {
+            question: string;
+            answer: string;
+          };
+          cancelOrder: {
+            question: string;
+            answer: string;
+          };
+          paymentMethods: {
+            question: string;
+            answer: string;
+          };
+          driverContact: {
+            question: string;
+            answer: string;
+          };
+          lostItem: {
+            question: string;
+            answer: string;
+          };
+        };
+        status: {
+          open: string;
+          in_progress: string;
+          closed: string;
+          resolved: string;
+          pending: string;
+        }
+      }
     };
   };
   fr: {
@@ -420,6 +533,61 @@ const resources: Resources = {
         payment: "Payment Methods",
         logout: "Log Out",
       },
+      wallet: {
+        title: "Wallet",
+        balance: "Balance",
+        availableBalance: "Available Balance",
+        lastUpdated: "Last Updated",
+        addFunds: "Add Funds",
+        history: "Transaction History",
+        cards: "Payment Methods",
+        transactions: "Transactions",
+        paymentMethods: "Payment Methods",
+        addCard: "Add New Card",
+        recentTransactions: "Recent Transactions",
+        viewAll: "View All",
+        savingsGoal: "Savings Goal",
+        quickActions: "Quick Actions",
+        deposit: "Deposit",
+        withdrawal: "Withdrawal",
+        transfer: "Transfer",
+        noWallet: "No wallet found for your account",
+        authRequired: "You need to be logged in to access your wallet",
+        noWalletId: "Wallet ID not found",
+        loadError: "Error loading wallet data",
+        createError: "Error creating wallet",
+        created: "Wallet created successfully",
+        selectAmount: "Select Amount",
+        cardDetails: "Card Details",
+        processingPayment: "Processing Payment",
+        paymentSuccess: "Payment Successful",
+        paymentFailed: "Payment Failed",
+        doNotClose: "Please do not close this window",
+        fundsAdded: "Funds added successfully",
+        addFundsError: "Error adding funds",
+        invalidAmount: "Please enter a valid amount",
+        paymentMethod: "Payment Method",
+        creditCard: "Credit Card",
+        bankTransfer: "Bank Transfer",
+        securePayment: "Secure Payment",
+        confirmPayment: "Confirm Payment",
+        confirmDeposit: "Confirm Deposit",
+        transaction: {
+          deposit: "Deposit",
+          withdrawal: "Withdrawal",
+          payment: "Payment",
+          refund: "Refund",
+          transfer: "Transfer",
+          earnings: "Earnings"
+        },
+        status: {
+          pending: "Pending",
+          completed: "Completed",
+          failed: "Failed",
+          processing: "Processing",
+          cancelled: "Cancelled"
+        }
+      },
       errors: {
         general: "Something went wrong",
         network: "Network error. Please check your connection",
@@ -461,6 +629,63 @@ const resources: Resources = {
         waitingPickup: "Waiting for Pickup",
         selectOrder: "Select Order",
         selectOrderMessage: "Select an order to track"
+      },
+      support: {
+        title: "Support",
+        subtitle: "Get help with your orders and account",
+        contactUs: "Contact Us",
+        subject: "Subject",
+        subjectPlaceholder: "What do you need help with?",
+        message: "Message",
+        messagePlaceholder: "Please describe your issue in detail...",
+        submit: "Submit Ticket",
+        submitting: "Submitting...",
+        ticketSubmitted: "Your ticket has been submitted successfully",
+        fillAllFields: "Please fill all required fields",
+        replySent: "Your reply has been sent",
+        newTicket: "New Ticket",
+        myTickets: "My Tickets",
+        noTickets: "No Support Tickets",
+        noTicketsDesc: "You haven't created any support tickets yet",
+        created: "Created",
+        createTicket: "Create Ticket",
+        typeReply: "Type your reply here...",
+        supportTeam: "Support Team",
+        contactInfo: "Contact Information",
+        email: "Email",
+        phone: "Phone",
+        hours: "Hours",
+        availability: "Mon-Fri, 9am-5pm CET",
+        faq: {
+          title: "Frequently Asked Questions",
+          deliveryTime: {
+            question: "How long does delivery take?",
+            answer: "Delivery times vary based on distance and service type. Most local deliveries are completed within 1-2 hours."
+          },
+          cancelOrder: {
+            question: "How do I cancel an order?",
+            answer: "You can cancel an order from your Orders page as long as it's still in 'Pending' status. Once a driver has been assigned, cancellation may incur a fee."
+          },
+          paymentMethods: {
+            question: "What payment methods are accepted?",
+            answer: "We accept payments via Wallet (prepaid balance), cash on delivery, and major credit/debit cards."
+          },
+          driverContact: {
+            question: "How do I contact my driver?",
+            answer: "Once a driver is assigned to your order, you can message them directly through the messaging system in your order details."
+          },
+          lostItem: {
+            question: "What if an item is lost or damaged?",
+            answer: "Please contact our support team immediately. We offer insurance coverage for most shipments and will work to resolve the issue quickly."
+          }
+        },
+        status: {
+          open: "Open",
+          in_progress: "In Progress",
+          closed: "Closed",
+          resolved: "Resolved",
+          pending: "Pending"
+        }
       }
     }
   },
@@ -471,8 +696,72 @@ const resources: Resources = {
   }
 };
 
+// Add support section to the English translations
+resources.en.translation.support = {
+  title: "Support",
+  subtitle: "Get help with your orders and account",
+  contactUs: "Contact Us",
+  subject: "Subject",
+  subjectPlaceholder: "What do you need help with?",
+  message: "Message",
+  messagePlaceholder: "Please describe your issue in detail...",
+  submit: "Submit Ticket",
+  submitting: "Submitting...",
+  ticketSubmitted: "Your ticket has been submitted successfully",
+  fillAllFields: "Please fill all required fields",
+  replySent: "Your reply has been sent",
+  newTicket: "New Ticket",
+  myTickets: "My Tickets",
+  noTickets: "No Support Tickets",
+  noTicketsDesc: "You haven't created any support tickets yet",
+  created: "Created",
+  createTicket: "Create Ticket",
+  typeReply: "Type your reply here...",
+  supportTeam: "Support Team",
+  contactInfo: "Contact Information",
+  email: "Email",
+  phone: "Phone",
+  hours: "Hours",
+  availability: "Mon-Fri, 9am-5pm CET",
+  faq: {
+    title: "Frequently Asked Questions",
+    deliveryTime: {
+      question: "How long does delivery take?",
+      answer: "Delivery times vary based on distance and service type. Most local deliveries are completed within 1-2 hours."
+    },
+    cancelOrder: {
+      question: "How do I cancel an order?",
+      answer: "You can cancel an order from your Orders page as long as it's still in 'Pending' status. Once a driver has been assigned, cancellation may incur a fee."
+    },
+    paymentMethods: {
+      question: "What payment methods are accepted?",
+      answer: "We accept payments via Wallet (prepaid balance), cash on delivery, and major credit/debit cards."
+    },
+    driverContact: {
+      question: "How do I contact my driver?",
+      answer: "Once a driver is assigned to your order, you can message them directly through the messaging system in your order details."
+    },
+    lostItem: {
+      question: "What if an item is lost or damaged?",
+      answer: "Please contact our support team immediately. We offer insurance coverage for most shipments and will work to resolve the issue quickly."
+    }
+  },
+  status: {
+    open: "Open",
+    in_progress: "In Progress",
+    closed: "Closed",
+    resolved: "Resolved",
+    pending: "Pending"
+  }
+};
+
 // Function to detect user's language based on location
 export async function detectUserLanguage(): Promise<string> {
+  // Always return English regardless of location
+  return 'en';
+  
+  // Original implementation commented out
+  /*
   try {
     const response = await fetch('https://ipapi.co/json/');
     const data = await response.json() as IpApiResponse;
@@ -484,6 +773,7 @@ export async function detectUserLanguage(): Promise<string> {
     console.error('Error detecting user location:', error);
     return 'en'; // Default to English
   }
+  */
 }
 
 // Function to get location configuration
@@ -502,10 +792,14 @@ i18n
   .use(initReactI18next)
   .init({
     resources: resources as unknown as Resource,
-    lng: 'en', // Default language
+    lng: 'en', // Always use English
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
+    },
+    detection: {
+      order: [], // Disable auto detection
+      caches: [] // Disable caching
     }
   } as InitOptions);
 

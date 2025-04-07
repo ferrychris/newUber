@@ -77,13 +77,13 @@ const OrderMapPanel: React.FC<OrderMapPanelProps> = memo(({
   // Display a placeholder when no order is selected
   if (!selectedOrder) {
     return (
-      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-8 flex items-center justify-center h-full">
+      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4 sm:p-8 flex items-center justify-center h-[300px] sm:h-[400px]">
         <div className="text-center">
-          <FaMapMarkerAlt className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <FaMapMarkerAlt className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
             {t('tracking.selectOrder')}
           </h3>
-          <p className="text-gray-500 dark:text-stone-400">
+          <p className="text-sm text-gray-500 dark:text-stone-400 max-w-xs mx-auto">
             {t('tracking.selectOrderMessage')}
           </p>
         </div>
@@ -92,7 +92,7 @@ const OrderMapPanel: React.FC<OrderMapPanelProps> = memo(({
   }
   
   return (
-    <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden h-[400px]" style={mapWrapperStyle}>
+    <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden h-[300px] sm:h-[400px]" style={mapWrapperStyle}>
       {pickupLocation && destinationLocation ? (
         <MapContainer
           style={mapContainerStyle}

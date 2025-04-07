@@ -23,7 +23,7 @@ const PriceInfoCard: React.FC<PriceInfoCardProps> = ({ distanceResult, service, 
     <div className="bg-white dark:bg-midnight-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-stone-600/10">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {t('order.priceBreakdown')}
+          {t('Price Breakdown')}
         </h3>
         <FaInfoCircle className="text-gray-400 dark:text-gray-500" />
       </div>

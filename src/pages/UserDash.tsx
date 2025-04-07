@@ -9,6 +9,7 @@ import { MessagePage } from '../components/userDashcomponents/Message';
 import OrderTracker from '../components/userDashcomponents/OrderTracker';
 import Support from '../components/userDashcomponents/Support';
 import Account from '../components/userDashcomponents/Account';
+import MobileNavigation from '../components/userDashcomponents/MobileNavigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
@@ -36,6 +37,10 @@ export const UserDash = () => {
   const handleCloseSidebar = () => {
     setIsSidebarOpen(false);
   };
+  
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen(prev => !prev);
+  };
 
   const pageTransition = {
     initial: { opacity: 0, y: 20 },
@@ -57,22 +62,32 @@ export const UserDash = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-midnight-900">
-      {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />
+      {/* Sidebar - Now with responsive behavior */}
+      <div className={`${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto'} fixed inset-y-0 left-0 z-40 transition-all duration-300 transform`}>
+        <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />
+      </div>
+      
+      {/* Sidebar Overlay - Mobile Only */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={handleCloseSidebar}
+        ></div>
+      )}
       
       {/* Main Content */}
       <motion.div 
-        className="flex-1 lg:ml-64 relative"
+        className={`flex-1 lg:ml-64 relative transition-all duration-300`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
         {/* Navigation */}
-        <DashNav />
+        <DashNav isSidebarOpen={isSidebarOpen} onToggleSidebar={handleToggleSidebar} />
         
         {/* Page Content */}
         <motion.div 
-          className="pt-20 px-4 lg:px-6 pb-6"
+          className="pt-20 px-4 lg:px-6 pb-24 md:pb-6"
           variants={pageTransition}
           initial="initial"
           animate="animate"
@@ -126,6 +141,9 @@ export const UserDash = () => {
             </AnimatePresence>
           </main>
         </motion.div>
+        
+        {/* Mobile Navigation */}
+        <MobileNavigation />
       </motion.div>
     </div>
   );

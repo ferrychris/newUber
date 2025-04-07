@@ -4,10 +4,10 @@ import { Link } from "react-router-dom";
 import { FaShieldAlt, FaMapMarkerAlt, FaClock, FaEuroSign } from "react-icons/fa";
 
 const features = [
-  { icon: <FaShieldAlt className="w-6 h-6 text-sunset" />, title: "Sécurité Garantie", description: "Transport sécurisé pour tous vos besoins" },
-  { icon: <FaMapMarkerAlt className="w-6 h-6 text-green-500" />, title: "Suivi en Temps Réel", description: "Suivez vos livraisons en direct" },
-  { icon: <FaClock className="w-6 h-6 text-purple-500" />, title: "Service 24/7", description: "Disponible à tout moment" },
-  { icon: <FaEuroSign className="w-6 h-6 text-sunset" />, title: "Prix Compétitifs", description: "Tarifs transparents dès 0,50€/km" }
+  { icon: <FaShieldAlt className="w-6 h-6 text-sunset" />, title: "Guaranteed Security", description: "Secure transport for all your needs" },
+  { icon: <FaMapMarkerAlt className="w-6 h-6 text-green-500" />, title: "Real-Time Tracking", description: "Follow your deliveries live" },
+  { icon: <FaClock className="w-6 h-6 text-purple-500" />, title: "24/7 Service", description: "Available anytime" },
+  { icon: <FaEuroSign className="w-6 h-6 text-sunset" />, title: "Competitive Prices", description: "Transparent rates from €0.50/km" }
 ];
 
 const Hero = () => {
@@ -23,20 +23,20 @@ const Hero = () => {
           {/* Left Column - Text Content */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
             <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white sm:text-5xl md:text-6xl mt-[30px]">
-              <span className="block">Solutions de Transport</span>
+              <span className="block">Transport Solutions</span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-sunset to-purple-500">
-                Simples et Efficaces
+                Simple and Efficient
               </span>
             </h1>
             <p className="mt-9 text-lg text-gray-600 dark:text-gray-300 max-w-xl">
-              Des services de transport adaptés à vos besoins : covoiturage, livraison de courses, transport d'objets volumineux.
+              Transport services tailored to your needs: carpooling, shopping delivery, and large item transportation.
             </p>
             <div className="mt-8 flex gap-4">
               <Link to="/register" className="px-6 py-3 rounded-md text-white bg-gradient-to-r from-sunset to-purple-500 hover:opacity-90 font-medium">
-                Commander maintenant
+                Order Now
               </Link>
               <Link to="/services" className="px-6 py-3 rounded-md border border-sunset text-sunset hover:bg-sunset/10 font-medium">
-                Nos Services
+                Our Services
               </Link>
             </div>
           </motion.div>

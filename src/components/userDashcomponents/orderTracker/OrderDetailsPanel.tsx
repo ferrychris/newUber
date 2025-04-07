@@ -84,7 +84,7 @@ const OrderInfo = memo(({ selectedOrder }: { selectedOrder: any }) => {
           <FaClock className="w-4 h-4 text-gray-500 dark:text-stone-400" />
         </div>
         <div>
-          <p className="text-sm text-gray-500 dark:text-stone-400">{t('orders.createdAt')}</p>
+          <p className="text-sm text-gray-500 dark:text-stone-400">{t('CreatedAt')}</p>
           <p className="text-sm text-gray-900 dark:text-white">
             {formatDate(new Date(selectedOrder.created_at).toISOString().split('T')[0])}
           </p>
@@ -227,7 +227,7 @@ const ActionButtons = memo(({
       {selectedOrder.status === 'pending' && (
         <button
           onClick={() => handleCancelOrder(selectedOrder.id)}
-          className="btn btn-danger flex-1 flex items-center justify-center gap-2"
+          className="btn btn-danger flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm"
           disabled={isCancelling}
         >
           {isCancelling ? <FaSpinner className="animate-spin" /> : <FaTimes />}
@@ -236,7 +236,7 @@ const ActionButtons = memo(({
       )}
       <button
         onClick={handleOpenMessageDialog}
-        className={`btn btn-secondary flex-1 flex items-center justify-center gap-2 ${!selectedOrder.driver_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`btn btn-secondary flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm ${!selectedOrder.driver_id ? 'opacity-50 cursor-not-allowed' : ''}`}
         disabled={!selectedOrder.driver_id}
         title={!selectedOrder.driver_id ? t('messages.noDriverAssigned') : t('messages.contactDriver')}
       >
@@ -264,7 +264,7 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = memo((props) => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4"
+      className="mt-4 sm:mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-3 sm:p-4"
     >
       <OrderHeader 
         handleOpenOrderDetails={handleOpenOrderDetails}
@@ -273,7 +273,7 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = memo((props) => {
         unreadMessageCounts={unreadMessageCounts}
       />
       
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {/* Order info */}
         <OrderInfo selectedOrder={selectedOrder} />
         

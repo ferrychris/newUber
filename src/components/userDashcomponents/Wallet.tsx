@@ -8,7 +8,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { getUserWallet, getWalletTransactions } from '../../utils/stripe';
 import { toast } from 'react-toastify';
-import { useTranslation } from 'react-i18next';
 import { supabase } from '../../utils/supabase';
 import WalletFundDialog from './WalletFundDialog';
 
@@ -45,7 +44,6 @@ interface WalletData {
 }
 
 const Wallet: React.FC = () => {
-  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const [activeView, setActiveView] = useState<'cards'|'transactions'>('cards');
   const [loading, setLoading] = useState(true);
@@ -57,11 +55,11 @@ const Wallet: React.FC = () => {
   // Fetch wallet data when the component mounts
   useEffect(() => {
     fetchWalletData();
-  }, [isAuthenticated, user, t]);
+  }, [isAuthenticated, user]);
 
   const fetchWalletData = async () => {
     if (!isAuthenticated || !user) {
-      toast.error(t('wallet.authRequired'));
+      toast.error('Authentication required. Please login.');
       setLoading(false);
       return;
     }
@@ -79,7 +77,7 @@ const Wallet: React.FC = () => {
       
       if (error) {
         console.error('Error fetching wallet:', error);
-        toast.error(t('wallet.loadError'));
+        toast.error('Failed to load wallet data');
         setLoading(false);
         return;
       }
@@ -101,13 +99,13 @@ const Wallet: React.FC = () => {
         
         if (createError) {
           console.error('Error creating wallet:', createError);
-          toast.error(t('wallet.createError'));
+          toast.error('Failed to create wallet');
           setLoading(false);
           return;
         }
 
         walletData = newWallet;
-        toast.success(t('wallet.created'));
+        toast.success('Wallet created successfully');
       } else {
         walletData = data;
       }
@@ -139,7 +137,7 @@ const Wallet: React.FC = () => {
       fetchTransactionHistory(walletData.id);
     } catch (error) {
       console.error('Error in wallet data process:', error);
-      toast.error(t('wallet.loadError'));
+      toast.error('Failed to load wallet data');
       setLoading(false);
     }
   };
@@ -214,7 +212,7 @@ const Wallet: React.FC = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'EUR',
       minimumFractionDigits: 2
     }).format(amount);
   };
@@ -253,12 +251,12 @@ const Wallet: React.FC = () => {
 
   const handleAddFunds = () => {
     if (!isAuthenticated) {
-      toast.error(t('wallet.authRequired'));
+      toast.error('Authentication required. Please login.');
       return;
     }
     
     if (!walletId) {
-      toast.error(t('wallet.noWalletId'));
+      toast.error('No wallet ID found');
       return;
     }
     
@@ -273,7 +271,7 @@ const Wallet: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto p-6 flex justify-center items-center h-64">
-        <div className="animate-pulse text-sunset">{t('loading.walletBalance')}</div>
+        <div className="animate-pulse text-sunset">Loading wallet balance...</div>
       </div>
     );
   }
@@ -282,7 +280,7 @@ const Wallet: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
-          <p>{t('wallet.authRequired')}</p>
+          <p>Authentication required. Please login to access your wallet.</p>
         </div>
       </div>
     );
@@ -292,7 +290,7 @@ const Wallet: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
-          <p>{t('wallet.noWallet')}</p>
+          <p>No wallet found for your account.</p>
         </div>
       </div>
     );
@@ -321,14 +319,14 @@ const Wallet: React.FC = () => {
         className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6"
       >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('wallet.title')}</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Wallet</h2>
           <div className="flex items-center gap-3">
             <button 
               className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
               onClick={() => setActiveView('transactions')}
             >
               <FaHistory />
-              <span>{t('wallet.history')}</span>
+              <span>Transaction History</span>
             </button>
             <button 
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
@@ -336,7 +334,7 @@ const Wallet: React.FC = () => {
               disabled={loading}
             >
               <FaPlusCircle />
-              <span>{t('wallet.addFunds')}</span>
+              <span>Add Funds</span>
             </button>
           </div>
         </div>
@@ -350,16 +348,16 @@ const Wallet: React.FC = () => {
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <FaWallet className="text-white" />
               </div>
-              <h3 className="text-lg font-medium">{t('wallet.balance')}</h3>
+              <h3 className="text-lg font-medium">Balance</h3>
             </div>
             
             <div className="text-3xl font-bold mb-3">{formatCurrency(wallet.balance)}</div>
             
             <div className="flex items-center text-white/70 text-sm">
               <FaChartLine className="mr-1" />
-              <span>{t('wallet.availableBalance')}</span>
+              <span>Available Balance</span>
               {wallet.last_updated && (
-                <span className="ml-2 text-xs">{t('wallet.lastUpdated')}: {formatDate(wallet.last_updated)}</span>
+                <span className="ml-2 text-xs">Last Updated: {formatDate(wallet.last_updated)}</span>
               )}
             </div>
           </div>
@@ -376,7 +374,7 @@ const Wallet: React.FC = () => {
           }`}
           onClick={() => setActiveView('cards')}
         >
-          {t('wallet.cards')}
+          Payment Cards
         </button>
         <button 
           className={`py-3 px-4 font-medium text-sm border-b-2 ${
@@ -386,7 +384,7 @@ const Wallet: React.FC = () => {
           }`}
           onClick={() => setActiveView('transactions')}
         >
-          {t('wallet.transactions')}
+          Transactions
         </button>
       </div>
 
@@ -401,9 +399,9 @@ const Wallet: React.FC = () => {
               className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('wallet.paymentMethods')}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Methods</h3>
                 <button className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-500 text-sm font-medium">
-                  + {t('wallet.addCard')}
+                  + Add Card
                 </button>
               </div>
               
@@ -442,16 +440,16 @@ const Wallet: React.FC = () => {
               className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('wallet.recentTransactions')}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
                 <button className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-500 text-sm font-medium">
-                  {t('wallet.viewAll')}
+                  View All
                 </button>
               </div>
               
               <div className="space-y-4">
                 {transactions.length === 0 ? (
                   <div className="text-center p-4 text-gray-500 dark:text-stone-400">
-                    {t('common.noDescription')}
+                    No transactions found
                   </div>
                 ) : (
                   transactions.map(transaction => (
@@ -466,7 +464,7 @@ const Wallet: React.FC = () => {
                         
                         <div>
                           <p className="text-gray-900 dark:text-white font-medium capitalize">
-                            {t(`wallet.transaction.${transaction.type}`)}
+                            {transaction.type}
                           </p>
                           <p className="text-gray-500 dark:text-stone-400 text-sm">{transaction.date}</p>
                         </div>
@@ -482,7 +480,7 @@ const Wallet: React.FC = () => {
                           {formatCurrency(transaction.amount)}
                         </p>
                         <span className={`text-xs px-2 py-0.5 rounded ${getTransactionStatusStyle(transaction.status)}`}>
-                          {t(`wallet.status.${transaction.status}`)}
+                          {transaction.status}
                         </span>
                       </div>
           </div>
@@ -500,7 +498,7 @@ const Wallet: React.FC = () => {
             animate={{ opacity: 1, y: 0, transition: { delay: 0.2 } }}
             className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6"
           >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('wallet.savingsGoal')}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Savings Goal</h3>
             
             <div className="relative pt-1">
               <div className="flex mb-2 items-center justify-between">
@@ -531,7 +529,7 @@ const Wallet: React.FC = () => {
             animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
             className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
           >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('wallet.quickActions')}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
             
             <div className="grid grid-cols-2 gap-3">
               <button 
@@ -539,17 +537,17 @@ const Wallet: React.FC = () => {
                 onClick={handleAddFunds}
               >
                 <FaMoneyBillWave className="text-xl mb-1" />
-                <span className="text-xs font-medium">{t('wallet.deposit')}</span>
+                <span className="text-xs font-medium">Deposit</span>
               </button>
               
               <button className="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-lg flex flex-col items-center hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors duration-300">
                 <FaArrowUp className="text-xl mb-1" />
-                <span className="text-xs font-medium">{t('wallet.withdrawal')}</span>
+                <span className="text-xs font-medium">Withdrawal</span>
               </button>
               
               <button className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg flex flex-col items-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-300">
                 <FaExchangeAlt className="text-xl mb-1" />
-                <span className="text-xs font-medium">{t('wallet.transfer')}</span>
+                <span className="text-xs font-medium">Transfer</span>
               </button>
               
               <button 
@@ -557,7 +555,7 @@ const Wallet: React.FC = () => {
                 onClick={() => setActiveView('transactions')}
               >
                 <FaHistory className="text-xl mb-1" />
-                <span className="text-xs font-medium">{t('wallet.history')}</span>
+                <span className="text-xs font-medium">History</span>
               </button>
             </div>
     </motion.div>

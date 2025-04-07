@@ -128,11 +128,11 @@ export default function FeatureSection() {
                   <feature.icon className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900">
-                  {t(feature.title)}
+                  {t(`${feature.title}`)}
                 </h3>
               </div>
               <p className="text-gray-600">
-                {t(feature.description)}
+                {t(`${feature.description}`)}
               </p>
             </div>
           </motion.div>

@@ -31,13 +31,13 @@ const OrderItem = memo(({
   
   return (
     <div
-      className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors ${
+      className={`p-3 sm:p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors ${
         isSelected ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''
       }`}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start space-x-2 sm:space-x-3">
           <div className={`p-2 rounded-lg ${order.services?.name === 'Shopping' ? 'bg-sunset-500/10' : order.services?.name === 'Parcels' ? 'bg-blue-500/10' : 'bg-teal-500/10'}`}>
             {order.services?.name === 'Shopping' ? (
               <FaShoppingBag className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : 'text-teal-500'}`} />
@@ -46,13 +46,13 @@ const OrderItem = memo(({
             )}
           </div>
           <div>
-            <p className="font-medium text-gray-900 dark:text-white">
+            <p className="font-medium text-gray-900 dark:text-white text-sm">
               {order.services?.name || 'Delivery'}
             </p>
             <div className="mt-1">
               {getOrderStatus(order.status)}
             </div>
-            <p className="text-sm text-gray-500 dark:text-stone-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
               {formatDate(new Date(order.created_at).toISOString().split('T')[0])}
             </p>
           </div>
@@ -61,7 +61,7 @@ const OrderItem = memo(({
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {formatCurrency(order.estimated_price)}
           </p>
-          <div className="flex items-center text-xs mt-1 text-gray-500">
+          <div className="flex items-center justify-end text-xs mt-1 text-gray-500">
             {order.payment_method === 'wallet' ? (
               <>
                 <FaWallet className="w-3 h-3 text-purple-500 mr-1" />
@@ -97,8 +97,8 @@ const OrderListPanel: React.FC<OrderListPanelProps> = memo(({
   const getOrderStatus = useCallback((status: string) => {
     const statusConfig = getStatusConfig(status);
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-        {t(`status.${status}`)}
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
+        {t(`orders.status.${status}`)}
       </span>
     );
   }, [t]);
@@ -114,12 +114,12 @@ const OrderListPanel: React.FC<OrderListPanelProps> = memo(({
   return (
     <div className="lg:col-span-1">
       <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-stone-700/20">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-stone-700/20">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
             {t('tracking.activeOrders')}
           </h2>
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-stone-700/20 max-h-[400px] overflow-y-auto">
+        <div className="divide-y divide-gray-100 dark:divide-stone-700/20 max-h-[350px] sm:max-h-[400px] overflow-y-auto">
           {/* Loading indicator for order list */}
           {isLoadingOrders && (
             <div className="flex justify-center items-center py-4">
@@ -137,9 +137,9 @@ const OrderListPanel: React.FC<OrderListPanelProps> = memo(({
           {/* Order list or empty state */}
           {!isLoading && !isLoadingOrders && orders.length === 0 && !error && (
             <div className="text-center text-gray-500 dark:text-gray-400 p-6">
-              <FaShoppingBag className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-2" />
+              <FaShoppingBag className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500 mb-2" />
               <p className="text-sm">{t('tracking.noOrders')}</p>
-              <p className="text-xs text-gray-400 dark:text-stone-500">{t('tracking.noOrdersMessageList')}</p>
+              <p className="text-xs text-gray-400 dark:text-stone-500 mt-1">{t('tracking.noOrdersMessageList')}</p>
             </div>
           )}
           
@@ -176,13 +176,13 @@ const OrderListPanel: React.FC<OrderListPanelProps> = memo(({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4"
+          className="mt-4 sm:mt-6 bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-3 sm:p-4"
         >
           <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
             {t('tracking.driverInfo')}
           </h3>
           <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center overflow-hidden">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center overflow-hidden">
               {driverDetails.profile_image ? (
                 <img 
                   src={driverDetails.profile_image} 
@@ -191,7 +191,7 @@ const OrderListPanel: React.FC<OrderListPanelProps> = memo(({
                   loading="lazy" // Add lazy loading for images
                 />
               ) : (
-                <FaUser className="h-6 w-6 text-gray-400 dark:text-gray-600" />
+                <FaUser className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400 dark:text-gray-600" />
               )}
             </div>
             <div>

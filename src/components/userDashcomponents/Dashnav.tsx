@@ -116,7 +116,7 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-stone-400" />
                 <input
                   type="text"
-                  placeholder={t('common.search')}
+                  placeholder={t('Search')}
                   className="pl-10 pr-4 py-2 bg-gray-100 dark:bg-midnight-800 border border-gray-200 dark:border-stone-700 rounded-lg text-gray-700 dark:text-stone-300 focus:outline-none focus:ring-2 focus:ring-sunset dark:focus:ring-sunset w-64"
                 />
               </div>

@@ -6,7 +6,6 @@ import {
   FaShippingFast, FaRegFileAlt, FaRegEnvelope, FaBox,
   FaHeadset, FaCog, FaMapMarkedAlt, FaSpinner
 } from "react-icons/fa";
-import { useTranslation } from "react-i18next";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import logo from '../image/Fret.png'
 
@@ -17,14 +16,13 @@ interface SidebarProps {
 
 interface MenuItem {
   path: string;
-  icon: React.ReactElement;
+  icon: React.ReactNode;
   label: string;
-  exact?: boolean;
   badge?: string;
+  exact?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { t } = useTranslation();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { userProfile, isLoading } = useUserProfile();
@@ -33,23 +31,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { 
       path: "/dashboard", 
       icon: <FaHome />, 
-      label: t('Overview'),
+      label: "Overview",
       exact: true
     },
     { 
       path: "/dashboard/track-order", 
       icon: <FaMapMarkedAlt />, 
-      label: t('Track Order')
+      label: "Track Order"
     },
     { 
       path: "/dashboard/orders", 
       icon: <FaClipboardList />, 
-      label: t('Orders')
+      label: "Orders"
     },
     { 
       path: "/dashboard/message", 
       icon: <FaRegEnvelope />, 
-      label: t('Message'),
+      label: "Message",
       badge: "4"
     }
   ];
@@ -58,17 +56,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { 
       path: "/dashboard/wallet", 
       icon: <FaWallet />, 
-      label: t('Wallet')
+      label: "Wallet"
     },
     { 
       path: "/dashboard/support", 
       icon: <FaHeadset />, 
-      label: t('Support')
+      label: "Support"
     },
     { 
       path: "/dashboard/account", 
       icon: <FaUser />, 
-      label: t('Account')
+      label: "Account"
     }
   ];
 
@@ -83,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <button 
         onClick={onClose}
         className="lg:hidden absolute right-4 top-4 text-stone-400 p-2 hover:bg-stone-100 dark:hover:bg-midnight-800/50 rounded-full transition-colors duration-300"
-        aria-label={t('common.close')}
+        aria-label="Close"
       >
         <FaTimes />
       </button>
@@ -101,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)} 
           className="ml-auto text-gray-400 dark:text-stone-400 hover:text-sunset dark:hover:text-sunset focus:outline-none hidden lg:block transition-colors duration-300"
-          aria-label={t(isCollapsed ? 'nav.expand' : 'nav.collapse')}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <FaBars />
         </button>

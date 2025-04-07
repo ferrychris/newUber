@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaDollarSign, FaClock, FaShippingFast } from 'react-icons/fa';
-import { Service } from '../types';
-import { useTranslation } from 'react-i18next';
+import { Service, ServiceType } from '../types';
 import { formatCurrency } from '../../../../utils/i18n';
 import { SERVICES } from '../constants';
 
@@ -15,7 +14,10 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
   onClose,
   onSelectService,
 }) => {
-  const { t } = useTranslation();
+  // Filter services to only show Large Items
+  const availableServices = SERVICES.filter(service => 
+    service.type === ServiceType.LARGE_ITEMS
+  );
 
   const getColorScheme = (type: string) => {
     switch (type) {
@@ -50,7 +52,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-stone-600/10 bg-sunset">
             <h2 className="text-xl font-semibold text-white">
-              {t('orders.selectService')}
+              Select Service
             </h2>
             <button 
               className="p-2 text-white/80 hover:text-white rounded-full focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -62,13 +64,16 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
           
           <div className="p-4 bg-gray-50 dark:bg-midnight-800">
             <p className="text-gray-500 dark:text-stone-400 text-center">
-              {t('Select a service to continue')}
+              Choose from our range of available services
+            </p>
+            <p className="text-sunset font-medium text-center mt-2">
+              Note: Carpooling and Shopping delivery services are temporarily suspended
             </p>
           </div>
 
           <div className="p-4 max-h-[70vh] overflow-y-auto">
             <div className="grid grid-cols-1 gap-4">
-              {SERVICES.map((service) => {
+              {availableServices.map((service) => {
                 const colorKey = getColorScheme(service.type);
                 const colorClass = {
                   sunset: 'bg-sunset',
@@ -100,9 +105,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                           <div className="flex items-center text-sm text-gray-500 dark:text-stone-400">
                             <FaDollarSign className="text-sunset mr-1" />
                             <span className="text-xs text-gray-500 dark:text-stone-400">
-                              {t('orders.startingAt', {
-                                price: formatCurrency(service.minPrice)
-                              })}
+                              Starting at {formatCurrency(service.minPrice)}
                             </span>
                           </div>
                           <div className="flex items-center text-sm text-gray-500 dark:text-stone-400">
@@ -123,7 +126,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-stone-300 bg-white dark:bg-midnight-800 border border-gray-300 dark:border-stone-600 rounded-md hover:bg-gray-50 dark:hover:bg-midnight-700 focus:outline-none focus:ring-2 focus:ring-sunset"
               onClick={onClose}
             >
-              {t('Cancel')}
+              Cancel
             </button>
           </div>
         </motion.div>

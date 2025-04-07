@@ -322,7 +322,7 @@ const Support: React.FC = () => {
                       <div className="flex flex-wrap gap-2 items-center text-sm text-gray-600 dark:text-gray-400">
                         <span>{t('support.created')}: {formatDate(selectedTicket.created_at)}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedTicket.status)}`}>
-                          {selectedTicket.status}
+                          {t(`support.status.${selectedTicket.status.toLowerCase()}`)}
                         </span>
                       </div>
                     </div>
@@ -505,7 +505,7 @@ const Support: React.FC = () => {
                           <div className="flex justify-between mb-2">
                             <h3 className="font-medium text-gray-900 dark:text-white">{ticket.subject}</h3>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                              {ticket.status}
+                              {t(`support.status.${ticket.status.toLowerCase()}`)}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-sm">

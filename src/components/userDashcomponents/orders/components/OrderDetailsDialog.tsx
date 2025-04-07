@@ -120,8 +120,8 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
           <div className="p-4 border-b border-gray-200 dark:border-stone-700/20 flex justify-between items-center sticky top-0 bg-white dark:bg-midnight-800 z-10">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
               {viewOnly 
-                ? t('orders.viewDetails') 
-                : t('orders.createOrder', { service: service?.name || t('common.service') })}
+                ? t('View Details') 
+                : t('Create Order', { service: service?.name || t('Service') })}
             </h2>
             <button
               onClick={handleCloseOrder}

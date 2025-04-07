@@ -15,42 +15,42 @@ export interface Service {
 
 export const services: Service[] = [
   {
-    name: 'Covoiturage',
-    description: 'Transport partagé économique et écologique pour vos déplacements quotidiens',
-    price: '0,50€',
-    minPrice: '5€',
+    name: 'Carpooling',
+    description: 'Economical and eco-friendly shared transport for your daily travels',
+    price: '€0.50',
+    minPrice: '€5',
     features: [
-      'Trajets partagés',
-      'Prix économique',
-      'Réservation flexible'
+      'Shared trips',
+      'Economic pricing',
+      'Flexible booking'
     ],
     icon: FaCar,
     href: '/dashboard/place-order?service=carpooling',
     theme: 'carpooling'
   },
   {
-    name: 'Livraison Shopping',
-    description: 'Service de livraison rapide pour vos achats en ville',
-    price: '0,75€',
-    minPrice: '10€',
+    name: 'Shopping Delivery',
+    description: 'Fast delivery service for your city purchases',
+    price: '€0.75',
+    minPrice: '€10',
     features: [
-      'Livraison express',
-      'Suivi en temps réel',
-      'Protection des achats'
+      'Express delivery',
+      'Real-time tracking',
+      'Purchase protection'
     ],
     icon: FaShoppingBag,
     href: '/dashboard/place-order?service=shopping',
     theme: 'shopping'
   },
   {
-    name: 'Transport Objets',
-    description: 'Transport sécurisé pour vos objets volumineux et meubles',
-    price: '1,00€',
-    minPrice: '15€',
+    name: 'Large Item Transport',
+    description: 'Secure transport for your bulky items and furniture',
+    price: '€1.00',
+    minPrice: '€15',
     features: [
-      'Objets volumineux',
-      'Transport sécurisé',
-      'Assurance incluse'
+      'Bulky items',
+      'Secure transport',
+      'Insurance included'
     ],
     icon: FaTruck,
     href: '/dashboard/place-order?service=large-items',
@@ -60,9 +60,9 @@ export const services: Service[] = [
 
 export function calculatePrice(distance: number, serviceType: ServiceType): number {
   const service = services.find(s => s.theme === serviceType);
-  if (!service) throw new Error('Service non trouvé');
+  if (!service) throw new Error('Service not found');
 
-  const pricePerKm = parseFloat(service.price.replace(',', '.'));
+  const pricePerKm = parseFloat(service.price.replace('€', ''));
   const minPrice = parseFloat(service.minPrice.replace('€', ''));
   
   const calculatedPrice = distance * pricePerKm;
@@ -70,14 +70,14 @@ export function calculatePrice(distance: number, serviceType: ServiceType): numb
 }
 
 export function formatPrice(price: number): string {
-  return price.toLocaleString('fr-FR', {
+  return '€' + price.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).replace('.', ',') + '€';
+  });
 }
 
 export function getServiceByType(type: ServiceType): Service {
   const service = services.find(s => s.theme === type);
-  if (!service) throw new Error('Service non trouvé');
+  if (!service) throw new Error('Service not found');
   return service;
 }

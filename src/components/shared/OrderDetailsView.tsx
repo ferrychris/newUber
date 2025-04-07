@@ -176,7 +176,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
         }
       } catch (error) {
         console.error('Error fetching related data:', error);
-        toast.error(t('common.error'));
+        toast.error(t('Error fetching related data'));
       } finally {
         setIsLoading(false);
       }
@@ -202,7 +202,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       }
     } catch (error) {
       console.error(`Error ${action}ing order:`, error);
-      toast.error(t('common.error'));
+      toast.error(t('Error updating order'));
     }
   };
 
@@ -245,7 +245,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       return (
         <div className="flex items-center">
           <FaMoneyBill className="text-green-500 mr-2" />
-          <span>{t('payment.cash')}</span>
+          <span>{t('Cash')}</span>
         </div>
       );
     }
@@ -272,7 +272,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   : 'text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-300'
               }`}
             >
-              {t('orders.detailsTab')}
+              {t('Details Tab')}
             </button>
             {(showUserDetails || showDriverDetails) && (
               <button
@@ -297,10 +297,10 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                 </div>
                 <div className="ml-4">
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {service?.name || t('common.unknownService')}
+                    {service?.name || t('Unknown Service')}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-stone-400">
-                    {service?.description || t('common.noDescription')}
+                    {service?.description || t('No Description')}
                   </p>
                 </div>
               </div>
@@ -327,7 +327,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   
                   {renderMetaItem(
                     <FaMapMarkerAlt />,
-                    t('location.pickupLocation'),
+                    t('Pickup Location'),
                     order.pickup_location
                   )}
                   
@@ -339,13 +339,13 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   
                   {renderMetaItem(
                     <FaDollarSign />,
-                    t('orders.price'),
+                    t('Price'),
                     formatCurrency(order.estimated_price || 0)
                   )}
                   
                   {renderMetaItem(
                     order.payment_method === 'wallet' ? <FaWallet /> : <FaMoneyBill />,
-                    t('payment.method'),
+                    t('Payment Method'),
                     renderPaymentMethod()
                   )}
                 </div>
@@ -354,7 +354,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
               {/* Payment Details */}
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-500 dark:text-stone-400 mb-2">
-                  {t('orders.paymentDetails')}
+                  {t('Payment Details')}
                 </h4>
                 <div className="bg-gray-50 dark:bg-midnight-700/30 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-3">
@@ -401,19 +401,19 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                     {renderContactItem(
                       <FaUser />,
                       t('profile.name'),
-                      customer.full_name || t('common.notProvided')
+                      customer.full_name || t('Not Provided')
                     )}
                     
                     {renderContactItem(
                       <FaPhone />,
                       t('profile.phone'),
-                      customer.phone || t('common.notProvided')
+                      customer.phone || t('Not Provided')
                     )}
                     
                     {renderContactItem(
                       <FaEnvelope />,
                       t('profile.email'),
-                      customer.email || t('common.notProvided')
+                      customer.email || t('Not Provided')
                     )}
                   </div>
                 </div>
@@ -428,19 +428,19 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                     {renderContactItem(
                       <FaUser />,
                       t('profile.name'),
-                      driver.full_name || t('common.notProvided')
+                      driver.full_name || t('Not Provided')
                     )}
                     
                     {renderContactItem(
                       <FaPhone />,
                       t('profile.phone'),
-                      driver.phone || t('common.notProvided')
+                      driver.phone || t('Not Provided')
                     )}
                     
                     {renderContactItem(
                       <FaEnvelope />,
                       t('profile.email'),
-                      driver.email || t('common.notProvided')
+                      driver.email || t('Not Provided')
                     )}
                   </div>
                 </div>

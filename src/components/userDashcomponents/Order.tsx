@@ -375,16 +375,16 @@ const Order: React.FC = () => {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+      <div className="sm:flex sm:items-center sm:justify-between mb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
           {t('orders.title')}
         </h1>
         <div className="mt-4 sm:mt-0">
           <button
-          onClick={() => setShowServiceDialog(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
+            onClick={() => setShowServiceDialog(true)}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset dark:focus:ring-offset-midnight-900 transition-all duration-300"
           >
-            {t('orders.createOrder')}
+            {t('Create Order')}
           </button>
         </div>
       </div>
@@ -434,108 +434,188 @@ const Order: React.FC = () => {
             </div>
             <div className="mt-5">
               <button
-            onClick={() => setShowServiceDialog(true)}
+                onClick={() => setShowServiceDialog(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sunset hover:bg-sunset/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset"
               >
-                {t('orders.createOrder')}
+                {t('Create Order')}
               </button>
             </div>
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden shadow rounded-xl border border-gray-200 dark:border-stone-600/10 bg-white dark:bg-midnight-800">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-stone-600/10">
-              <thead className="bg-gray-50 dark:bg-midnight-700/30">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.service')}
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.locations')}
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.price')}
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                    {t('orders.status.title')}
-                  </th>
-                  <th scope="col" className="relative px-6 py-3">
-                    <span className="sr-only">View</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-midnight-800 divide-y divide-gray-200 dark:divide-stone-600/10">
-                {orders.map((order) => {
-                  const statusConfig = getStatusConfig(order.status);
-            
-            return (
-                    <tr 
-                key={order.id}
-                      className="hover:bg-gray-50 dark:hover:bg-midnight-700/50 cursor-pointer transition-colors duration-200"
-                      onClick={() => {
-                        const orderService = findServiceForOrder(order);
-                        setSelectedOrder(order);
-                        setSelectedService(orderService); // Set the service when clicking an order
-                      }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
+        <>
+          {/* Mobile view - Card layout */}
+          <div className="md:hidden space-y-4">
+            {orders.map((order) => {
+              const statusConfig = getStatusConfig(order.status);
+              return (
+                <div 
+                  key={order.id}
+                  className="bg-white dark:bg-midnight-800 rounded-xl border border-gray-200 dark:border-stone-600/10 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200"
+                  onClick={() => {
+                    const orderService = findServiceForOrder(order);
+                    setSelectedOrder(order);
+                    setSelectedService(orderService);
+                  }}
+                >
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-sunset flex items-center justify-center text-white">
+                          {findServiceForOrder(order)?.icon}
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {findServiceForOrder(order)?.name}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-stone-400">
+                            {formatDate(order.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
+                        {t(`orders.status.${order.status}`)}
+                      </span>
+                    </div>
+                    
+                    <div className="mt-2 space-y-2">
+                      <div className="text-xs text-gray-500 dark:text-stone-400 uppercase font-medium tracking-wide">
+                        {t('orders.locations')}
+                      </div>
+                      <div className="flex flex-col text-sm text-gray-900 dark:text-white">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-sunset flex items-center justify-center text-white">
-                            {findServiceForOrder(order)?.icon}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                              {findServiceForOrder(order)?.name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-stone-400">
-                              {formatDate(order.created_at)}
-                            </div>
-                          </div>
+                          <FaMapMarkerAlt className="mr-1 text-sunset flex-shrink-0" />
+                          <span className="truncate">{order.pickup_location}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col text-sm text-gray-900 dark:text-white">
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="mr-1 text-sunset" />
-                            <span className="truncate max-w-[180px]">{order.pickup_location}</span>
-                          </div>
-                          <div className="w-px h-2 ml-2 border-l border-dashed border-gray-300 dark:border-stone-600"></div>
-                          <div className="flex items-center">
-                            <FaMapMarkerAlt className="mr-1 text-purple-600" />
-                            <span className="truncate max-w-[180px]">{order.dropoff_location}</span>
-                          </div>
+                        <div className="w-px h-2 ml-2 border-l border-dashed border-gray-300 dark:border-stone-600"></div>
+                        <div className="flex items-center">
+                          <FaMapMarkerAlt className="mr-1 text-purple-600 flex-shrink-0" />
+                          <span className="truncate">{order.dropoff_location}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(order.estimated_price || 0)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                          {t(`orders.status.${order.status}`)}
-                        </span>
-                      </td>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 flex justify-between items-center">
+                      <div>
+                        <div className="text-xs text-gray-500 dark:text-stone-400 uppercase font-medium tracking-wide">
+                          {t('orders.price')}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(order.estimated_price || 0)}
+                        </div>
+                      </div>
                       
-                     
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
-                          className="text-sunset hover:text-purple-600 transition-colors duration-200"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrder(order);
-                            setSelectedService(findServiceForOrder(order));
-                          }}
-                        >
-                          {t('common.actions')}
-                        </button>
-                      </td>
-                    </tr>
-            );
-          })}
-              </tbody>
-            </table>
+                      <button 
+                        className="text-sunset hover:text-purple-600 bg-sunset/10 hover:bg-sunset/20 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrder(order);
+                          setSelectedService(findServiceForOrder(order));
+                        }}
+                      >
+                        {t('Actions')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-      </div>
+
+          {/* Desktop view - Table layout */}
+          <div className="hidden md:block overflow-hidden shadow rounded-xl border border-gray-200 dark:border-stone-600/10 bg-white dark:bg-midnight-800">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-stone-600/10">
+                <thead className="bg-gray-50 dark:bg-midnight-700/30">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                      {t('orders.service')}
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                      {t('orders.locations')}
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                      {t('orders.price')}
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
+                      {t('orders.status.title')}
+                    </th>
+                    <th scope="col" className="relative px-6 py-3">
+                      <span className="sr-only">View</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-midnight-800 divide-y divide-gray-200 dark:divide-stone-600/10">
+                  {orders.map((order) => {
+                    const statusConfig = getStatusConfig(order.status);
+              
+                    return (
+                      <tr 
+                        key={order.id}
+                        className="hover:bg-gray-50 dark:hover:bg-midnight-700/50 cursor-pointer transition-colors duration-200"
+                        onClick={() => {
+                          const orderService = findServiceForOrder(order);
+                          setSelectedOrder(order);
+                          setSelectedService(orderService); // Set the service when clicking an order
+                        }}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-sunset flex items-center justify-center text-white">
+                              {findServiceForOrder(order)?.icon}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {findServiceForOrder(order)?.name}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-stone-400">
+                                {formatDate(order.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col text-sm text-gray-900 dark:text-white">
+                            <div className="flex items-center">
+                              <FaMapMarkerAlt className="mr-1 text-sunset" />
+                              <span className="truncate max-w-[180px]">{order.pickup_location}</span>
+                            </div>
+                            <div className="w-px h-2 ml-2 border-l border-dashed border-gray-300 dark:border-stone-600"></div>
+                            <div className="flex items-center">
+                              <FaMapMarkerAlt className="mr-1 text-purple-600" />
+                              <span className="truncate max-w-[180px]">{order.dropoff_location}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">{formatCurrency(order.estimated_price || 0)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
+                            {t(`orders.status.${order.status}`)}
+                          </span>
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            className="text-sunset hover:text-purple-600 transition-colors duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                              setSelectedService(findServiceForOrder(order));
+                            }}
+                          >
+                            {t('Actions')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       <AnimatePresence>

@@ -4,7 +4,6 @@ import { FaCalendarAlt, FaClock, FaSpinner, FaInfoCircle, FaRoute, FaWallet, FaM
 import LocationInput from '../../LocationInput';
 import { Service, OrderFormData, OrderFormErrors, DistanceResult } from '../types';
 import { validateOrderForm, calculatePrice } from '../utils';
-import { useTranslation } from 'react-i18next';
 import { formatDateForInput, formatCurrency } from '../../../../utils/i18n';
 import { calculateRoute, formatDistance, formatDuration } from '../../../../utils/mapboxService';
 import PriceInfoCard from './PriceInfoCard';
@@ -35,7 +34,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
   isSubmitting,
   viewOnly = false 
 }) => {
-  const { t } = useTranslation();
   const [formData, setFormData] = useState<OrderFormData>({
     pickupLocation: order?.pickupLocation || '',
     destination: order?.destination || '',
@@ -139,7 +137,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       const routeData = await calculateRoute(coordinates.pickup, coordinates.destination);
       
       if (!routeData.routes || routeData.routes.length === 0) {
-        throw new Error(t('location.noRouteFound'));
+        throw new Error('No route found between these locations');
       }
 
       const route = routeData.routes[0];
@@ -166,7 +164,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       console.error('Error calculating distance:', error);
       setErrors(prev => ({
         ...prev,
-        distance: t('location.distanceError')
+        distance: 'Unable to calculate distance between locations'
       }));
     } finally {
       setIsCalculatingDistance(false);
@@ -192,7 +190,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
 
     // If there's no value, clear the errors and return
     if (!value) {
-      setErrors(prev => ({ ...prev, [field]: t('location.required') }));
+      setErrors(prev => ({ ...prev, [field]: 'Location is required' }));
       return;
     }
 
@@ -205,7 +203,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     // Check for same address
     const otherField = field === 'pickupLocation' ? 'destination' : 'pickupLocation';
     if (value === formData[otherField]) {
-      setErrors(prev => ({ ...prev, sameAddress: t('location.sameAddressError') }));
+      setErrors(prev => ({ ...prev, sameAddress: 'Pickup and destination cannot be the same' }));
       return;
     }
 
@@ -238,7 +236,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     if (method === 'wallet' && walletBalance !== null && walletBalance < formData.price) {
       setErrors(prev => ({
         ...prev,
-        insufficientFunds: t('errors.insufficientFunds')
+        insufficientFunds: 'Insufficient funds in wallet'
       }));
     }
   };
@@ -252,7 +250,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     if (!coordinates.pickup || !coordinates.destination) {
       setErrors({
         ...errors,
-        form: t('location.enterBothLocations')
+        form: 'Please enter both pickup and destination locations'
       });
       return;
     }
@@ -261,7 +259,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     const validationErrors = validateOrderForm({
       ...formData,
       minPrice: service.minPrice,
-      paymentMethod: formData.paymentMethod
+      paymentMethod: formData.paymentMethod || 'cash' // Provide default value to fix type error
     }, !!distanceResult);
     
     if (Object.keys(validationErrors).length > 0) {
@@ -274,7 +272,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       if (walletBalance === null) {
         setErrors({
           ...errors,
-          form: t('errors.walletNotLoaded')
+          form: 'Unable to load wallet balance. Please try again.'
         });
         return;
       }
@@ -282,7 +280,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       if (walletBalance < formData.price) {
         setErrors({
           ...errors,
-          insufficientFunds: t('errors.insufficientFunds')
+          insufficientFunds: 'Insufficient funds in wallet'
         });
         return;
       }
@@ -315,7 +313,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           console.error("No authenticated user found");
           setErrors({
             ...errors,
-            form: t('errors.authRequired')
+            form: 'Authentication required. Please log in again.'
           });
           throw new Error('User not authenticated - please log in again');
         }
@@ -402,7 +400,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           console.error("Wallet transaction error:", walletError);
           setErrors({
             ...errors,
-            form: t('errors.walletTransactionFailed')
+            form: 'Wallet transaction failed. Please try again.'
           });
           throw new Error(`Wallet transaction failed: ${walletError.message}`);
         }
@@ -435,7 +433,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
         
         setErrors({
           ...errors,
-          form: t('errors.submitFailed') + ': ' + error.message
+          form: 'Failed to submit order: ' + error.message
         });
         throw error;
       }
@@ -457,7 +455,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       if (!errors.form) {
         setErrors({
           ...errors,
-          form: t('errors.submitFailed')
+          form: 'Failed to submit order'
         });
       }
     }
@@ -474,7 +472,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             bg-stone-800/20 rounded-lg border border-stone-800/30"
         >
           <FaInfoCircle className={service.theme.text} />
-          <span>{t('location.franceOnly')}</span>
+          <span>Only French addresses are supported at this time</span>
         </motion.div>
 
         {/* Form Grid */}
@@ -483,7 +481,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           <div className="space-y-6">
             {/* Pickup Location */}
             <LocationInput
-              label={t('form.pickupLocation')}
+              label="Pickup Location"
               value={formData.pickupLocation}
               onChange={(value, coords) => handleLocationChange('pickupLocation', value, coords)}
               error={errors.pickupLocation}
@@ -492,7 +490,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
 
             {/* Destination */}
             <LocationInput
-              label={t('form.destination')}
+              label="Destination"
               value={formData.destination}
               onChange={(value, coords) => handleLocationChange('destination', value, coords)}
               error={errors.destination}
@@ -516,7 +514,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {/* Date Input */}
             <div>
               <label className="block mb-2 text-sm font-medium text-stone-300">
-                {t('form.scheduledDate')}
+                Date
               </label>
               <div className="relative">
                 <input
@@ -546,7 +544,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {/* Time Input */}
             <div>
               <label className="block mb-2 text-sm font-medium text-stone-300">
-                {t('form.scheduledTime')}
+                Time
               </label>
               <div className="relative">
                 <input
@@ -588,7 +586,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {/* Payment Method Selection */}
             {distanceResult && !errors.distance && (
               <div className="mt-4 border-t border-stone-800/50 pt-4">
-                <h4 className="text-sm font-medium text-stone-300 mb-3">{t('payment.methods')}</h4>
+                <h4 className="text-sm font-medium text-stone-300 mb-3">Payment Methods</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -600,9 +598,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
                     }`}
                   >
                     <FaWallet className={formData.paymentMethod === 'wallet' ? 'text-purple-400' : 'text-stone-400'} />
-                    <span className="text-xs mt-1">{t('payment.wallet')}</span>
+                    <span className="text-xs mt-1">Wallet</span>
                     {isLoadingWallet ? (
-                      <span className="text-xs mt-1 text-stone-400">{t('loading')}</span>
+                      <span className="text-xs mt-1 text-stone-400">Loading...</span>
                     ) : walletBalance !== null ? (
                       <span className={`text-xs mt-1 ${walletBalance < formData.price ? 'text-red-400' : 'text-green-400'}`}>
                         {formatCurrency(walletBalance)}
@@ -620,7 +618,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                     }`}
                   >
                     <FaMoneyBill className={formData.paymentMethod === 'cash' ? 'text-purple-400' : 'text-stone-400'} />
-                    <span className="text-xs mt-1">{t('payment.cash')}</span>
+                    <span className="text-xs mt-1">Cash</span>
                   </button>
                 </div>
                 
@@ -646,7 +644,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             className="flex items-center justify-center py-2 text-stone-400"
           >
             <FaSpinner className="animate-spin mr-2" />
-            <span>{t('form.calculating')}</span>
+            <span>Calculating distance...</span>
           </motion.div>
         )}
 
@@ -673,7 +671,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
               ) : (
                 <FaRoute className="mr-2" />
               )}
-              {t('form.calculateDistance')}
+              Calculate Distance
             </button>
           </motion.div>
         )}
@@ -713,12 +711,12 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {isSubmitting ? (
               <>
                 <FaSpinner className="animate-spin mr-2" />
-                {t('common.submitting')}
+                Submitting...
               </>
             ) : viewOnly ? (
-              t('common.close')
+              "Close"
             ) : (
-              t('pages.orders.submitOrder')
+              "Submit Order"
             )}
           </button>
         </div>
@@ -729,14 +727,14 @@ const OrderForm: React.FC<OrderFormProps> = ({
         <div className="mt-6 bg-gray-50 dark:bg-midnight-700/50 rounded-lg border border-gray-200 dark:border-stone-600/10 p-4">
           <h3 className="text-gray-900 dark:text-white font-medium mb-3 flex items-center">
             <FaInfoCircle className="text-sunset mr-2" />
-            {t('pages.orders.priceDetails')}
+            Price Details
           </h3>
           
           {distanceResult && (
             <div className="flex flex-col space-y-2 mb-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500 dark:text-stone-400">
-                  {t('pages.orders.distance')}
+                  Distance
                 </span>
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
                   {distanceResult.distance.text}
@@ -744,7 +742,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500 dark:text-stone-400">
-                  {t('pages.orders.estimatedTime')}
+                  Estimated Time
                 </span>
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
                   {distanceResult.duration.text}
@@ -756,7 +754,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           <div className="border-t border-gray-200 dark:border-stone-600/10 pt-3">
             <div className="flex justify-between">
               <span className="text-sm text-gray-500 dark:text-stone-400">
-                {t('pages.orders.baseRate')}
+                Base Rate
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {formatCurrency(service?.baseRate || 0)}
@@ -765,7 +763,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {distanceResult && (
               <div className="flex justify-between mt-1">
                 <span className="text-sm text-gray-500 dark:text-stone-400">
-                  {t('pages.orders.distanceRate')}
+                  Distance Rate
                 </span>
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
                   {formatCurrency((formData.price || 0) - (service.baseRate || 0))}
@@ -774,7 +772,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             )}
             <div className="flex justify-between mt-3 border-t border-gray-200 dark:border-stone-600/10 pt-2">
               <span className="text-base font-medium text-gray-700 dark:text-white">
-                {t('pages.orders.total')}
+                Total
               </span>
               <span className="text-base font-bold text-sunset">
                 {formatCurrency(formData.price || 0)}
@@ -784,18 +782,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {/* Payment Method Display */}
             <div className="flex justify-between mt-3 pt-2">
               <span className="text-sm text-gray-500 dark:text-stone-400">
-                {t('pages.orders.paymentMethod')}
+                Payment Method
               </span>
               <span className="text-sm font-medium flex items-center gap-1 text-gray-900 dark:text-white">
                 {formData.paymentMethod === 'wallet' ? (
                   <>
                     <FaWallet className="text-purple-400" />
-                    {t('payment.wallet')}
+                    Wallet
                   </>
                 ) : (
                   <>
                     <FaMoneyBill className="text-green-400" />
-                    {t('payment.cash')}
+                    Cash
                   </>
                 )}
               </span>
@@ -805,7 +803,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             {formData.paymentMethod === 'wallet' && walletBalance !== null && (
               <div className="flex justify-between mt-1">
                 <span className="text-sm text-gray-500 dark:text-stone-400">
-                  {t('pages.orders.walletBalance')}
+                  Wallet Balance
                 </span>
                 <span className={`text-sm font-medium ${walletBalance < formData.price ? 'text-red-500' : 'text-green-500'}`}>
                   {formatCurrency(walletBalance)}

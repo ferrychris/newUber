@@ -546,39 +546,70 @@ const OrderTracker: React.FC = () => {
   
   // Main layout
   return (
-    <div className="container mx-auto pb-8">
+    <div className="container mx-auto pb-8 px-4 sm:px-6">
       {/* Title and Subtitle */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+        <div className="flex justify-between items-center mb-3">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
             {t('tracking.title')}
           </h1>
         </div>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           {t('tracking.subtitle')}
         </p>
       </motion.div>
 
-      {/* Main Grid Layout */}
+      {/* Mobile Tabs - Only visible on small screens */}
+      <div className="md:hidden mb-4">
+        <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-1 flex">
+          <button 
+            onClick={() => setIsDriverViewActive(false)}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium ${!isDriverViewActive 
+              ? 'bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+              : 'text-gray-700 dark:text-gray-300'}`}
+          >
+            Orders
+          </button>
+          <button 
+            onClick={() => setIsDriverViewActive(true)}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium ${isDriverViewActive 
+              ? 'bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+              : 'text-gray-700 dark:text-gray-300'}`}
+            disabled={!selectedOrder}
+          >
+            Track
+          </button>
+        </div>
+      </div>
+
+      {/* Main Grid Layout - Modified for mobile responsiveness */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-        {/* Order List Panel */}
-        <OrderListPanel 
-          orders={orders}
-          isLoading={isLoading}
-          isLoadingOrders={isLoadingOrders}
-          error={error}
-          selectedOrder={selectedOrder}
-          driverDetails={driverDetails}
-          handleSelectOrder={handleSelectOrder}
-        />
+        {/* Order List Panel - Hidden on mobile when map view is active */}
+        <div className={`${isDriverViewActive ? 'hidden md:block' : ''}`}>
+          <OrderListPanel 
+            orders={orders}
+            isLoading={isLoading}
+            isLoadingOrders={isLoadingOrders}
+            error={error}
+            selectedOrder={selectedOrder}
+            driverDetails={driverDetails}
+            handleSelectOrder={(order) => {
+              handleSelectOrder(order);
+              // On mobile, switch to map view when an order is selected
+              if (window.innerWidth < 768) {
+                setIsDriverViewActive(true);
+              }
+            }}
+          />
+        </div>
 
-        {/* Map and Order Details */}
-        <div className="lg:col-span-2">
+        {/* Map and Order Details - Hidden on mobile when order list view is active */}
+        <div className={`lg:col-span-2 ${!isDriverViewActive ? 'hidden md:block' : ''}`}>
           {/* Map Panel */}
           <OrderMapPanel 
             selectedOrder={selectedOrder}
@@ -587,7 +618,7 @@ const OrderTracker: React.FC = () => {
             destinationLocation={destinationLocation}
             driverDetails={driverDetails}
             isLoadingLocation={isLoadingLocation}
-            mapContainerStyle={mapContainerStyle}
+            mapContainerStyle={{...mapContainerStyle, height: '350px'}}
             mapWrapperStyle={mapWrapperStyle}
             driverIcon={driverIcon}
             pickupIcon={pickupIcon}

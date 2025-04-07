@@ -61,28 +61,63 @@ export interface MapboxDirectionsResponse {
  * Get geocoding results for an address query
  * @param query The address to search for
  * @param countryFilter Optional country filter (default: 'fr' for France)
+ * @param includeTerritories Whether to include French overseas territories (default: true)
  * @returns Promise with Mapbox geocoding results
  */
 export const geocodeAddress = async (
   query: string,
-  countryFilter: string = 'fr'
+  countryFilter: string = 'fr',
+  includeTerritories: boolean = true
 ): Promise<MapboxGeocodingResponse> => {
   if (!query) throw new Error('Query is required');
   if (!MAPBOX_TOKEN) throw new Error('Mapbox token is not configured');
 
   try {
+    // Base params
+    const params: Record<string, any> = {
+      access_token: MAPBOX_TOKEN,
+      language: 'fr',
+      limit: 5,
+      types: 'address,place',
+    };
+
+    // If we want to include territories, use wider search with language filter instead of country
+    if (includeTerritories) {
+      // World bounding box that includes France and all territories
+      // Don't use country filter as it would exclude overseas territories
+      params.language = 'fr';
+    } else {
+      // Just metropolitan France
+      params.country = countryFilter;
+    }
+
     const response = await axios.get(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
-      {
-        params: {
-          access_token: MAPBOX_TOKEN,
-          country: countryFilter,
-          language: 'fr',
-          limit: 5,
-          types: 'address,place',
-        },
-      }
+      { params }
     );
+    
+    // If we searched globally, filter the results to only include France-related places
+    if (includeTerritories && response.data.features.length > 0) {
+      response.data.features = response.data.features.filter((feature: MapboxFeature) => {
+        // Check if this place is in metropolitan France
+        const inFrance = feature.context?.some(ctx => 
+          (ctx.short_code || '').toLowerCase() === 'fr'
+        );
+        
+        if (inFrance) return true;
+        
+        // Check for French territories
+        const frenchTerritories = [
+          'martinique', 'guadeloupe', 'guyane', 'réunion', 'reunion', 'mayotte', 
+          'nouvelle-calédonie', 'nouvelle-caledonie', 'polynésie française', 'polynesie francaise',
+          'saint-martin', 'saint-barthélemy', 'saint-barthelemy'
+        ];
+        
+        const placeName = feature.place_name.toLowerCase();
+        return frenchTerritories.some(territory => placeName.includes(territory));
+      });
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error geocoding address:', error);
@@ -168,7 +203,7 @@ export const formatDuration = (seconds: number): string => {
 };
 
 /**
- * Check if coordinates are in France
+ * Check if coordinates are in France or French territories
  * @param coordinates [longitude, latitude]
  * @returns Promise<boolean>
  */
@@ -179,17 +214,38 @@ export const isLocationInFrance = async (coordinates: [number, number]): Promise
       {
         params: {
           access_token: MAPBOX_TOKEN,
-          types: 'country',
-          limit: 1,
+          types: 'country,region',
+          limit: 5,
         },
       }
     );
     
     const features = response.data.features;
     if (features && features.length > 0) {
-      // Check if the country code is FR (France)
-      const countryCode = features[0].properties?.short_code || '';
-      return countryCode.toLowerCase() === 'fr';
+      // Check for metropolitan France
+      const isMetropolitanFrance = features.some((feature: MapboxFeature) => {
+        // Look for country code in context
+        return feature.context?.some(ctx => 
+          (ctx.short_code || '').toLowerCase() === 'fr'
+        ) || false;
+      });
+
+      if (isMetropolitanFrance) return true;
+      
+      // Check for French overseas territories
+      const frenchTerritories = [
+        'martinique', 'guadeloupe', 'guyane', 'réunion', 'reunion', 'mayotte', 
+        'nouvelle-calédonie', 'nouvelle-caledonie', 'polynésie française', 
+        'polynesie francaise', 'saint-martin', 'saint-barthélemy', 'saint-barthelemy'
+      ];
+      
+      // Check if any of the region names contain French territories
+      const isFrenchTerritory = features.some((feature: MapboxFeature) => {
+        const placeName = feature.place_name.toLowerCase();
+        return frenchTerritories.some(territory => placeName.includes(territory));
+      });
+      
+      return isFrenchTerritory;
     }
     
     return false;

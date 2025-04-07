@@ -75,7 +75,7 @@ export default function Navbar() {
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              aria-label="Changer le thème"
+              aria-label="Change theme"
             >
               {theme === 'dark' ? (
                 <FaSun className="w-5 h-5" />
@@ -88,7 +88,7 @@ export default function Navbar() {
               to="/dashboard/place-order"
               className="flex items-center px-6 py-2.5 bg-sunset text-white rounded-xl hover:bg-sunset/90 transition-colors shadow-sm space-x-2 group"
             >
-              <span>Commander</span>
+              <span>Order Now</span>
               <FaArrowRight className="text-sm transform group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
@@ -100,7 +100,7 @@ export default function Navbar() {
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              aria-label="Changer le thème"
+              aria-label="Change theme"
             >
               {theme === 'dark' ? (
                 <FaSun className="w-5 h-5" />
@@ -114,7 +114,7 @@ export default function Navbar() {
               className="rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-800"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              aria-label={isOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              aria-label={isOpen ? "Close menu" : "Open menu"}
             >
               {isOpen ? 
                 <FaTimes className="w-6 h-6 text-gray-600 dark:text-gray-300" /> : 
@@ -166,7 +166,7 @@ export default function Navbar() {
             className="flex items-center justify-center px-4 py-3 text-white bg-sunset hover:bg-sunset/90 rounded-xl transition-colors shadow-sm space-x-2 group"
             onClick={() => setIsOpen(false)}
           >
-            <span>Commander maintenant</span>
+            <span>Order Now</span>
             <FaArrowRight className="transform group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
