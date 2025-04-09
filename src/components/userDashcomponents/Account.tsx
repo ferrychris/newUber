@@ -133,10 +133,10 @@ const Account: React.FC = () => {
         
       if (error) throw error;
       
-      toast.success(t('account.profileUpdated'));
+      toast.success(t('Profile Updated'));
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error(t('account.errorUpdatingProfile'));
+      toast.error(t('Error Updating Profile'));
     } finally {
       setIsSaving(false);
     }
@@ -243,11 +243,11 @@ const Account: React.FC = () => {
           profile_image: data.publicUrl
         });
         
-        toast.success(t('account.profileImageUpdated'));
+        toast.success(t('ProfileImageUpdated'));
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error(t('account.errorUploadingImage'));
+      toast.error(t('ErrorUploadingImage'));
     } finally {
       setImageUploading(false);
     }
@@ -276,10 +276,10 @@ const Account: React.FC = () => {
         profile_image: ''
       });
       
-      toast.success(t('account.profileImageRemoved'));
+      toast.success(t('Profile Image Removed'));
     } catch (error) {
       console.error('Error removing profile image:', error);
-      toast.error(t('account.errorRemovingImage'));
+      toast.error(t('ErrorRemovingImage'));
     } finally {
       setImageUploading(false);
     }
@@ -294,67 +294,67 @@ const Account: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto pb-8">
+    <div className="container mx-auto px-4 pb-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
+        className="mb-4 sm:mb-6"
       >
-        <div className="flex items-center mb-4">
-          <FaUser className="text-xl mr-2 text-indigo-600 dark:text-indigo-400" />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {t('account.title')}
+        <div className="flex items-center mb-2 sm:mb-4">
+          <FaUser className="text-lg sm:text-xl mr-2 text-indigo-600 dark:text-indigo-400" />
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+            {t('Account')}
           </h1>
         </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          {t('account.subtitle')}
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+          {t('Account Settings')}
         </p>
       </motion.div>
 
       {/* Tab Navigation */}
-      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6">
-        <div className="flex overflow-x-auto">
+      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-4 sm:mb-6 overflow-x-auto">
+        <div className="flex min-w-max">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center px-4 py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
+            className={`flex items-center px-3 sm:px-4 py-2 sm:py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
               activeTab === 'profile'
                 ? 'border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400'
                 : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <FaUser className="mr-2" />
-            {t('account.profile')}
+            <FaUser className="mr-1 sm:mr-2 text-sm sm:text-base" />
+            {t('Profile')}
           </button>
           
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex items-center px-4 py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
+            className={`flex items-center px-3 sm:px-4 py-2 sm:py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
               activeTab === 'security'
                 ? 'border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400'
                 : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <FaLock className="mr-2" />
-            {t('account.security')}
+            <FaLock className="mr-1 sm:mr-2 text-sm sm:text-base" />
+            {t('Security')}
           </button>
           
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`flex items-center px-4 py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
+            className={`flex items-center px-3 sm:px-4 py-2 sm:py-3 font-medium whitespace-nowrap border-b-2 transition-colors duration-300 ${
               activeTab === 'notifications'
                 ? 'border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400'
                 : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <FaBell className="mr-2" />
-            {t('account.notifications')}
+            <FaBell className="mr-1 sm:mr-2 text-sm sm:text-base" />
+            {t('Notifications')}
           </button>
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-6">
+      <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-4 sm:p-6">
         {/* Profile Tab */}
         {activeTab === 'profile' && (
           <motion.div
@@ -362,11 +362,11 @@ const Account: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex flex-col md:flex-row gap-8 mb-6">
+            <div className="flex flex-col gap-6 sm:gap-8 mb-6">
               {/* Profile Image */}
               <div className="flex flex-col items-center">
-                <div className="relative w-40 h-40 mb-4">
-                  <div className="w-40 h-40 rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center overflow-hidden">
+                <div className="relative w-32 h-32 sm:w-40 sm:h-40 mb-4">
+                  <div className="w-full h-full rounded-full bg-gray-200 dark:bg-midnight-700 flex items-center justify-center overflow-hidden">
                     {profile.profile_image ? (
                       <img 
                         src={profile.profile_image} 
@@ -374,19 +374,19 @@ const Account: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <FaUser className="h-20 w-20 text-gray-400 dark:text-gray-600" />
+                      <FaUser className="h-16 w-16 sm:h-20 sm:w-20 text-gray-400 dark:text-gray-600" />
                     )}
                     
                     {imageUploading && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-                        <FaSpinner className="text-white animate-spin text-2xl" />
+                        <FaSpinner className="text-white animate-spin text-xl sm:text-2xl" />
                       </div>
                     )}
                   </div>
                   
                   <div className="absolute bottom-0 right-0">
-                    <label className="w-10 h-10 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors duration-300">
-                      <FaCamera />
+                    <label className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors duration-300">
+                      <FaCamera className="text-sm sm:text-base" />
                       <input 
                         type="file"
                         accept="image/*"
@@ -402,105 +402,105 @@ const Account: React.FC = () => {
                   <button
                     onClick={handleRemoveImage}
                     disabled={!profile.profile_image || imageUploading}
-                    className={`px-4 py-2 text-sm flex items-center gap-2 transition-colors duration-300 ${
+                    className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors duration-300 ${
                       profile.profile_image && !imageUploading
                         ? 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
                         : 'text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    <FaTrash /> {t('account.removeImage')}
+                    <FaTrash className="text-xs sm:text-sm" /> {t('RemoveImage')}
                   </button>
                 </div>
               </div>
               
               {/* Profile Form */}
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  {t('account.personalInfo')}
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                  {t('Personal Info')}
                 </h2>
                 
-                <form onSubmit={handleProfileUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="col-span-2 md:col-span-1">
+                <form onSubmit={handleProfileUpdate} className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.fullName')}
+                      {t('FullName')}
                     </label>
                     <input
                       type="text"
                       value={profile.full_name}
                       onChange={(e) => setProfile({...profile, full_name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                       required
                     />
                   </div>
                   
-                  <div className="col-span-2 md:col-span-1">
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.email')}
+                      {t('Email')}
                     </label>
                     <input
                       type="email"
                       value={profile.email}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg bg-gray-50 dark:bg-midnight-600 cursor-not-allowed"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg bg-gray-50 dark:bg-midnight-600 cursor-not-allowed"
                     />
                   </div>
                   
-                  <div className="col-span-2 md:col-span-1">
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.phone')}
+                      {t('Phone')}
                     </label>
                     <input
                       type="tel"
                       value={profile.phone}
                       onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     />
                   </div>
                   
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.address')}
+                      {t('Address')}
                     </label>
                     <input
                       type="text"
                       value={profile.address}
                       onChange={(e) => setProfile({...profile, address: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     />
                   </div>
                   
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.city')}
+                      {t('City')}
                     </label>
                     <input
                       type="text"
                       value={profile.city}
                       onChange={(e) => setProfile({...profile, city: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     />
                   </div>
                   
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.postalCode')}
+                      {t('Postal Code')}
                     </label>
                     <input
                       type="text"
                       value={profile.postal_code}
                       onChange={(e) => setProfile({...profile, postal_code: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     />
                   </div>
                   
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('account.country')}
+                      {t('Country')}
                     </label>
                     <select
                       value={profile.country}
                       onChange={(e) => setProfile({...profile, country: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     >
                       <option value="">-- {t('account.selectCountry')} --</option>
                       <option value="FR">France</option>
@@ -515,17 +515,17 @@ const Account: React.FC = () => {
                     <button
                       type="submit"
                       disabled={isSaving}
-                      className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
+                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
                     >
                       {isSaving ? (
                         <>
                           <FaSpinner className="animate-spin mr-2" />
-                          {t('account.saving')}
+                          {t('Saving')}
                         </>
                       ) : (
                         <>
                           <FaCheck className="mr-2" />
-                          {t('account.saveChanges')}
+                          {t('Save Changes')}
                         </>
                       )}
                     </button>
@@ -543,7 +543,7 @@ const Account: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {t('account.passwordSettings')}
             </h2>
             
@@ -556,7 +556,7 @@ const Account: React.FC = () => {
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                   required
                 />
               </div>
@@ -569,7 +569,7 @@ const Account: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                   required
                   minLength={8}
                 />
@@ -586,7 +586,7 @@ const Account: React.FC = () => {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                   required
                   minLength={8}
                 />
@@ -596,7 +596,7 @@ const Account: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
                 >
                   {isSaving ? (
                     <>
@@ -622,18 +622,18 @@ const Account: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {t('account.notificationSettings')}
             </h2>
             
-            <form onSubmit={handleNotificationUpdate} className="space-y-6">
+            <form onSubmit={handleNotificationUpdate} className="space-y-4 sm:space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {t('account.emailNotifications')}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {t('account.emailNotificationsDesc')}
                     </p>
                   </div>
@@ -661,12 +661,12 @@ const Account: React.FC = () => {
                   </label>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {t('account.orderUpdates')}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {t('account.orderUpdatesDesc')}
                     </p>
                   </div>
@@ -694,12 +694,12 @@ const Account: React.FC = () => {
                   </label>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {t('account.marketingEmails')}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {t('account.marketingEmailsDesc')}
                     </p>
                   </div>
@@ -727,12 +727,12 @@ const Account: React.FC = () => {
                   </label>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {t('account.deliveryReminders')}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {t('account.deliveryRemindersDesc')}
                     </p>
                   </div>
@@ -765,17 +765,17 @@ const Account: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
                 >
                   {isSaving ? (
                     <>
                       <FaSpinner className="animate-spin mr-2" />
-                      {t('account.saving')}
+                      {t('Saving')}
                     </>
                   ) : (
                     <>
                       <FaCheck className="mr-2" />
-                      {t('account.savePreferences')}
+                      {t('Save Preferences')}
                     </>
                   )}
                 </button>

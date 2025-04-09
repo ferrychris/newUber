@@ -13,6 +13,8 @@ import DeliveriesManagement from './admincomponents/DeliveriesManagement';
 import { ThemeProvider } from './utils/theme';
 import ProtectedRoute from './components/routes/ProtectedRoutes';
 import { AuthProvider } from './context/AuthContext';
+import LanguageSelector from './components/LanguageSelector';
+import './i18n';
 
 function App() {
   return (
@@ -54,6 +56,7 @@ function App() {
               </Route>
             </Routes>
           </BrowserRouter>
+          <LanguageSelector />
         </div>
       </ThemeProvider>
     </AuthProvider>

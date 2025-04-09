@@ -1,12 +1,20 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  FaHome, 
-  FaClipboardList, 
-  FaWallet, 
-  FaMapMarkedAlt, 
-  FaUser
-} from 'react-icons/fa';
+  RiHome4Line,
+  RiHome4Fill,
+  RiFileListLine,
+  RiFileListFill,
+  RiMapPinLine,
+  RiMapPinFill,
+  RiWalletLine,
+  RiWalletFill,
+  RiUserLine,
+  RiUserFill,
+  RiSettings4Line,
+  RiSettings4Fill
+} from 'react-icons/ri';
+import { cn } from '@/lib/utils';
 
 interface MobileNavigationProps {
   className?: string;
@@ -18,29 +26,46 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className }) => {
   const navItems = [
     {
       path: '/dashboard',
-      icon: <FaHome />,
+      icon: RiHome4Line,
+      activeIcon: RiHome4Fill,
       label: 'Home',
-      exact: true
+      exact: true,
+      activeColor: 'from-orange-500 to-orange-600',
+      inactiveColor: 'text-gray-500'
     },
     {
       path: '/dashboard/orders',
-      icon: <FaClipboardList />,
-      label: 'Orders'
+      icon: RiFileListLine,
+      activeIcon: RiFileListFill,
+      label: 'Orders',
+      activeColor: 'from-orange-500 to-orange-600',
+      inactiveColor: 'text-gray-500'
     },
     {
       path: '/dashboard/track-order',
-      icon: <FaMapMarkedAlt />,
-      label: 'Track'
+      icon: RiMapPinLine,
+      activeIcon: RiMapPinFill,
+      label: 'Track',
+      activeColor: 'from-orange-500 to-orange-600',
+      inactiveColor: 'text-gray-500'
     },
     {
       path: '/dashboard/wallet',
-      icon: <FaWallet />,
-      label: 'Wallet'
+      icon: RiWalletLine,
+      activeIcon: RiWalletFill,
+      label: 'Wallet',
+      color: 'orange',
+      activeColor: 'from-orange-500 to-orange-600',
+      inactiveColor: 'orange-500'
     },
+
     {
       path: '/dashboard/account',
-      icon: <FaUser />,
-      label: 'Account'
+      icon: RiUserLine,
+      activeIcon: RiUserFill,
+      label: 'Account',
+      activeColor: 'from-orange-500 to-orange-600',
+      inactiveColor: 'text-gray-500'
     }
   ];
 
@@ -52,31 +77,44 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ className }) => {
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-midnight-900 shadow-lg border-t border-gray-100 dark:border-stone-700/10 md:hidden z-50 px-2 ${className}`}>
-      <div className="flex justify-between items-center">
+    <div className={cn(
+      "fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60",
+      "border-t border-gray-200 shadow-lg md:hidden z-50",
+      className
+    )}>
+      <div className="flex justify-between items-center px-2">
         {navItems.map((item) => {
           const active = isActive(item.path, item.exact);
+          const Icon = active ? item.activeIcon : item.icon;
+          
           return (
             <Link
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center justify-center py-3 px-2 flex-1 relative"
+              className="flex flex-col items-center justify-center py-3 px-2 flex-1 relative group"
             >
               {active && (
-                <span className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-10 h-1 bg-purple-600 dark:bg-purple-500 rounded-b-full" />
+                <span className={cn(
+                  "absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-10 h-1 rounded-b-full",
+                  "bg-gradient-to-r from-orange-500 to-orange-600 text-orange-500"
+                )} />
               )}
-              <div className={`mb-1 text-xl ${
+              <div className={cn(
+                "mb-1 text-xl transition-all duration-300",
                 active
-                  ? 'text-purple-600 dark:text-purple-400'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}>
-                {item.icon}
+                  ? `text-orange-500 bg-gradient-to-r ${item.activeColor} bg-clip-text text-transparent`
+                  : item.inactiveColor,
+                "group-hover:scale-110"
+              )}>
+                <Icon className="w-6 h-6 text-orange-500" />
               </div>
-              <span className={`text-[10px] font-medium ${
+              <span className={cn(
+                "text-[10px] font-medium transition-all duration-300",
                 active
-                  ? 'text-purple-600 dark:text-purple-400'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}>
+                  ? `bg-gradient-to-r ${item.activeColor} bg-clip-text text-transparent`
+                  : item.inactiveColor,
+                "group-hover:scale-105"
+              )}>
                 {item.label}
               </span>
             </Link>

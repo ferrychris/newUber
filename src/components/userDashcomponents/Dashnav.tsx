@@ -99,12 +99,9 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
             {/* Page Title */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Shipment Track</h1>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Colgroup </h1>
                 <div className="ml-2 relative">
-                  <button className="flex items-center text-sm text-gray-500 dark:text-stone-400 border border-gray-300 dark:border-stone-600 rounded-md px-2 py-1">
-                    <span>Status</span>
-                    <FaChevronDown className="ml-1 text-xs" />
-                  </button>
+                 
                 </div>
               </div>
             </div>
