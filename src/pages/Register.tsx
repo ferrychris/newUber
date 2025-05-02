@@ -287,7 +287,7 @@ export default function Register() {
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
-                className={`block w-full px-4 py-3 border ${errors.full_name ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                className={`block w-full px-4 py-3 border text-black ${errors.full_name ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
                 placeholder="Enter your full name"
                 required
               />
@@ -306,7 +306,7 @@ export default function Register() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`block w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                className={`block w-full px-4 py-3 border text-black ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
                 placeholder="Enter your email"
                 required
               />
@@ -325,7 +325,7 @@ export default function Register() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className={`block w-full px-4 py-3 border ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                className={`block w-full px-4 py-3 border text-black ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
                 placeholder="Enter your phone number"
                 required
               />
@@ -343,7 +343,7 @@ export default function Register() {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]"
+                className="block w-full px-4 py-3 border text-black border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]"
               >
                 <option value="customer">Customer</option>
                 <option value="driver">Driver</option>
@@ -362,7 +362,7 @@ export default function Register() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`block w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                  className={`block w-full px-4 py-3 border text-black ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
                   placeholder="Create a password"
                   required
                 />
@@ -390,7 +390,7 @@ export default function Register() {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`block w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
+                  className={`block w-full px-4 py-3 border text-black ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF7D45] focus:border-[#FF7D45]`}
                   placeholder="Confirm your password"
                   required
                 />
