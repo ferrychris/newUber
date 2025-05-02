@@ -44,13 +44,13 @@ export default function Navbar() {
             {/* Sign In Buttons */}
             <div className="flex items-center space-x-4">
               <Link
-                to="/signin"
+                to="/login"
                 className="px-5 py-2 border border-gray-300 rounded-lg text-[#333] hover:bg-gray-50 transition-colors text-sm font-medium"
               >
                 Sign in
               </Link>
               <Link
-                to="/signup" // Assuming the second button is Sign Up
+                to="/register" // Assuming the second button is Sign Up
                 className="px-5 py-2 bg-[#D95F3B] text-white rounded-lg hover:bg-[#C8532F] transition-colors text-sm font-medium shadow-sm"
               >
                 Sign in
