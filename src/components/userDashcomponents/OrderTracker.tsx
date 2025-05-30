@@ -272,7 +272,7 @@ const OrderTracker: React.FC = () => {
     
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id, full_name, phone, profile_image')
         .eq('id', driverId)
         .single();

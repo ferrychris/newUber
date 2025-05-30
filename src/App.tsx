@@ -1,5 +1,6 @@
 import './index.css';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -12,21 +13,33 @@ import UsersManagement from './admincomponents/UsersManagement';
 import DeliveriesManagement from './admincomponents/DeliveriesManagement';
 import { ThemeProvider } from './utils/theme';
 import ProtectedRoute from './components/routes/ProtectedRoutes';
+import RoleBasedRedirect from './components/routes/RoleBasedRedirect';
 import { AuthProvider } from './context/AuthContext';
-import LanguageSelector from './components/LanguageSelector';
-import './i18n';
+import { TranslationProvider } from './components/GeminiTranslate';
+// Language selector removed
+import { getPreferredLanguage } from './utils/getPreferredLanguage';
+import i18n from './i18n';
 
 function App() {
+  useEffect(() => {
+    const lang = getPreferredLanguage();
+    i18n.changeLanguage(lang);
+  }, []);
+
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <div className="min-h-screen bg-white dark:bg-midnight-900 text-gray-900 dark:text-white transition-colors duration-500">
-          <BrowserRouter>
+      <TranslationProvider>
+        <ThemeProvider>
+          <div className="min-h-screen bg-white dark:bg-midnight-900 text-gray-900 dark:text-white transition-colors duration-500">
+            <BrowserRouter>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              
+              {/* Role-based redirect route */}
+              <Route path="/auth/redirect" element={<RoleBasedRedirect />} />
               
               {/* Protected User Dashboard Routes */}
               <Route path="/dashboard/*" element={
@@ -56,9 +69,10 @@ function App() {
               </Route>
             </Routes>
           </BrowserRouter>
-          <LanguageSelector />
+          {/* Language selector removed */}
         </div>
       </ThemeProvider>
+    </TranslationProvider>
     </AuthProvider>
   );
 }

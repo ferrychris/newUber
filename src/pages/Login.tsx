@@ -27,8 +27,8 @@ export default function Login() {
   });
   const [formErrors, setFormErrors] = useState<Partial<LoginFormData>>({});
 
-  // Get the redirect path from location state
-  const from = location.state?.from || '/dashboard';
+  // Get the redirect path from location state to pass along to the role-based redirect
+  const from = location.state?.from;
 
   const validateForm = (): boolean => {
     const errors: Partial<LoginFormData> = {};
@@ -75,7 +75,8 @@ export default function Login() {
         
         // Add a slight delay to ensure the toast is seen
         setTimeout(() => {
-          navigate(from);
+          // Redirect to the role-based redirect component which will handle routing based on user role
+          navigate('/auth/redirect', { state: { from } });
         }, 1000);
       } else {
         toast.error(result.error || 'Login failed');

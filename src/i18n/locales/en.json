@@ -1,0 +1,38 @@
+{
+  "navbar": {
+    "home": "Home",
+    "services": "Services",
+    "about": "About Us",
+    "contact": "Contact",
+    "login": "Login",
+    "register": "Register",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "login": "Login",
+    "register": "Register",
+    "forgotPassword": "Forgot Password?",
+    "orContinueWith": "Or continue with",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "signUp": "Register",
+    "signIn": "Sign in"
+  },
+  "language": {
+    "english": "English",
+    "french": "Français",
+    "select": "Select Language:"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success!",
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "authError": "Authentication error. Please log in again."
+  }
+}

@@ -8,7 +8,6 @@ export interface UserProfile {
   role: string;
   email: string;
   created_at: string;
-  updated_at: string;
 }
 
 export const useUserProfile = () => {
@@ -18,8 +17,8 @@ export const useUserProfile = () => {
     if (!user?.id) return null;
     
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, email, created_at, updated_at')
+      .from('users')
+      .select('id, full_name, role, email, created_at')
       .eq('id', user.id)
       .single();
       

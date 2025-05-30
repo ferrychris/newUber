@@ -54,9 +54,9 @@ const Order: React.FC = () => {
           console.log("User ID:", user.id);
           setUserId(user.id);
           
-          // Verify the user exists in our users table
+          // Verify the user exists in our profiles table
           const { data, error } = await supabase
-            .from('users')
+            .from('profiles')
             .select('id, full_name')
             .eq('id', user.id)
             .single();
@@ -64,7 +64,7 @@ const Order: React.FC = () => {
           if (error) {
             console.error("Error verifying user in database:", error);
             if (error.code === 'PGRST116') {
-              // User exists in auth but not in our users table
+              // User exists in auth but not in our profiles table
               console.error("User not found in database. They may need to complete registration.");
               setError(t('auth.profileIncomplete'));
             } else {
@@ -75,7 +75,7 @@ const Order: React.FC = () => {
             setError(t('auth.profileIncomplete'));
           } else {
             console.log("User found in database:", data);
-            // User exists in both auth and users table, proceed normally
+            // User exists in both auth and profiles table, proceed normally
             setUserId(user.id);
             fetchOrders(user.id); // Pass the user.id explicitly
           }

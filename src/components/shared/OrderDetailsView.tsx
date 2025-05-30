@@ -154,7 +154,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
         // Fetch customer data if showing user details
         if (showUserDetails && order.user_id) {
           const { data: userData, error: userError } = await supabase
-            .from('users')
+            .from('profiles')
             .select('*')
             .eq('id', order.user_id)
             .single();
@@ -166,7 +166,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
         // Fetch driver data if showing driver details
         if (showDriverDetails && order.driver_id) {
           const { data: driverData, error: driverError } = await supabase
-            .from('users')
+            .from('profiles')
             .select('*')
             .eq('id', order.driver_id)
             .single();

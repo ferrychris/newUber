@@ -25,11 +25,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Add session state listener
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Supabase Auth State Changed:', {
+    event,
+    hasSession: !!session,
+    sessionExpiry: session?.expires_at,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Create a function to get a fresh reference to the user's session
 export async function getCurrentUser() {
   try {
     // First check for Supabase Auth session
     const { data: { session } } = await supabase.auth.getSession();
+    console.log('Current Session State:', {
+      hasSession: !!session,
+      sessionExpiry: session?.expires_at,
+      timestamp: new Date().toISOString()
+    });
+
     if (session?.user) {
       return session.user;
     }
@@ -40,6 +56,10 @@ export async function getCurrentUser() {
       try {
         const userSession = JSON.parse(userSessionString);
         if (userSession && userSession.id) {
+          console.log('Using localStorage session:', {
+            userId: userSession.id,
+            timestamp: new Date().toISOString()
+          });
           // Format to match Supabase User object structure
           return {
             id: userSession.id,

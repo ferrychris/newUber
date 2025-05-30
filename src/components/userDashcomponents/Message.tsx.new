@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaBug, FaSpinner, FaUser } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+import { FaBug } from 'react-icons/fa';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -13,11 +12,11 @@ import MessageList from './messages/MessageList';
 import MessageThreadList from './messages/MessageThreadList';
 import DebugPanel from './messages/DebugPanel';
 
-// Import types with alias to avoid naming conflict
-import { Message as MessageType, MessageProps, MessageThread } from './messages/types';
+// Import types
+import { Message, MessageProps, MessageThread, ReceiverInfo } from './messages/types';
 
 // Re-export types
-export type { Message as MessageType } from './messages/types';
+export type { Message as MessageType, MessageProps } from './messages/types';
 
 type DebugInfo = {
   authLoading: boolean;
@@ -26,26 +25,71 @@ type DebugInfo = {
   error: string | null;
 };
 
-/**
- * Main Message component that composes together all the modular message components.
- */
 const MessageComponent: React.FC<MessageProps> = ({
   orderId,
   receiverId,
   isDriver,
   onClose
 }) => {
-  const { t } = useTranslation();
-  const { user: authUser, loading: authLoading } = useAuth();
+  // State management
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [threads, setThreads] = useState<MessageThread[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [receiverInfo, setReceiverInfo] = useState<ReceiverInfo>({ name: 'Loading...' });
   
-  const toggleDebug = () => {
-    setShowDebug(prev => !prev);
-  };
+  // Refs and hooks
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user: authUser, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
 
-  const handleSendMessage = async (messageText: string) => {
+  // Load messages for a thread
+  const loadMessages = useCallback(async (threadId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      // TODO: Implement actual message loading from your API
+      // const { data, error } = await supabase...
+      // if (error) throw error;
+      // setMessages(data || []);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      setError(t('messages.errorLoadingMessages'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  // Handle thread selection
+  const handleSelectThread = useCallback((thread: MessageThread) => {
+    loadMessages(thread.order.id);
+  }, [loadMessages]);
+
+  // Load initial threads
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        // TODO: Implement actual thread loading from your API
+        // const { data, error } = await supabase...
+        // if (error) throw error;
+        // setThreads(data || []);
+      } catch (err) {
+        console.error('Error loading threads:', err);
+        setError(t('messages.errorLoadingThreads'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadThreads();
+  }, [t]);
+
+  // Handle sending a new message
+  const handleSendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || !authUser?.id || !orderId || !receiverId) {
       console.warn('Cannot send message - missing required data');
       return;
@@ -66,20 +110,23 @@ const MessageComponent: React.FC<MessageProps> = ({
         .select();
 
       if (error) throw error;
-
-      // The MessageList component will handle the new message via real-time subscription
-    } catch (error) {
-      console.error('Error sending message:', error);
+      
+      // Update local state with the new message
+      if (data?.[0]) {
+        setMessages(prev => [...prev, data[0]]);
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
       toast.error(t('messages.errorSendingMessage'));
     } finally {
       setIsSending(false);
     }
-  };
+  }, [authUser?.id, orderId, receiverId, t]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  }, [messages]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -93,24 +140,15 @@ const MessageComponent: React.FC<MessageProps> = ({
     return () => window.removeEventListener('keydown', handleEscapeKey);
   }, [onClose]);
 
-  // Initialize threads and messages with empty arrays to prevent undefined errors
-  const threads: any[] = [];
-  const messages: any[] = [];
-  const isLoading = false;
-  const error = null;
-  
-  // Placeholder functions
-  const handleSelectThread = (thread: MessageThread) => {
-    // Implement thread selection logic here
-    console.log('Selected thread:', thread.order.id);
-  };
+  // Debug panel toggle
+  const toggleDebug = useCallback(() => setShowDebug(prev => !prev), []);
 
   // Debug info
   const debugInfo: DebugInfo = {
     authLoading: authLoading || false,
     hasAuthUser: !!authUser,
     userId: authUser?.id || null,
-    error: null,
+    error: error,
   };
 
   return (
@@ -134,7 +172,7 @@ const MessageComponent: React.FC<MessageProps> = ({
 
       <MessageHeader 
         onClose={onClose} 
-        receiverInfo={{ name: 'Receiver Name' }} // Replace with actual receiver info
+        receiverInfo={receiverInfo}
         isDriver={isDriver}
         onToggleDebug={toggleDebug}
       />

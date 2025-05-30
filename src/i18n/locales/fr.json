@@ -1,0 +1,38 @@
+{
+  "navbar": {
+    "home": "Accueil",
+    "services": "Services",
+    "about": "À propos",
+    "contact": "Contact",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "profile": "Profil",
+    "logout": "Déconnexion"
+  },
+  "auth": {
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "forgotPassword": "Mot de passe oublié?",
+    "orContinueWith": "Ou continuer avec",
+    "dontHaveAccount": "Vous n'avez pas de compte?",
+    "alreadyHaveAccount": "Vous avez déjà un compte?",
+    "signUp": "S'inscrire",
+    "signIn": "Se connecter"
+  },
+  "language": {
+    "english": "Anglais",
+    "french": "Français",
+    "select": "Choisir la langue:"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "success": "Succès!",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "submit": "Soumettre",
+    "authError": "Erreur d'authentification. Veuillez vous reconnecter."
+  }
+}

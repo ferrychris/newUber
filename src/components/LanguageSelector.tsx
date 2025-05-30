@@ -7,12 +7,13 @@ const LanguageSelector = () => {
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
-    // Check if user has already selected a language
-    const selectedLanguage = i18n.language;
-    if (!selectedLanguage || selectedLanguage === 'en') {
+    // Check if user has already explicitly selected a language
+    const hasSelectedLanguage = localStorage.getItem('i18nextLng');
+    // Only show popup if no language has been explicitly selected
+    if (!hasSelectedLanguage) {
       setShowPopup(true);
     }
-  }, [i18n.language]);
+  }, []);
 
   const handleLanguageSelect = async (language: string) => {
     await i18n.changeLanguage(language);

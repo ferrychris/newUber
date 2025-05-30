@@ -1,12 +1,10 @@
-import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { I18nextProvider } from 'react-i18next';
-import i18n from './utils/i18n';
+import './i18n/i18n'; // Import the new i18n setup
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Create a client
+// Create a query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -19,8 +17,6 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
-    <I18nextProvider i18n={i18n}>
-      <App />
-    </I18nextProvider>
+    <App />
   </QueryClientProvider>,
 );

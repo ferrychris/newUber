@@ -242,7 +242,7 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-red-600 transition-colors duration-300"
                     >
                       <FaSignOutAlt />
-                      <span>{isLoggingOut ? t('auth.loggingOut') : t('auth.logout')}</span>
+                      <span>{isLoggingOut ? t('loggingOut') : t('logout')}</span>
                     </button>
                   </div>
                 )}

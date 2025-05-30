@@ -79,7 +79,7 @@ const Account: React.FC = () => {
       
       // Fetch profile data
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -119,7 +119,7 @@ const Account: React.FC = () => {
     
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           full_name: profile.full_name,
           phone: profile.phone,
@@ -184,7 +184,7 @@ const Account: React.FC = () => {
     
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           notification_settings: notificationSettings,
           updated_at: new Date()
@@ -228,7 +228,7 @@ const Account: React.FC = () => {
       if (data) {
         // Update profile with the new image URL
         const { error: updateError } = await supabase
-          .from('users')
+          .from('profiles')
           .update({
             profile_image: data.publicUrl,
             updated_at: new Date()
@@ -261,7 +261,7 @@ const Account: React.FC = () => {
     try {
       // Update profile to remove the image
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           profile_image: null,
           updated_at: new Date()

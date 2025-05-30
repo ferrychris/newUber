@@ -154,7 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('Attempting login for:', cleanEmail);
       
-      // Check if the user exists in our custom users table
+      // Check if the user exists in our custom users table and get their role
       const { data: userInDb, error: userCheckError } = await supabase
         .from('users')
         .select('id, full_name, password, email, role, phone, profile_image')
@@ -176,17 +176,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userInDb.password === password) {
         console.log('Password matched for user in custom table');
         
-        // Create session data
+        // Verify if the user is a driver by checking the drivers table
+        if (userInDb.role === 'driver') {
+          const { data: driverData, error: driverError } = await supabase
+            .from('drivers')
+            .select('id')
+            .eq('id', userInDb.id)
+            .single();
+            
+          if (driverError || !driverData) {
+            console.error('Driver profile not found:', driverError);
+            return { success: false, error: 'Driver profile not found. Please contact support.' };
+          }
+        }
+        
+        // Create session data with verified role
         const sessionData: UserSession = {
           id: userInDb.id,
           email: userInDb.email,
           full_name: userInDb.full_name,
-          role: userInDb.role || 'customer',
+          role: userInDb.role,  // Use exact role from database
           phone: userInDb.phone || null,
           profile_image: userInDb.profile_image || null,
           created_at: new Date().toISOString(),
           last_sign_in_at: new Date().toISOString()
         };
+        
+        console.log('User role verified:', {
+          userId: sessionData.id,
+          role: sessionData.role,
+          timestamp: sessionData.last_sign_in_at
+        });
         
         // Set user in state
         setUser(sessionData);

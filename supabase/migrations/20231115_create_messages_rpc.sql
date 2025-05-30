@@ -13,7 +13,7 @@ SET search_path = public
 AS $$
   SELECT order_id, COUNT(*) as count
   FROM messages
-  WHERE recipient_id = user_id
+  WHERE receiver_id = user_id
     AND read = false
     AND order_id = ANY(order_ids)
   GROUP BY order_id;
