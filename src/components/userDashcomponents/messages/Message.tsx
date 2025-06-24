@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../../../../utils/supabase';
-import { useAuth } from '../../../../context/AuthContext';
+import { supabase } from '../../../lib/supabaseClient';
+import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Message as MessageType, ReceiverInfo, DebugInfo } from './types';
 import MessageHeader from './MessageHeader';

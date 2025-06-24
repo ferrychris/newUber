@@ -6,13 +6,11 @@ import {
   FaBell,
   FaMoon,
   FaSun,
-  FaGlobe,
   FaUser,
   FaSignOutAlt,
   FaChevronDown,
   FaCog,
   FaSearch,
-  FaShippingFast,
   FaSpinner
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
@@ -27,17 +25,17 @@ interface Notification {
 
 interface DashNavProps {
   isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const { userProfile, isLoading } = useUserProfile();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+
 
   const navigate = useNavigate();
   const [notifications] = useState<Notification[]>([
@@ -81,10 +79,7 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
     }
   };
 
-  const handleLanguageChange = (lang: string) => {
-    i18n.changeLanguage(lang);
-    setShowLanguageMenu(false);
-  };
+
 
   return (
     <>
@@ -182,13 +177,11 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                   className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-lg px-2 py-1 transition-colors duration-300"
                 >
                   <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-sunset to-purple-500 flex items-center justify-center text-white overflow-hidden">
-                    {isLoading ? (
-                      <FaSpinner className="animate-spin" />
-                    ) : (
+                    {isLoading ? <FaSpinner className="animate-spin" /> : (
                       userProfile?.full_name ? (
                         <span>
                           {typeof userProfile.full_name === 'object' 
-                            ? Object.values(userProfile.full_name)[0] || '?' 
+                            ? (Object.values(userProfile.full_name)[0]?.toString() || t('user.initial'))
                             : userProfile.full_name.charAt(0)}
                         </span>
                       ) : (
@@ -204,9 +197,9 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         {userProfile?.full_name 
                           ? (typeof userProfile.full_name === 'object'
-                              ? JSON.stringify(userProfile.full_name)
+                              ? t('user.defaultName')
                               : userProfile.full_name)
-                          : 'User'}
+                          : t('user.defaultName')}
                       </span>
                     )}
                     {isLoading ? (
@@ -215,9 +208,9 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                       <p className="text-xs text-gray-500 dark:text-stone-400">
                         {userProfile?.role
                           ? (typeof userProfile.role === 'object'
-                              ? JSON.stringify(userProfile.role)
+                              ? t('user.defaultRole')
                               : userProfile.role)
-                          : 'User'}
+                          : t('user.defaultRole')}
                       </p>
                     )}
                   </div>
@@ -229,11 +222,11 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                   <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-stone-600/10 py-2">
                     <button className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-gray-700 dark:text-white transition-colors duration-300">
                       <FaUser className="text-sunset dark:text-sunset" />
-                      <span>{t('Profile')}</span>
+                      <span>Profile</span>
                     </button>
                     <button className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-gray-700 dark:text-white transition-colors duration-300">
                       <FaCog className="text-sunset dark:text-sunset" />
-                      <span>{t('Settings')}</span>
+                      <span>Settings</span>
                     </button>
                     <div className="border-t border-gray-200 dark:border-stone-600/10 my-1"></div>
                     <button
@@ -242,7 +235,7 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-midnight-700/50 flex items-center gap-2 text-red-600 transition-colors duration-300"
                     >
                       <FaSignOutAlt />
-                      <span>{isLoggingOut ? t('loggingOut') : t('logout')}</span>
+                      <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
                     </button>
                   </div>
                 )}

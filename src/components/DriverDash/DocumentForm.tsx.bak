@@ -1,0 +1,254 @@
+import { createClient } from '@supabase/supabase-js';
+import { useUser } from '@supabase/auth-helpers-react';
+import React from 'react';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Define types
+type FileType = 'license' | 'vehicle' | 'insurance';
+
+interface FormData {
+  licenseNumber: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  vehicleYear: string;
+}
+
+interface DocumentFormProps {
+  formData: FormData;
+  files: Partial<Record<FileType, File>>;
+  onChange: (field: keyof FormData, value: string) => void;
+  onUpload: (type: FileType, file: File) => void;
+  onSubmit: (driverId: string, verificationId: string) => Promise<void>;
+  isSubmitting: boolean;
+  verificationStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+}
+
+async function uploadFile(type: FileType, file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${type}-${Date.now()}.${fileExt}`;
+  const filePath = `driver-documents/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('documents')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+const DocumentForm: React.FC<DocumentFormProps> = ({
+  formData,
+  files,
+  onChange,
+  onUpload,
+  onSubmit,
+  isSubmitting,
+  verificationStatus = 'none'
+}) => {
+  const user = useUser();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      alert('Please sign in to submit documents');
+      return;
+    }
+
+    try {
+      // Insert driver info
+      const { data: driverData, error: driverError } = await supabase
+        .from('driver_table')
+        .insert([{
+          user_id: user.id,
+          license_number: formData.licenseNumber,
+          vehicle_make: formData.vehicleMake,
+          vehicle_model: formData.vehicleModel,
+          vehicle_year: formData.vehicleYear
+        }])
+        .select()
+        .single();
+
+      if (driverError) throw driverError;
+
+      // Upload files and get URLs
+      const fileUrls: Record<FileType, string | null> = {
+        license: null,
+        vehicle: null,
+        insurance: null
+      };
+
+      for (const [type, file] of Object.entries(files)) {
+        if (file) {
+          fileUrls[type as FileType] = await uploadFile(type as FileType, file);
+        }
+      }
+
+      // Insert verification info
+      const { data: verificationData, error: verificationError } = await supabase
+        .from('driver_verifications')
+        .insert([{
+          driver_id: driverData.id,
+          license_doc_url: fileUrls.license,
+          vehicle_doc_url: fileUrls.vehicle,
+          insurance_doc_url: fileUrls.insurance,
+          verification_status: 'pending'
+        }])
+        .select()
+        .single();
+
+      if (verificationError) throw verificationError;
+
+      await onSubmit(driverData.id, verificationData.id);
+    } catch (error) {
+      console.error('Error submitting documents:', error);
+      alert('Failed to submit documents. Please try again.');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-[#2a2a2a] p-6 rounded-lg shadow-lg">
+      {verificationStatus === 'rejected' && (
+        <div className="p-4 mb-4 text-sm text-red-300 bg-red-900/50 rounded-lg border border-red-700">
+          Your documents were rejected. Please update and resubmit.
+        </div>
+      )}
+      {verificationStatus === 'pending' && (
+        <div className="p-4 mb-4 text-sm text-yellow-300 bg-yellow-900/50 rounded-lg border border-yellow-700">
+          Your documents are being reviewed.
+        </div>
+      )}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-white">License Number</label>
+          <input
+            type="text"
+            name="licenseNumber"
+            value={formData.licenseNumber}
+            onChange={(e) => onChange('licenseNumber', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-700 bg-[#333333] shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-white placeholder-gray-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">Vehicle Make</label>
+          <input
+            type="text"
+            name="vehicleMake"
+            value={formData.vehicleMake}
+            onChange={(e) => onChange('vehicleMake', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-700 bg-[#333333] shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-white placeholder-gray-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">Vehicle Model</label>
+          <input
+            type="text"
+            name="vehicleModel"
+            value={formData.vehicleModel}
+            onChange={(e) => onChange('vehicleModel', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-700 bg-[#333333] shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-white placeholder-gray-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">Vehicle Year</label>
+          <input
+            type="text"
+            name="vehicleYear"
+            value={formData.vehicleYear}
+            onChange={(e) => onChange('vehicleYear', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-700 bg-[#333333] shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm text-white placeholder-gray-400"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">License Document</label>
+          <input
+            type="file"
+            onChange={(e) => e.target.files?.[0] && onUpload('license', e.target.files[0])}
+            className="mt-1 block w-full text-sm text-gray-300
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-md file:border-0
+              file:text-sm file:font-semibold
+              file:bg-blue-900/50 file:text-blue-300
+              hover:file:bg-blue-800/50
+              file:border file:border-blue-700"
+            accept="image/*,.pdf"
+            required
+          />
+          {files.license && (
+            <p className="mt-1 text-sm text-gray-400">
+              Selected: {files.license.name}
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">Vehicle Document</label>
+          <input
+            type="file"
+            onChange={(e) => e.target.files?.[0] && onUpload('vehicle', e.target.files[0])}
+            className="mt-1 block w-full text-sm text-gray-300
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-md file:border-0
+              file:text-sm file:font-semibold
+              file:bg-blue-900/50 file:text-blue-300
+              hover:file:bg-blue-800/50
+              file:border file:border-blue-700"
+            accept="image/*,.pdf"
+            required
+          />
+          {files.vehicle && (
+            <p className="mt-1 text-sm text-gray-400">
+              Selected: {files.vehicle.name}
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white">Insurance Document</label>
+          <input
+            type="file"
+            onChange={(e) => e.target.files?.[0] && onUpload('insurance', e.target.files[0])}
+            className="mt-1 block w-full text-sm text-gray-300
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-md file:border-0
+              file:text-sm file:font-semibold
+              file:bg-blue-900/50 file:text-blue-300
+              hover:file:bg-blue-800/50
+              file:border file:border-blue-700"
+            accept="image/*,.pdf"
+            required
+          />
+          {files.insurance && (
+            <p className="mt-1 text-sm text-gray-400">
+              Selected: {files.insurance.name}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex justify-end space-x-4 mt-6">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full flex justify-center py-2 px-4 border border-blue-700 rounded-md shadow-sm text-sm font-medium text-blue-300 bg-blue-900/50 hover:bg-blue-800/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+export default DocumentForm;

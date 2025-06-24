@@ -4,7 +4,6 @@ import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
-import { useTheme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 
 interface LoginFormData {
@@ -15,8 +14,7 @@ interface LoginFormData {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme } = useTheme();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -75,8 +73,51 @@ export default function Login() {
         
         // Add a slight delay to ensure the toast is seen
         setTimeout(() => {
-          // Redirect to the role-based redirect component which will handle routing based on user role
-          navigate('/auth/redirect', { state: { from } });
+          // Get the current user after successful login
+          const currentUser = user;
+          
+          if (currentUser) {
+            // Determine redirect path based on user role
+            let redirectPath;
+            
+            switch (currentUser.role) {
+              case 'driver':
+                redirectPath = '/driver/dashboard';
+                break;
+              case 'admin':
+                redirectPath = '/admin/dashboard';
+                break;
+              case 'customer':
+              default:
+                redirectPath = '/dashboard';
+                break;
+            }
+            
+            // If there was a specific destination requested, use that instead
+            // but only if it's appropriate for the user's role
+            if (from) {
+              const isDriverRoute = from.startsWith('/driver');
+              const isAdminRoute = from.startsWith('/admin');
+              const isCustomerRoute = from.startsWith('/dashboard') && !isDriverRoute && !isAdminRoute;
+
+              const canAccessRoute = (
+                (isDriverRoute && currentUser.role === 'driver') ||
+                (isAdminRoute && currentUser.role === 'admin') ||
+                (isCustomerRoute && currentUser.role === 'customer') ||
+                currentUser.role === 'admin' // Admins can access all routes
+              );
+
+              if (canAccessRoute) {
+                redirectPath = from;
+              }
+            }
+            
+            console.log(`Redirecting user with role ${currentUser.role} to ${redirectPath}`);
+            navigate(redirectPath);
+          } else {
+            // Fallback to redirect component if user state isn't available yet
+            navigate('/auth/redirect', { state: { from } });
+          }
         }, 1000);
       } else {
         toast.error(result.error || 'Login failed');

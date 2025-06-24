@@ -1,12 +1,18 @@
 import './index.css';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { useEffect } from 'react';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import AdminDash from './pages/AdminDash';
 import { UserDash } from './pages/UserDash';
-import DriverDashboard from './pages/DriverDashboard';
+import { DriverDashboard } from './components/DriverDash/DriverDashboard';
+import { TestOrderStatusControl } from './components/DriverDash/KeyFeatures/Orders/TestOrderStatusControl';
+import DriverOrders from './pages/DriverOrders';
+import DriverDashboardPage from './pages/DriverDashboard';
+import DriverSettings from './pages/DriverSettings';
+import DriverMessages from "./pages/DriverMessages";
 import FretersManagement from './admincomponents/FretersManagement';
 import OrdersManagement from './admincomponents/OrdersManagement';
 import UsersManagement from './admincomponents/UsersManagement';
@@ -19,6 +25,7 @@ import { TranslationProvider } from './components/GeminiTranslate';
 // Language selector removed
 import { getPreferredLanguage } from './utils/getPreferredLanguage';
 import i18n from './i18n';
+import { supabase } from './lib/supabaseClient';
 
 function App() {
   useEffect(() => {
@@ -27,8 +34,9 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <TranslationProvider>
+    <SessionContextProvider supabaseClient={supabase}>
+      <AuthProvider>
+        <TranslationProvider>
         <ThemeProvider>
           <div className="min-h-screen bg-white dark:bg-midnight-900 text-gray-900 dark:text-white transition-colors duration-500">
             <BrowserRouter>
@@ -37,7 +45,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
-              
+              <Route path="/test" element={<TestOrderStatusControl />} />
+              <Route path="/test-order-status-control" element={<TestOrderStatusControl />} />
               {/* Role-based redirect route */}
               <Route path="/auth/redirect" element={<RoleBasedRedirect />} />
               
@@ -49,11 +58,18 @@ function App() {
               } />
 
               {/* Protected Driver Dashboard Routes */}
-              <Route path="/driver/dashboard" element={
+              <Route path="/driver/*" element={
                 <ProtectedRoute driverRequired>
                   <DriverDashboard />
                 </ProtectedRoute>
-              } />
+              }>
+                <Route index element={<DriverDashboardPage />} />
+                <Route path="dashboard" element={<DriverDashboardPage />} />
+                <Route path="orders" element={<DriverOrders />} />
+
+                <Route path="messages" element={<DriverMessages />} />
+                <Route path="settings" element={<DriverSettings />} />
+              </Route>
               
               {/* Protected Admin Routes with adminRequired */}
               <Route path="/admin/*" element={
@@ -73,7 +89,8 @@ function App() {
         </div>
       </ThemeProvider>
     </TranslationProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </SessionContextProvider>
   );
 }
 

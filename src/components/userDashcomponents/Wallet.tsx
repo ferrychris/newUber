@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { 
-  FaWallet, FaMoneyBillWave, FaCreditCard, FaHistory, 
-  FaDownload, FaExchangeAlt, FaPlusCircle, FaArrowUp,
-  FaArrowDown, FaChartLine
+  FaWallet, FaMoneyBillWave, FaHistory, 
+  FaExchangeAlt, FaPlusCircle, FaMinusCircle, FaArrowUp,
+  FaArrowDown
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import { getUserWallet, getWalletTransactions } from '../../utils/stripe';
 import { toast } from 'react-toastify';
 import { supabase } from '../../utils/supabase';
 import WalletFundDialog from './WalletFundDialog';
+import WalletWithdrawDialog from './WalletWithdrawDialog';
 
 // Type definitions
 interface Card {
@@ -45,207 +45,181 @@ interface WalletData {
 
 const Wallet: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
-  const [activeView, setActiveView] = useState<'cards'|'transactions'>('cards');
+  // State for active view
+  const [activeView, setActiveView] = useState<'overview'|'transactions'>('overview');
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isAddFundsDialogOpen, setIsAddFundsDialogOpen] = useState(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
   const [walletId, setWalletId] = useState<string>('');
 
-  // Fetch wallet data when the component mounts
+  // Fetch wallet data when the component mounts or after fund/withdraw operations
   useEffect(() => {
-    fetchWalletData();
+    if (isAuthenticated && user) {
+      fetchWalletData();
+    }
   }, [isAuthenticated, user]);
 
   const fetchWalletData = async () => {
     if (!isAuthenticated || !user) {
-      toast.error('Authentication required. Please login.');
       setLoading(false);
       return;
     }
-
+    
     try {
       setLoading(true);
-      // Get the user's wallet from Supabase directly
-      let walletData;
-      const { data, error } = await supabase
+      
+      // First check if the wallet exists using maybeSingle to avoid PGRST116 error
+      const { data: walletData, error: walletError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
-        .limit(1)
         .maybeSingle();
       
-      if (error) {
-        console.error('Error fetching wallet:', error);
-        toast.error('Failed to load wallet data');
-        setLoading(false);
+      // Only throw non-RLS and non-PGRST116 errors
+      if (walletError && walletError.code !== 'PGRST116' && walletError.code !== '42501') {
+        throw walletError;
+      }
+      
+      if (walletData) {
+        // Use existing wallet
+        setWallet({
+          balance: walletData.balance,
+          currency: walletData.currency,
+          cards: [],
+          statistics: {
+            savingsGoal: 0,
+            transactionHistory: []
+          },
+          last_updated: walletData.updated_at
+        });
+        setWalletId(walletData.id);
+        
+        // Fetch transaction history
+        fetchTransactionHistory();
         return;
       }
       
-      if (!data) {
-        console.log('No wallet found, creating new wallet for user', user.id);
-        // Create a new wallet if none exists
-        const { data: newWallet, error: createError } = await supabase
+      // Create a wallet if it doesn't exist
+      try {
+        const newWallet = {
+          user_id: user.id,
+          balance: 0,
+          currency: 'EUR',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { data: createdWallet, error: createError } = await supabase
           .from('wallets')
-          .insert({
-            user_id: user.id,
-            balance: 0,
-            currency: 'USD',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+          .insert(newWallet)
           .select()
-          .single();
+          .maybeSingle();
         
         if (createError) {
-          console.error('Error creating wallet:', createError);
-          toast.error('Failed to create wallet');
-          setLoading(false);
-          return;
-        }
-
-        walletData = newWallet;
-        toast.success('Wallet created successfully');
-      } else {
-        walletData = data;
-      }
-      
-      // Store the wallet ID for later use
-      setWalletId(walletData.id);
-      
-      // Set wallet data
-      setWallet({
-        balance: walletData.balance || 0,
-        currency: walletData.currency || 'USD',
-        cards: [
-          {
-            id: 1,
-            number: '**** **** **** 4587',
-            expiry: '09/25',
-            type: 'visa',
-            isDefault: true
+          if (createError.code === '42501') {
+            // Handle RLS policy violation
+            toast.warning('Unable to create wallet due to permission restrictions');
+            setWallet({
+              balance: 0,
+              currency: 'EUR',
+              cards: [],
+              statistics: {
+                savingsGoal: 0,
+                transactionHistory: []
+              },
+              last_updated: new Date().toISOString()
+            });
+            return;
           }
-        ],
-        statistics: {
-          savingsGoal: 65,
-          transactionHistory: [65, 59, 80, 81, 56, 55, 40, 50, 45, 65, 70, 75]
-        },
-        last_updated: walletData.updated_at
-      });
-      
-      // Get transaction history
-      fetchTransactionHistory(walletData.id);
-    } catch (error) {
-      console.error('Error in wallet data process:', error);
-      toast.error('Failed to load wallet data');
-      setLoading(false);
-    }
-  };
-
-  const fetchTransactionHistory = async (walletId: string) => {
-    try {
-      // Try multiple table names to handle different schema possibilities
-      let transactions = null;
-      let error = null;
-      
-      // Try wallet_transaction table
-      const { data: txData1, error: txError1 } = await supabase
-        .from('wallet_transaction')
-        .select('*')
-        .eq('wallet_id', walletId)
-        .order('created_at', { ascending: false });
-      
-      if (!txError1 && txData1) {
-        transactions = txData1;
-      } else if (txError1?.code === '42P01') {
-        // Try wallet_transactions table
-        const { data: txData2, error: txError2 } = await supabase
-          .from('wallet_transactions')
-          .select('*')
-          .eq('wallet_id', walletId)
-          .order('created_at', { ascending: false });
+          throw createError;
+        }
         
-        if (!txError2 && txData2) {
-          transactions = txData2;
-        } else if (txError2?.code === '42P01') {
-          // Try transactions table
-          const { data: txData3, error: txError3 } = await supabase
-            .from('transactions')
-            .select('*')
-            .eq('wallet_id', walletId)
-            .order('created_at', { ascending: false });
+        if (createdWallet) {
+          setWallet({
+            balance: createdWallet.balance,
+            currency: createdWallet.currency,
+            cards: [],
+            statistics: {
+              savingsGoal: 0,
+              transactionHistory: []
+            },
+            last_updated: createdWallet.updated_at
+          });
+          setWalletId(createdWallet.id);
+          toast.success('Wallet created successfully');
           
-          if (!txError3 && txData3) {
-            transactions = txData3;
-          } else {
-            error = txError3;
-          }
-        } else {
-          error = txError2;
+          // Fetch transaction history
+          fetchTransactionHistory();
         }
+      } catch (createError) {
+        console.error('Error creating wallet:', createError);
+        toast.error('Failed to create wallet');
+        
+        // Set default wallet UI even if creation failed
+        setWallet({
+          balance: 0,
+          currency: 'EUR',
+          cards: [],
+          statistics: {
+            savingsGoal: 0,
+            transactionHistory: []
+          },
+          last_updated: new Date().toISOString()
+        });
+      }
+      
+    } catch (error: any) {
+      console.error('Error fetching wallet data:', error);
+      
+      // Show more helpful error message based on error type
+      if (error?.code === '42501') {
+        toast.error('Permission denied: Unable to access wallet');
+      } else if (error?.code === 'PGRST116') {
+        toast.info('Creating new wallet...');
       } else {
-        error = txError1;
+        toast.error('Failed to load wallet data');
       }
       
-      if (error && error.code !== '42P01') {
-        console.error('Error fetching wallet transactions:', error);
-      }
-      
-      if (transactions && transactions.length > 0) {
-        setTransactions(transactions.map((tx: any) => ({
-          id: tx.id,
-          type: tx.type || 'payment',
-          amount: tx.amount,
-          date: formatDate(tx.created_at),
-          status: tx.status || 'completed',
-          description: tx.description || 'Transaction',
-          created_at: tx.created_at
-        })));
-      }
-    } catch (error) {
-      console.error('Error in transaction fetch function:', error);
+      // Set default wallet UI even if fetching failed
+      setWallet({
+        balance: 0,
+        currency: 'EUR',
+        cards: [],
+        statistics: {
+          savingsGoal: 0,
+          transactionHistory: []
+        },
+        last_updated: new Date().toISOString()
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'deposit':
-        return <FaArrowDown className="text-green-500" />;
-      case 'withdrawal':
-        return <FaArrowUp className="text-red-500" />;
-      case 'payment':
-        return <FaExchangeAlt className="text-blue-500" />;
-      case 'earnings':
-        return <FaChartLine className="text-purple-500" />;
-      default:
-        return <FaExchangeAlt className="text-gray-500" />;
+  const fetchTransactionHistory = async () => {
+    if (!isAuthenticated || !user) {
+      return;
     }
-  };
-
-  const getTransactionStatusStyle = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      case 'failed':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700/30 dark:text-gray-300';
+    
+    try {
+      const { data, error } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setTransactions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      toast.error('Failed to load transaction history');
     }
   };
 
@@ -254,20 +228,62 @@ const Wallet: React.FC = () => {
       toast.error('Authentication required. Please login.');
       return;
     }
-    
     if (!walletId) {
-      toast.error('No wallet ID found');
+      toast.error('Wallet ID not found');
       return;
     }
-    
     setIsAddFundsDialogOpen(true);
   };
-
-  const handleFundSuccess = () => {
-    // Refresh wallet data after successful fund addition
-    fetchWalletData();
+  
+  const handleWithdraw = () => {
+    if (!isAuthenticated) {
+      toast.error('Authentication required. Please login.');
+      return;
+    }
+    if (!walletId) {
+      toast.error('Wallet ID not found');
+      return;
+    }
+    if (!wallet || wallet.balance <= 0) {
+      toast.error('Insufficient balance for withdrawal');
+      return;
+    }
+    setIsWithdrawDialogOpen(true);
   };
 
+  const handleWithdrawSuccess = () => {
+    // Refresh wallet data and transaction history after withdrawal
+    fetchWalletData();
+    toast.success('Withdrawal processed successfully!');
+  };
+  
+  const handleFundSuccess = () => {
+    // Refresh wallet data after adding funds
+    fetchWalletData();
+  };
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const getTransactionIcon = (type: string) => {
+    switch(type) {
+      case 'deposit':
+        return <FaArrowUp className="text-green-500" />;
+      case 'withdrawal':
+        return <FaArrowDown className="text-red-500" />;
+      case 'transfer':
+        return <FaExchangeAlt className="text-blue-500" />;
+      default:
+        return <FaMoneyBillWave className="text-gray-500" />;
+    }
+  };
+
+  // Loading state
   if (loading) {
     return (
       <div className="container mx-auto p-6 flex justify-center items-center h-64">
@@ -276,16 +292,18 @@ const Wallet: React.FC = () => {
     );
   }
 
+  // Authentication check
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto p-6">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
-          <p>Authentication required. Please login to access your wallet.</p>
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
+          <p>Please log in to view your wallet.</p>
         </div>
       </div>
     );
   }
 
+  // Wallet check
   if (!wallet) {
     return (
       <div className="container mx-auto p-6">
@@ -297,282 +315,151 @@ const Wallet: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto">
-      {/* Add the fund dialog */}
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-8 text-blue-600 flex items-center">
+        <FaWallet className="mr-3" /> My Wallet
+      </h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Wallet Balance Card */}
+        <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Wallet Balance</h2>
+          <div className="flex items-center justify-between">
+            <p className="text-4xl font-bold text-blue-700">
+              {formatCurrency(wallet.balance)}
+            </p>
+            <div className="flex space-x-2">
+              <button 
+                onClick={handleAddFunds}
+                className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition"
+              >
+                <FaPlusCircle className="mr-2" /> Add Funds
+              </button>
+              <button 
+                onClick={handleWithdraw}
+                className="flex items-center bg-sunset hover:bg-sunset-dark text-white px-4 py-2 rounded-md transition"
+              >
+                <FaMinusCircle className="mr-2" /> Withdraw
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-gray-500 mt-2">
+            Last updated: {wallet.last_updated ? new Date(wallet.last_updated).toLocaleString() : 'Never'}
+          </p>
+        </div>
+        
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <button onClick={handleAddFunds} className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg flex flex-col items-center justify-center transition">
+              <FaPlusCircle className="text-blue-500 text-2xl mb-2" />
+              <span>Deposit</span>
+            </button>
+            <button onClick={handleWithdraw} className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg flex flex-col items-center justify-center transition">
+              <FaMinusCircle className="text-sunset text-2xl mb-2" />
+              <span>Withdraw</span>
+            </button>
+            <button className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg flex flex-col items-center justify-center transition">
+              <FaExchangeAlt className="text-purple-500 text-2xl mb-2" />
+              <span>Transfer</span>
+            </button>
+            <button 
+              onClick={() => setActiveView('transactions')}
+              className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg flex flex-col items-center justify-center transition"
+            >
+              <FaHistory className="text-gray-500 text-2xl mb-2" />
+              <span>History</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Transaction History */}
+      <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <FaHistory className="mr-2" /> Transaction History
+        </h2>
+        
+        {transactions.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No transactions found. Start by adding funds to your wallet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white">
+              <thead>
+                <tr>
+                  <th className="py-2 px-4 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+                  <th className="py-2 px-4 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
+                  <th className="py-2 px-4 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                  <th className="py-2 px-4 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                  <th className="py-2 px-4 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {transactions.map(transaction => (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="mr-2">{getTransactionIcon(transaction.type)}</span>
+                        <span className="capitalize">{transaction.type}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {transaction.description || '-'}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap font-medium">
+                      <span className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {formatCurrency(transaction.amount)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(transaction.created_at).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${transaction.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                          transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-red-100 text-red-800'}`}>
+                        {transaction.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      
+      {/* Fund Dialog */}
       <AnimatePresence>
         {isAddFundsDialogOpen && wallet && (
           <WalletFundDialog
             isOpen={isAddFundsDialogOpen}
-            onClose={() => setIsAddFundsDialogOpen(false)}
             walletId={walletId}
-            onSuccess={handleFundSuccess}
             currentBalance={wallet.balance}
             userId={user?.id || ''}
+            onClose={() => setIsAddFundsDialogOpen(false)}
+            onSuccess={handleFundSuccess}
           />
         )}
       </AnimatePresence>
       
-      {/* Balance Overview */}
-    <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6"
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Wallet</h2>
-          <div className="flex items-center gap-3">
-            <button 
-              className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-              onClick={() => setActiveView('transactions')}
-            >
-              <FaHistory />
-              <span>Transaction History</span>
-            </button>
-            <button 
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-              onClick={handleAddFunds}
-              disabled={loading}
-            >
-              <FaPlusCircle />
-              <span>Add Funds</span>
-            </button>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6">
-          {/* Balance Card */}
-          <div className="bg-purple-600 text-white p-6 rounded-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-bl-full"></div>
-            
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <FaWallet className="text-white" />
-              </div>
-              <h3 className="text-lg font-medium">Balance</h3>
-            </div>
-            
-            <div className="text-3xl font-bold mb-3">{formatCurrency(wallet.balance)}</div>
-            
-            <div className="flex items-center text-white/70 text-sm">
-              <FaChartLine className="mr-1" />
-              <span>Available Balance</span>
-              {wallet.last_updated && (
-                <span className="ml-2 text-xs">Last Updated: {formatDate(wallet.last_updated)}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      
-      {/* Tabs */}
-      <div className="mb-6 flex border-b border-gray-200 dark:border-stone-700/20">
-        <button 
-          className={`py-3 px-4 font-medium text-sm border-b-2 ${
-            activeView === 'cards' 
-              ? 'border-purple-600 text-purple-600 dark:text-purple-400' 
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-white'
-          }`}
-          onClick={() => setActiveView('cards')}
-        >
-          Payment Cards
-        </button>
-        <button 
-          className={`py-3 px-4 font-medium text-sm border-b-2 ${
-            activeView === 'transactions' 
-              ? 'border-purple-600 text-purple-600 dark:text-purple-400' 
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-white'
-          }`}
-          onClick={() => setActiveView('transactions')}
-        >
-          Transactions
-        </button>
-      </div>
-
-      {/* Content based on active tab */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          <AnimatedTabPanel isActive={activeView === 'cards'}>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Methods</h3>
-                <button className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-500 text-sm font-medium">
-                  + Add Card
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {wallet.cards.map(card => (
-                  <div 
-                    key={card.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 dark:border-stone-700/20 rounded-lg hover:shadow-sm transition-shadow duration-300"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-purple-200 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                        <FaCreditCard className="text-purple-600 dark:text-purple-400" />
-        </div>
-
-                      <div>
-                        <p className="text-gray-900 dark:text-white font-medium">{card.number}</p>
-                        <p className="text-gray-500 dark:text-stone-400 text-sm">Expires {card.expiry}</p>
-                      </div>
-          </div>
-                    
-                    {card.isDefault && (
-                      <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs px-2 py-1 rounded">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </AnimatedTabPanel>
-        
-          <AnimatedTabPanel isActive={activeView === 'transactions'}>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
-                <button className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-500 text-sm font-medium">
-                  View All
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {transactions.length === 0 ? (
-                  <div className="text-center p-4 text-gray-500 dark:text-stone-400">
-                    No transactions found
-                  </div>
-                ) : (
-                  transactions.map(transaction => (
-                    <div 
-                      key={transaction.id}
-                      className="flex items-center justify-between p-4 border border-gray-200 dark:border-stone-700/20 rounded-lg hover:bg-gray-50 dark:hover:bg-midnight-700/30 transition-colors duration-300"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-midnight-700 flex items-center justify-center">
-                          {getTransactionIcon(transaction.type)}
-                        </div>
-                        
-                        <div>
-                          <p className="text-gray-900 dark:text-white font-medium capitalize">
-                            {transaction.type}
-                          </p>
-                          <p className="text-gray-500 dark:text-stone-400 text-sm">{transaction.date}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <p className={`font-medium ${
-                          transaction.type === 'deposit' || transaction.type === 'earnings' 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {transaction.type === 'deposit' || transaction.type === 'earnings' ? '+' : '-'}
-                          {formatCurrency(transaction.amount)}
-                        </p>
-                        <span className={`text-xs px-2 py-0.5 rounded ${getTransactionStatusStyle(transaction.status)}`}>
-                          {transaction.status}
-                        </span>
-                      </div>
-          </div>
-                  ))
+      {/* Withdraw Dialog */}
+      <AnimatePresence>
+        {isWithdrawDialogOpen && wallet && (
+          <WalletWithdrawDialog 
+            isOpen={isWithdrawDialogOpen}
+            walletId={walletId}
+            currentBalance={wallet.balance}
+            userId={user?.id || ''}
+            onClose={() => setIsWithdrawDialogOpen(false)}
+            onSuccess={handleWithdrawSuccess}
+          />
         )}
-      </div>
-            </motion.div>
-          </AnimatedTabPanel>
-        </div>
-        
-        {/* Right Sidebar */}
-        <div>
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0, transition: { delay: 0.2 } }}
-            className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Savings Goal</h3>
-            
-            <div className="relative pt-1">
-              <div className="flex mb-2 items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold inline-block text-purple-600 dark:text-purple-400">
-                    {wallet.statistics.savingsGoal}% Complete
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-semibold inline-block text-gray-600 dark:text-stone-400">
-                    $50,000 Goal
-                  </span>
-                </div>
-              </div>
-              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-purple-200 dark:bg-purple-900/30">
-                <div style={{ width: `${wallet.statistics.savingsGoal}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-purple-600"></div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between mt-2 text-sm text-gray-600 dark:text-stone-400">
-              <span>Current: {formatCurrency(wallet.balance)}</span>
-              <span>Target: $50,000</span>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
-            className="bg-white dark:bg-midnight-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                className="p-3 bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-lg flex flex-col items-center hover:bg-purple-200 dark:hover:bg-purple-900/30 transition-colors duration-300"
-                onClick={handleAddFunds}
-              >
-                <FaMoneyBillWave className="text-xl mb-1" />
-                <span className="text-xs font-medium">Deposit</span>
-              </button>
-              
-              <button className="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-lg flex flex-col items-center hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors duration-300">
-                <FaArrowUp className="text-xl mb-1" />
-                <span className="text-xs font-medium">Withdrawal</span>
-              </button>
-              
-              <button className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg flex flex-col items-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-300">
-                <FaExchangeAlt className="text-xl mb-1" />
-                <span className="text-xs font-medium">Transfer</span>
-              </button>
-              
-              <button 
-                className="p-3 bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 rounded-lg flex flex-col items-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-300"
-                onClick={() => setActiveView('transactions')}
-              >
-                <FaHistory className="text-xl mb-1" />
-                <span className="text-xs font-medium">History</span>
-              </button>
-            </div>
-    </motion.div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Helper component for animated tab transitions
-const AnimatedTabPanel: React.FC<{ isActive: boolean; children: React.ReactNode }> = ({ 
-  isActive, 
-  children 
-}) => {
-  return (
-    <div className={`transition-all duration-300 ${isActive ? 'block' : 'hidden'}`}>
-      {children}
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import ErrorBoundary from '../components/common/ErrorBoundary';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/userDashcomponents/Sidebar';
 import DashIndex from '../components/userDashcomponents/DashIndex';
 import DashNav from '../components/userDashcomponents/Dashnav';
@@ -14,10 +16,71 @@ import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
 import MessageComponent from '../components/userDashcomponents/Message';
 
+interface DebugInfo {
+  authLoading: boolean;
+  isLoading: boolean;
+  isSidebarOpen: boolean;
+  i18nInitialized: boolean;
+  error: string | null;
+  lastUpdate: string;
+}
+
 export const UserDash = () => {
-  const { t, i18n } = useTranslation();
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({
+    authLoading: false,
+    isLoading: true,
+    isSidebarOpen: false,
+    i18nInitialized: false,
+    error: null,
+    lastUpdate: new Date().toISOString()
+  });
+  const debugPanelRef = useRef<HTMLDivElement>(null);
+  const { i18n } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Debug panel toggle
+  const toggleDebugPanel = () => {
+    if (debugPanelRef.current) {
+      debugPanelRef.current.style.display = 
+        debugPanelRef.current.style.display === 'none' ? 'block' : 'none';
+    }
+  };
+
+  // Add debug keyboard shortcut
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        toggleDebugPanel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  // Update debug info
+  useEffect(() => {
+    console.log('Auth State:', { user, authLoading });
+    console.log('Navigation State:', { location: window.location.pathname });
+    console.log('i18n State:', { 
+      currentLanguage: i18n.language,
+      isInitialized: i18n.isInitialized 
+    });
+
+
+    setDebugInfo(prev => ({
+      ...prev,
+      isLoading,
+      isSidebarOpen,
+      i18nInitialized: i18n.isInitialized,
+      lastUpdate: new Date().toISOString(),
+      authLoading,
+      user: user ? { id: user.id, role: user.role } : null
+    }));
+  }, [isLoading, isSidebarOpen, i18n.isInitialized, user, authLoading]);
 
   useEffect(() => {
     const initializeLanguage = async () => {
@@ -26,12 +89,16 @@ export const UserDash = () => {
         await i18n.changeLanguage(detectedLanguage);
       } catch (error) {
         console.error('Error initializing language:', error);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
     initializeLanguage();
+    
+    // Cleanup function to handle component unmount
+    return () => {
+      setIsLoading(true); // Reset loading state on unmount
+    };
   }, [i18n]);
 
   const handleCloseSidebar = () => {
@@ -45,11 +112,12 @@ export const UserDash = () => {
   const pageTransition = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 },
-    transition: { 
-      duration: 0.3,
-      ease: [0.4, 0, 0.2, 1]
-    }
+    exit: { opacity: 0, y: -20 }
+  };
+
+  const pageTransitionConfig = {
+    duration: 0.3,
+    ease: [0.4, 0, 0.2, 1]
   };
 
   if (isLoading) {
@@ -61,8 +129,21 @@ export const UserDash = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-midnight-900">
-      {/* Sidebar - Now with responsive behavior */}
+    <ErrorBoundary>
+      {/* Debug Panel */}
+      <div
+        ref={debugPanelRef}
+        className="fixed bottom-4 left-4 z-50 p-4 bg-black/90 text-white rounded-lg shadow-lg text-sm font-mono"
+        style={{ display: 'none', maxWidth: '400px' }}
+      >
+        <h3 className="font-bold mb-2">Debug Info (Ctrl+Shift+D)</h3>
+        <pre className="whitespace-pre-wrap">
+          {JSON.stringify(debugInfo, null, 2)}
+        </pre>
+      </div>
+
+      <div className="flex min-h-screen bg-gray-50 dark:bg-midnight-900">
+        {/* Sidebar - Now with responsive behavior */}
       <div className={`${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto'} fixed inset-y-0 left-0 z-40 transition-all duration-300 transform`}>
         <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />
       </div>
@@ -122,8 +203,13 @@ export const UserDash = () => {
                   </motion.div>
                 } />
                 <Route path="message" element={
-                  <motion.div {...pageTransition}>
-                    <MessageComponent />
+                  <motion.div {...pageTransition} transition={pageTransitionConfig}>
+                    <MessageComponent 
+                      orderId="default"
+                      receiverId="default"
+                      isDriver={false}
+                      onClose={() => navigate('/dashboard')}
+                    />
                   </motion.div>
                 } />
                 <Route path="support" element={
@@ -145,7 +231,8 @@ export const UserDash = () => {
         {/* Mobile Navigation */}
         <MobileNavigation />
       </motion.div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

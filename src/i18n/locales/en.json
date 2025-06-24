@@ -19,12 +19,27 @@
     "dontHaveAccount": "Don't have an account?",
     "alreadyHaveAccount": "Already have an account?",
     "signUp": "Register",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "logout": "Logout",
+    "logoutSuccess": "Successfully logged out",
+    "logoutError": "Error logging out"
   },
   "language": {
     "english": "English",
     "french": "Français",
     "select": "Select Language:"
+  },
+  "driver": {
+    "welcomeMessage": "Welcome, {{name}}",
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "wallet": "Wallet",
+    "messages": "Messages",
+    "settings": "Settings"
+  },
+  "messages": {
+    "unread": "Unread Messages",
+    "noMessages": "No messages yet"
   },
   "common": {
     "loading": "Loading...",
@@ -33,6 +48,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "submit": "Submit",
-    "authError": "Authentication error. Please log in again."
+    "authError": "Authentication error. Please log in again.",
+    "profile": "Profile",
+    "settings": "Settings"
   }
 }

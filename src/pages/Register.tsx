@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { FaEye, FaEyeSlash, FaUser, FaEnvelope, FaPhone, FaLock, FaCar } from 'react-icons/fa';
@@ -119,106 +119,175 @@ export default function Register() {
       setErrors(validationErrors);
       return;
     }
-
-    await registerWithoutAuth();
+    setLoading(true);
+    try {
+      await registerWithoutAuth();
+    } catch (error) {
+      console.error('Registration error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  async function registerWithoutAuth() {
-    const loadingToast = toast.loading('Creating your account...', {
+  const registerWithoutAuth = async () => {
+    try {
+      await manualRegistration(
+        formData.email.trim(),
+        formData.phone.trim(),
+        formData.full_name.trim()
+      );
+    } catch (error) {
+      console.error('Registration failed:', error);
+      toast.error('Registration failed: ' + (error as Error).message);
+    }
+  };
+
+  const manualRegistration = async (sanitizedEmail: string, sanitizedPhone: string, sanitizedName: string) => {
+    const loadingToastId = toast.loading('Creating your account...', {
       position: 'top-center',
       autoClose: false,
-      hideProgressBar: false,
-      closeOnClick: false,
-      pauseOnHover: false,
-      draggable: false,
+      hideProgressBar: false
     });
-    setLoading(true);
 
     try {
-      // Trim and sanitize input data
-      const sanitizedEmail = formData.email.trim().toLowerCase();
-      const sanitizedPhone = formData.phone.trim();
-      const sanitizedName = formData.full_name.trim();
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', sanitizedEmail)
+        .single();
 
-      // Create user in Supabase Auth
+      if (existingUser) {
+        toast.update(loadingToastId, {
+          render: 'A user with this email already exists',
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000
+        });
+        throw new Error('A user with this email already exists');
+      }
+
+      // Create auth user with email and password
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: sanitizedEmail,
         password: formData.password,
         options: {
           data: {
             full_name: sanitizedName,
-            role: formData.role
+            phone: sanitizedPhone,
+            role: formData.role,
+            vehicle_type: formData.vehicle_type || null
           }
         }
       });
 
-      if (authError || !authData.user) {
-        throw new Error(authError?.message || 'Could not create auth account');
+      if (authError) {
+        toast.update(loadingToastId, {
+          render: authError.message,
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000
+        });
+        throw new Error(authError.message);
       }
 
-      const userId = authData.user.id;
+      const userId = authData?.user?.id;
+      if (!userId) {
+        toast.update(loadingToastId, {
+          render: 'Failed to create user account',
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000
+        });
+        throw new Error('Failed to create user account');
+      }
+      
+      // Explicitly check that the profile has been created
+      let profileCreated = false;
+      let retryCount = 0;
+      
+      while (!profileCreated && retryCount < 5) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .single();
+          
+        if (profileData) {
+          profileCreated = true;
+          console.log('Profile created successfully:', profileData.id);
+        } else {
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retryCount++;
+        }
+      }
+      
+      if (!profileCreated) {
+        toast.update(loadingToastId, {
+          render: 'Account created but profile setup incomplete. Please contact support.',
+          type: 'warning',
+          isLoading: false,
+          autoClose: 5000
+        });
+        console.error('Profile creation could not be verified after multiple attempts');
+        // Continue anyway to try wallet creation
+      }
 
-      // Create user in public.users table
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert([{
-          id: userId,
-          email: sanitizedEmail,
-          full_name: sanitizedName,
-          phone: sanitizedPhone || null,
-          role: formData.role,
-          profile_image: null,
-          created_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString()
-        }]);
+      // Create wallet for the user - only after profile is confirmed
+      const { error: walletError } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: userId,
+          balance: 0,
+          currency: 'USD'
+        });
 
-      if (insertError) {
-        // If users table insert fails, let the user try again
-        // The auth cleanup will happen automatically via database triggers
-        throw new Error('Could not create user profile. Please try again.');
+      if (walletError) {
+        console.error('Wallet creation error:', walletError);
+        // Continue despite wallet error - not critical
       }
 
       // If user is a driver, create driver profile
       if (formData.role === 'driver') {
         if (!formData.vehicle_type) {
+          toast.update(loadingToastId, {
+            render: 'Vehicle type is required for drivers',
+            type: 'error',
+            isLoading: false,
+            autoClose: 5000
+          });
           throw new Error('Vehicle type is required for drivers');
         }
 
         const tempLicenseNumber = `TEMP_${Date.now()}_${userId.slice(-6)}`;
-        
         const { error: driverError } = await supabase
-          .from('drivers')
-          .insert([{
-            id: userId,
-            license_number: tempLicenseNumber,
-            license_expiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          .from('driver_profiles')
+          .insert({
+            user_id: userId,
             vehicle_type: formData.vehicle_type,
-            vehicle_make: 'PENDING',
-            vehicle_model: 'PENDING',
-            vehicle_year: new Date().getFullYear(),
-            vehicle_color: 'PENDING',
-            vehicle_plate: 'PENDING',
-            verification_status: 'pending',
-            total_rides: 0,
-            average_rating: 0
-          }]);
+            license_number: tempLicenseNumber,
+            status: 'pending'
+          });
 
         if (driverError) {
-          throw new Error('Could not create driver profile. Please try again.');
+          console.error('Driver profile creation error:', driverError);
+          throw new Error(`Could not create driver profile: ${driverError.message}`);
         }
       }
-
-      // Success
-      toast.success('Account created successfully! Please check your email to verify your account.');
+    
+      toast.update(loadingToastId, {
+        render: 'Account created successfully! Please check your email to verify your account.',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000
+      });
       navigate('/login');
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
-      toast.dismiss(loadingToast);
+      throw error; // Re-throw to be handled by the calling function
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex">

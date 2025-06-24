@@ -45,7 +45,7 @@ interface Delivery {
     lng: number;
     time: string;
   };
-  status: 'pending' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+  status: 'accepted' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
   type: 'shopping' | 'shipment';
   orderId: string;
   createdAt: string;
@@ -119,7 +119,7 @@ export default function DeliveriesManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'delivered': return 'green';
-      case 'pending': return 'yellow';
+      case 'accepted': return 'yellow';
       case 'assigned': return 'blue';
       case 'picked_up': return 'purple';
       case 'in_transit': return 'blue';
@@ -162,7 +162,7 @@ export default function DeliveriesManagement() {
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            {/* <SelectItem value="pending">Pending</SelectItem> */}
             <SelectItem value="assigned">Assigned</SelectItem>
             <SelectItem value="picked_up">Picked Up</SelectItem>
             <SelectItem value="in_transit">In Transit</SelectItem>
@@ -246,7 +246,7 @@ export default function DeliveriesManagement() {
                       tooltip="Mark Delivered"
                     />
                   )}
-                  {['pending', 'assigned', 'in_transit'].includes(delivery.status) && (
+                  {['accepted', 'assigned', 'in_transit'].includes(delivery.status) && (
                     <Button
                       size="xs"
                       variant="secondary"

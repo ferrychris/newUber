@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 // import { Player } from "@lottiefiles/react-lottie-player"; // No longer needed
 // import { DotLottieReact } from '@lottiefiles/dotlottie-react'; // No longer needed
 import Navbar from "../components/Navbar";
@@ -51,6 +53,27 @@ const featuresData = [
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+
+  // Effect to check if user is already logged in and redirect to appropriate dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // If user is authenticated, redirect based on role
+      if (user.role === 'driver') {
+        console.log('User is a driver, redirecting to driver dashboard');
+        navigate('/driver/dashboard');
+      } else if (user.role === 'admin') {
+        console.log('User is an admin, redirecting to admin dashboard');
+        navigate('/admin/dashboard');
+      } else {
+        // Default to customer dashboard
+        console.log('User is a customer, redirecting to customer dashboard');
+        navigate('/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
   return (
     <div className="min-h-screen bg-[#F8F4F0] text-[#333]">
       <Navbar />

@@ -87,7 +87,16 @@
       "noOrders": "No Orders Found",
       "createFirstOrder": "Create your first order to get started",
       "locations": "Locations",
-      "loadError": "Failed to load orders"
+      "loadError": "Failed to load orders",
+      "walletUpdateError": "Failed to update driver wallet",
+      "confirmDelivery": "Confirm Delivery",
+      "deliveryConfirmed": "Delivery confirmed successfully",
+      "confirmDeliveryError": "Error confirming delivery",
+      "completeOrder": "Complete Order",
+      "updateError": "Error updating order status",
+      "chat": "Chat",
+      "details": "Details",
+      "people": "People"
     },
     "price": {
       "wallet": "Wallet",

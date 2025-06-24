@@ -1,0 +1,4 @@
+Updated all order status filters to match the schema:
+Current orders: ['accepted'] (was ['assigned', 'picked_up', 'in_transit'])
+Past orders: ['completed', 'cancelled'] (was ['delivered', 'cancelled'])
+Unaccepted orders: 'pending' (unchanged)

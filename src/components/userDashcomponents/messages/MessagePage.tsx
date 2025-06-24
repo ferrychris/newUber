@@ -1,13 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { FaUser, FaSpinner } from 'react-icons/fa';
+import { FaUser } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../../../../utils/supabase';
-import { MessageThread } from './types';
+import { supabase } from '../../../lib/supabaseClient';
+import { Message as MessageType, MessageThread } from './types';
 import Message from './Message';
 import MessageThreadList from './MessageThreadList';
 
-const MessagePage: React.FC = () => {
+interface OrderData {
+  id: string;
+  user_id: string;
+  driver_id: string;
+  services: {
+    name: string;
+  };
+  created_at: string;
+}
+
+interface UnreadMessage {
+  id: string;
+  order_id: string;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
+  profile_image?: string;
+}
+
+interface MessagePageProps {
+  isDriver?: boolean;
+}
+
+const MessagePage: React.FC<MessagePageProps> = ({ isDriver = false }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [messageThreads, setMessageThreads] = useState<MessageThread[]>([]);
@@ -30,7 +55,7 @@ const MessagePage: React.FC = () => {
       // Fetch orders with messages
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
-        .select('order_id, created_at')
+        .select('*')
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
@@ -38,7 +63,7 @@ const MessagePage: React.FC = () => {
 
       if (messageData && messageData.length > 0) {
         // Get unique order IDs
-        const uniqueOrderIds = [...new Set(messageData.map(msg => msg.order_id))];
+        const uniqueOrderIds = [...new Set(messageData.map((msg: MessageType) => msg.order_id))];
         
         // Fetch order details for each order with messages
         const { data: orderData, error: orderError } = await supabase
@@ -61,7 +86,7 @@ const MessagePage: React.FC = () => {
           const unreadCounts: {[key: string]: number} = {};
           
           if (unreadData) {
-            unreadData.forEach((message) => {
+            unreadData.forEach((message: UnreadMessage) => {
               if (!unreadCounts[message.order_id]) {
                 unreadCounts[message.order_id] = 0;
               }
@@ -70,11 +95,11 @@ const MessagePage: React.FC = () => {
           }
           
           // Fetch the other participant's info for each thread
-          const threads = await Promise.all(orderData.map(async (order) => {
+          const threads = await Promise.all(orderData.map(async (order: OrderData) => {
             const isCustomer = order.user_id === user.id;
             const otherParticipantId = isCustomer ? order.driver_id : order.user_id;
             
-            let otherParticipant = { id: '', full_name: 'Unknown User' };
+            let otherParticipant: Profile = { id: '', full_name: 'Unknown User' };
             
             if (otherParticipantId) {
               const { data: userData } = await supabase
@@ -88,16 +113,23 @@ const MessagePage: React.FC = () => {
               }
             }
             
-            const latestMessage = messageData
+            const messages = messageData as MessageType[];
+            const latestMessage = messages
               .filter(msg => msg.order_id === order.id)
               .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
             
             return {
-              order,
+              order: {
+                id: order.id,
+                services: order.services,
+                created_at: order.created_at
+              },
               otherParticipant,
-              latestMessage,
+              latestMessage: {
+                created_at: latestMessage?.created_at || order.created_at
+              },
               unreadCount: unreadCounts[order.id] || 0
-            };
+            } as MessageThread;
           }));
           
           setMessageThreads(threads);
@@ -125,7 +157,7 @@ const MessagePage: React.FC = () => {
       <Message
         orderId={selectedThread.order.id}
         receiverId={selectedThread.otherParticipant.id}
-        isDriver={false}
+        isDriver={isDriver}
         onClose={handleCloseMessage}
       />
     );
