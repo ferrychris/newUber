@@ -73,7 +73,7 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
               <span>Dashboard</span>
             </Link>
 
-            <Link
+            {/* <Link
               to="/driver/orders"
               className={`flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 ${isActive('orders') ? 'bg-gray-100' : ''}`}
               onClick={(e) => {
@@ -86,7 +86,7 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
             >
               <Truck className="h-5 w-5" />
               <span>Orders</span>
-            </Link>
+            </Link> */}
             
 
 
