@@ -1,4 +1,4 @@
-export type ValidOrderStatus = 'pending' | 'accepted' | 'en_route' | 'arrived' | 'picked_up' | 'delivered' | 'completed' | 'cancelled';
+export type ValidOrderStatus = 'pending' | 'accepted' | 'en_route' | 'arrived' | 'picked_up' | 'delivered' | 'confirmed' | 'completed' | 'cancelled';
 
 export interface StatusConfig {
   label: string;

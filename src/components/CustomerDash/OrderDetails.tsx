@@ -88,7 +88,7 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
                     <Typography
                       variant="h5"
                       color={
-                        order.status === 'completed' || order.status === 'delivered'
+                        order.status === 'completed' || order.status === 'delivered' || order.status === 'confirmed'
                           ? 'success.main'
                           : order.status === 'cancelled'
                           ? 'error.main'
@@ -105,7 +105,6 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
                     {/* Show confirm button for delivered orders */}
                     {user && 
                      order.status === 'delivered' && 
-                     !order.delivery_confirmed && 
                      user.id === order.user_id && (
                       <Box sx={{ mt: 2 }}>
                         <Button
@@ -135,13 +134,7 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
                     )}
 
                     {/* Show confirmation status */}
-                    {order.delivery_confirmed && (
-                      <Alert severity="success" sx={{ mt: 2 }}>
-                        Delivery confirmed!
-                      </Alert>
-                    )}
-
-                    {order.delivery_confirmed && (
+                    {order.status === 'confirmed' && (
                       <Alert severity="success" sx={{ mt: 2 }}>
                         Delivery confirmed!
                       </Alert>

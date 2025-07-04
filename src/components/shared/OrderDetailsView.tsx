@@ -475,7 +475,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             </button>
           )}
           
-          {isDriver && order.status === 'in-transit' && onCompleteOrder && (
+          {!isDriver && order.status === 'in-transit' && onCompleteOrder && (
             <button
               onClick={() => onCompleteOrder(order.id)}
               className="px-4 py-2 bg-green-500 text-white hover:bg-green-600 rounded-lg font-medium transition-colors duration-200"
