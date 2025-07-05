@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { supabase } from '../utils/supabase';
 
 // Types
@@ -119,7 +118,7 @@ const supportService = {
 
     // Step 5: Fetch all user data for these senders in a single query
     const { data: usersData, error: usersError } = await supabase
-      .from('users')
+      .from('profiles')
       .select('id, full_name, profile_image, is_admin')
       .in('id', senderIds);
 
@@ -199,7 +198,7 @@ const supportService = {
 
     // Fetch sender info
     const { data: usersData, error: usersError } = await supabase
-      .from('users')
+      .from('profiles')
       .select('id, full_name, profile_image, is_admin')
       .in('id', senderIds);
 

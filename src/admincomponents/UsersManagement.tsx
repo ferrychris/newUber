@@ -46,12 +46,12 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     try {
       let query = supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .order('createdAt', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (searchQuery) {
-        query = query.or(`firstName.ilike.%${searchQuery}%,lastName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
+        query = query.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
       }
       if (roleFilter !== 'all') {
         query = query.eq('role', roleFilter);
@@ -71,7 +71,7 @@ export default function UsersManagement() {
   const updateUserStatus = async (userId: string, newStatus: 'active' | 'suspended') => {
     try {
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({ status: newStatus })
         .eq('id', userId);
 

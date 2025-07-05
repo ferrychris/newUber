@@ -24,7 +24,7 @@ const userService = {
       if (!user) return null;
 
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id, full_name, email, profile_image, role, is_admin')
         .eq('id', user.id)
         .single();
@@ -45,7 +45,7 @@ const userService = {
       if (!user) return null;
 
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .update(updates)
         .eq('id', user.id)
         .select()
