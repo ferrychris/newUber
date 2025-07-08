@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface LoginFormData {
   email: string;
@@ -19,6 +20,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [showResendSection, setShowResendSection] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -115,21 +119,40 @@ export default function Login() {
             console.log(`Redirecting user with role ${currentUser.role} to ${redirectPath}`);
             navigate(redirectPath);
           } else {
-            // Fallback to redirect component if user state isn't available yet
-            navigate('/auth/redirect', { state: { from } });
+            // Fallback redirect if user info not available yet
+            navigate('/dashboard');
           }
         }, 1000);
       } else {
-        toast.error(result.error || 'Login failed');
+        // Handle failed login
+        console.log('Login failed:', result.error);
+        
+        // Check if this is an unverified email error
+        if (result.error?.toLowerCase().includes('email') && result.error?.toLowerCase().includes('verify')) {
+          toast.error('Please verify your email address before logging in.', {
+            icon: () => (
+              <svg className="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            ),
+            autoClose: 8000
+          });
+          
+          // Show the resend section
+          setShowResendSection(true);
+        } else {
+          // Regular error for other issues
+          toast.error(result.error || 'Login failed. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('An unexpected error occurred. Please try again.');
+      toast.error('An unexpected error occurred during login.');
     } finally {
       setLoading(false);
     }
   };
-
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -137,42 +160,95 @@ export default function Login() {
       [name]: value
     }));
     
-    // Clear the error for this field when user starts typing
+    // Clear any error for this field
     if (formErrors[name as keyof LoginFormData]) {
       setFormErrors(prev => ({
         ...prev,
-        [name]: undefined
+        [name]: ''
       }));
+    }
+  };
+  
+  // Function to resend confirmation email
+  const handleResendEmail = async () => {
+    const emailToUse = formData.email || (emailInputRef.current?.value || '');
+    
+    if (!emailToUse || !/\S+@\S+\.\S+/.test(emailToUse)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    setResendingEmail(true);
+    
+    try {
+      console.log('Resending confirmation email to:', emailToUse);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: emailToUse,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (error) {
+        toast.error(`Error sending confirmation email: ${error.message}`);
+      } else {
+        toast.success('Confirmation email sent! Please check your inbox.', {
+          icon: () => (
+            <span role="img" aria-label="success">✅</span>
+          ),
+          autoClose: 5000
+        });
+      }
+    } catch (error: any) {
+      console.error('Error in resend email:', error);
+      toast.error(`Failed to send email: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setResendingEmail(false);
     }
   };
 
   return (
     <div className="min-h-screen flex">
       {/* Left side - orange background with message */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="hidden md:flex md:w-1/2 bg-[#FF7D45] text-white flex-col justify-center p-12"
-      >
-        <h1 className="text-5xl font-bold mb-6">Welcome back!</h1>
-        <p className="text-xl">
-          Log in to access your account and continue where you left off.
-        </p>
-      </motion.div>
+      <div className="hidden lg:flex lg:flex-1 bg-[#FF7D45]">
+        <div className="flex flex-col justify-center px-12 py-12">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-md mx-auto text-white"
+          >
+            <h2 className="text-3xl font-bold mb-6">Welcome Back!</h2>
+            <p className="mb-4">
+              Log in to your account to access your dashboard, manage your account, and continue your journey.
+            </p>
+            <p>
+              Don't have an account? Register now and join our community of drivers and customers.
+            </p>
+          </motion.div>
+        </div>
+      </div>
       
       {/* Right side - login form */}
-      <motion.div 
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="w-full md:w-1/2 flex items-center justify-center p-6 bg-white"
-      >
-        <div className="w-full max-w-md">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-2">Welcome back</h2>
-            <p className="text-gray-500">Glad to see you again!</p>
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-8 bg-white">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="sm:mx-auto sm:w-full sm:max-w-md"
+        >
+          <div className="text-center">
+            <h2 className="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+              Sign in to your account
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Access your dashboard and manage your account
+            </p>
           </div>
           
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6 mt-8">
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -193,14 +269,19 @@ export default function Login() {
             </div>
 
             {/* Password Input */}
-            <div className="relative">
+            <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
-                <Link to="/forgot-password" className="text-sm text-[#FF7D45] hover:text-[#E86A35]">
-                  Forgot password?
-                </Link>
+                <div className="flex space-x-3">
+                  <Link to="/confirm-email" state={{ email: formData.email }} className="text-sm text-blue-600 hover:text-blue-800">
+                    Verify Email
+                  </Link>
+                  <Link to="/forgot-password" className="text-sm text-[#FF7D45] hover:text-[#E86A35]">
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
               <div className="relative">
                 <input
@@ -235,10 +316,50 @@ export default function Login() {
                 onChange={() => setRememberMe(!rememberMe)}
                 className="h-4 w-4 text-[#FF7D45] focus:ring-[#FF7D45] border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                 Remember me
               </label>
             </div>
+
+            {/* Resend Verification Email Section */}
+            {showResendSection && (
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 my-4">
+                <div className="flex items-start">
+                  <svg className="h-5 w-5 text-blue-600 mt-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <h4 className="text-blue-800 font-medium text-sm">Email verification required</h4>
+                    <p className="text-blue-700 text-sm mt-1">
+                      Please verify your email address to access your account. 
+                      Need another verification email?
+                    </p>
+                    <div className="mt-4">
+                      <div className="flex items-center">
+                        <input
+                          ref={emailInputRef}
+                          type="email"
+                          placeholder={formData.email || "Enter your email"}
+                          defaultValue={formData.email}
+                          className="flex-grow px-3 py-3 border border-blue-300 rounded-l-md text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleResendEmail}
+                          disabled={resendingEmail}
+                          className={`px-4 py-3 bg-blue-600 text-white rounded-r-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${resendingEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {resendingEmail ? 'Sending...' : 'Resend Verification'}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs text-blue-600 italic">
+                        If you don't see the email, please check your spam folder.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
@@ -278,16 +399,33 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Register Link */}
+            {/* Register Link and Verify Email */}
             <div className="text-sm text-center mt-6">
-              <span className="text-gray-600">Don't have an account? </span>
-              <Link to="/register" className="font-medium text-[#FF7D45] hover:text-[#E86A35]">
-                Sign up
-              </Link>
+              <div className="mb-2">
+                <span className="text-gray-600">Don't have an account? </span>
+                <Link to="/register" className="font-medium text-[#FF7D45] hover:text-[#E86A35]">
+                  Sign up
+                </Link>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-md border border-blue-200 mt-3">
+                <div className="flex items-center justify-center">
+                  <svg className="h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-blue-700 font-medium">Need to verify your email?</span>
+                </div>
+                <Link 
+                  to="/confirm-email" 
+                  state={{ email: formData.email }} 
+                  className="inline-block w-full mt-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium text-sm transition-colors"
+                >
+                  Go to Email Verification
+                </Link>
+              </div>
             </div>
           </form>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }

@@ -20,7 +20,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     headers: {
-      'X-Client-Info': 'uberapp'
+      'X-Client-Info': 'uberapp',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     }
   }
 });

@@ -11,9 +11,11 @@ import {
   ListItem,
   ListItemText,
   CircularProgress,
-  Container
+  Container,
+  Alert
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import InfoIcon from '@mui/icons-material/Info';
 import { supabase } from '../../../../utils/supabaseClient';
 
 interface Message {
@@ -24,6 +26,7 @@ interface Message {
   created_at: string;
   order_id: string;
   read: boolean;
+  is_system_message?: boolean;
 }
 
 export default function Messages() {
@@ -39,13 +42,17 @@ export default function Messages() {
 
   // Fetch messages and set up real-time subscription
   useEffect(() => {
-    if (!user || !orderId) return;
+    if (!user || !orderId) {
+      setLoading(false);
+      setError('Missing user or order information');
+      return;
+    }
 
     const fetchMessages = async () => {
       try {
         // Get messages for this order
         const { data: messagesData, error: messagesError } = await supabase
-          .from('messages')
+          .from('support_messages')
           .select('*')
           .eq('order_id', orderId)
           .order('created_at', { ascending: true });
@@ -65,7 +72,7 @@ export default function Messages() {
         // Mark received messages as read
         if (messagesData && messagesData.length > 0) {
           await supabase
-            .from('messages')
+            .from('support_messages')
             .update({ read: true })
             .eq('receiver_id', user.id)
             .eq('order_id', orderId);
@@ -82,24 +89,31 @@ export default function Messages() {
 
     // Set up real-time subscription
     const subscription = supabase
-      .channel(`messages:${orderId}`)
+      .channel(`support-messages-${orderId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'messages',
+        table: 'support_messages',
         filter: `order_id=eq.${orderId}`,
       }, async (payload) => {
         const newMessage = payload.new as Message;
         
-        // Update messages list
-        setMessages(current => [...current, newMessage]);
-        
-        // Mark message as read if we're the receiver
-        if (newMessage.receiver_id === user.id) {
-          await supabase
-            .from('messages')
-            .update({ read: true })
-            .eq('id', newMessage.id);
+        // Only handle messages relevant to this user
+        if (newMessage?.receiver_id === user?.id || newMessage?.sender_id === user?.id) {
+          // Update messages list
+          setMessages(current => [...current, newMessage]);
+          
+          // Mark message as read if we're the receiver
+          if (newMessage.receiver_id === user?.id) {
+            try {
+              await supabase
+                .from('support_messages')
+                .update({ read: true })
+                .eq('id', newMessage.id);
+            } catch (err) {
+              console.error('Error marking message as read:', err);
+            }
+          }
         }
       })
       .subscribe();
@@ -111,11 +125,14 @@ export default function Messages() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newMessage.trim() || !receiverId) return;
+    if (!user || !newMessage.trim() || !receiverId) {
+      setError('Missing required information to send message');
+      return;
+    }
 
     try {
       const { error: sendError } = await supabase
-        .from('messages')
+        .from('support_messages')
         .insert({
           sender_id: user.id,
           receiver_id: receiverId,
@@ -126,9 +143,11 @@ export default function Messages() {
 
       if (sendError) throw sendError;
       setNewMessage('');
+      // Clear any previous errors on successful send
+      setError(null);
     } catch (err) {
       console.error('Error sending message:', err);
-      setError('Failed to send message');
+      setError('Failed to send message: ' + (err as Error)?.message || 'Unknown error');
     }
   };
 
@@ -164,32 +183,61 @@ export default function Messages() {
           flexDirection: 'column'
         }}>
           {messages.map((message) => (
-            <ListItem
-              key={message.id}
-              sx={{
-                justifyContent: message.sender_id === user?.id ? 'flex-end' : 'flex-start',
-                mb: 1
-              }}
-            >
-              <Paper
-                elevation={1}
+            message.is_system_message ? (
+              // System message with special styling
+              <ListItem
+                key={message.id}
                 sx={{
-                  p: 2,
-                  maxWidth: '70%',
-                  bgcolor: message.sender_id === user?.id ? 'primary.light' : 'grey.100',
-                  color: message.sender_id === user?.id ? 'primary.contrastText' : 'text.primary'
+                  justifyContent: 'center',
+                  mb: 2,
+                  mt: 2
                 }}
               >
-                <ListItemText
-                  primary={message.message}
-                  secondary={new Date(message.created_at).toLocaleString()}
-                  secondaryTypographyProps={{
-                    color: message.sender_id === user?.id ? 'primary.contrastText' : 'text.secondary',
-                    fontSize: '0.75rem'
+                <Alert 
+                  icon={<InfoIcon />}
+                  severity="info"
+                  sx={{
+                    width: '90%',
+                    '& .MuiAlert-message': {
+                      width: '100%'
+                    }
                   }}
-                />
-              </Paper>
-            </ListItem>
+                >
+                  <Typography variant="body2">{message.message}</Typography>
+                  <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.7 }}>
+                    {new Date(message.created_at).toLocaleString()}
+                  </Typography>
+                </Alert>
+              </ListItem>
+            ) : (
+              // Regular message styling
+              <ListItem
+                key={message.id}
+                sx={{
+                  justifyContent: message.sender_id === user?.id ? 'flex-end' : 'flex-start',
+                  mb: 1
+                }}
+              >
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2,
+                    maxWidth: '70%',
+                    bgcolor: message.sender_id === user?.id ? 'primary.light' : 'grey.100',
+                    color: message.sender_id === user?.id ? 'primary.contrastText' : 'text.primary'
+                  }}
+                >
+                  <ListItemText
+                    primary={message.message}
+                    secondary={new Date(message.created_at).toLocaleString()}
+                    secondaryTypographyProps={{
+                      color: message.sender_id === user?.id ? 'primary.contrastText' : 'text.secondary',
+                      fontSize: '0.75rem'
+                    }}
+                  />
+                </Paper>
+              </ListItem>
+            )
           ))}
         </List>
 

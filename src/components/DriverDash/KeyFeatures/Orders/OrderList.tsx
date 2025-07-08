@@ -3,6 +3,8 @@ import { Box, List, ListItem, ListItemText, Button, Paper, CircularProgress, Ale
 import { useOutletContext } from 'react-router-dom';
 import { Order } from '../../../../types/order';
 import { OrderCard } from '.';
+// Chat utilities handled by dashboard context
+import { useUser } from '@supabase/auth-helpers-react';
 
 export type OrderStatus = Order['status'];
 type TabStatus = 'active' | 'available' | 'completed' | 'cancelled';
@@ -39,13 +41,13 @@ interface OrderListProps {
 }
 
 interface DashboardContext {
-
   currentOrders: Order[];
   pastOrders: Order[];
   unacceptedOrders: Order[];
   isLoadingCurrentOrders: boolean;
   isLoadingPastOrders: boolean;
   isLoadingUnacceptedOrders: boolean;
+  handleOpenChat?: (orderId: string, customerId: string) => Promise<void>;
 }
 
 const getTabKey = (index: number): TabStatus => {
@@ -54,13 +56,15 @@ const getTabKey = (index: number): TabStatus => {
 };
 
 function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: OrderListProps) {
+  const user = useUser();
   const { 
     currentOrders: contextCurrentOrders,
     pastOrders: contextPastOrders,
     unacceptedOrders: contextUnacceptedOrders,
     isLoadingCurrentOrders,
     isLoadingPastOrders,
-    isLoadingUnacceptedOrders
+    isLoadingUnacceptedOrders,
+    handleOpenChat,
   } = useOutletContext<DashboardContext>();
   const [tabValue, setTabValue] = useState(0);
   const [orders, setOrders] = useState<OrderMap | null>(null);
@@ -141,6 +145,14 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+  
+  // Handle chat with customer
+  const handleChatClick = async (orderId: string, customerId: string) => {
+    if (!user?.id || !handleOpenChat) return;
+    
+    // Use the handleOpenChat function from context
+    await handleOpenChat(orderId, customerId);
   };
 
 
@@ -238,6 +250,7 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
                 console.log('Status update requested:', orderId, newStatus);
                 handleStatusUpdate?.(orderId, newStatus);
               }}
+              onChatClick={handleChatClick}
             />
           )
         ))}

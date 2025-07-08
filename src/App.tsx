@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import ConfirmEmail from './pages/ConfirmEmail';
+import AuthCallback from './pages/AuthCallback';
 import Home from './pages/Home';
 import AdminDash from './pages/AdminDash';
 import { UserDash } from './pages/UserDash';
@@ -45,6 +47,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/confirm-email" element={<ConfirmEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/test" element={<TestOrderStatusControl />} />
               <Route path="/test-order-status-control" element={<TestOrderStatusControl />} />
               {/* Role-based redirect route */}
@@ -66,7 +70,7 @@ function App() {
                 <Route index element={<DriverDashboardPage />} />
                 <Route path="dashboard" element={<DriverDashboardPage />} />
                 <Route path="orders" element={<DriverOrders />} />
-
+                <Route path="chat/:orderId/:customerId" element={<DriverMessages chatMode="single" />} />
                 <Route path="messages" element={<DriverMessages />} />
                 <Route path="settings" element={<DriverSettings />} />
               </Route>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../utils/supabase";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { initiateOrderChat } from "../../utils/chatUtils";
+import ChatModal from "./ChatModal";
 import { FaSpinner, FaMapMarkerAlt } from "react-icons/fa";
 import { SERVICES } from "./orders/constants";
 import { getToastConfig, validateFrenchAddress, getStatusConfig } from "./orders/utils";
 import { formatCurrency, formatDate } from "../../utils/i18n";
-import OrderCard from "./orders/components/OrderCard";
+// import OrderCard from "./orders/components/OrderCard"; // Unused import
 import ServiceSelectionDialog from "./orders/components/ServiceSelectionDialog";
 import OrderDetailsDialog from "./orders/components/OrderDetailsDialog";
 import { Order as OrderType, Service, OrderFormData } from "./orders/types";
@@ -14,15 +17,25 @@ import { useTranslation } from "react-i18next";
 
 const Order: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
   const [orders, setOrders] = useState<OrderType[]>([]);
   const [showServiceDialog, setShowServiceDialog] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null);
+  // State for tracking when an order is being created
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for chat modal
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedChatOrder, setSelectedChatOrder] = useState<OrderType | null>(null);
+  const [driverName, setDriverName] = useState<string>("");
+  const [driverAuthId, setDriverAuthId] = useState<string>("");
 
+  // Removed message tracking since we're using a dedicated message button
+  
   useEffect(() => {
     async function fetchCurrentUser() {
       try {
@@ -341,35 +354,63 @@ const Order: React.FC = () => {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!orderId) return;
-    
-    const loadingToast = toast.loading("Annulation de la commande...", getToastConfig("error"));
-    
     try {
-      // Update the order status in the database
+      // Display loading toast
+      const loadingToast = toast.loading(t('orders.cancelling'));
+      
+      // Update the order status to 'cancelled'
       const { data, error } = await supabase
         .from('orders')
         .update({ status: 'cancelled' })
         .eq('id', orderId);
-        
-      if (error) throw error;
       
-      // Update the order in the local state
-      setOrders(orders.map(order => 
-        order.id === orderId 
-          ? { ...order, status: 'cancelled' as OrderType['status'] } 
-          : order
-      ));
+      if (error) {
+        throw error;
+      }
       
-      // Close the order details dialog
-      setSelectedOrder(null);
+      // Show success message
+      toast.success(t('orders.cancelled'), {
+        id: loadingToast
+      });
       
-      toast.dismiss(loadingToast);
-      toast.success("Commande annulée avec succès", getToastConfig("success"));
+      // Update the local orders list
+      if (userId) {
+        fetchOrders(userId);
+      }
     } catch (error) {
-      console.error("Error cancelling order:", error);
-      toast.dismiss(loadingToast);
-      toast.error("Échec de l'annulation de la commande", getToastConfig("error"));
+      console.error('Error cancelling order:', error);
+      toast.error(t('orders.cancelError'));
+    }
+  };
+
+  // Function to handle confirming delivery of an order
+  const handleConfirmDelivery = async (orderId: string) => {
+    try {
+      // Display loading toast
+      const loadingToast = toast.loading("Confirming delivery...");
+      
+      // Update the order status to 'completed'
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', orderId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Show success message
+      toast.success("Delivery confirmed successfully", {
+        id: loadingToast
+      });
+      
+      // Update the local orders list
+      if (userId) {
+        fetchOrders(userId);
+      }
+    } catch (error) {
+      console.error('Error confirming delivery:', error);
+      toast.error("Could not confirm delivery. Please try again.", getToastConfig("error"));
     }
   };
 
@@ -543,6 +584,9 @@ const Order: React.FC = () => {
                     <th scope="col" className="relative px-6 py-3">
                       <span className="sr-only">View</span>
                     </th>
+                    <th scope="col" className="relative px-6 py-3">
+                      <span className="sr-only">Message</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-midnight-800 divide-y divide-gray-200 dark:divide-stone-600/10">
@@ -559,6 +603,7 @@ const Order: React.FC = () => {
                           setSelectedService(orderService); // Set the service when clicking an order
                         }}
                       >
+                       
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-sunset flex items-center justify-center text-white">
@@ -573,6 +618,55 @@ const Order: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                          <button
+                            className="flex items-center mt-2 px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
+                            onClick={async (e) => {
+                              e.stopPropagation(); // Prevent triggering the row click
+                              
+                              // Show loading toast
+                              const loadingToast = toast.loading("Starting conversation...");
+                              
+                              try {
+                                console.log("Order details:", {
+                                  orderId: order.id,
+                                  driverId: order.driver_id,
+                                  customerId: userId,
+                                  orderStatus: order.status
+                                });
+                                
+                                // Fetch the driver ID for this order if there is one assigned
+                                if (order.driver_id) {
+                                  console.log("Initiating chat between driver", order.driver_id, "and customer", userId);
+                                  
+                                  // We have both customer and driver IDs, initiate the conversation
+                                  const success = await initiateOrderChat(
+                                    order.id,
+                                    order.driver_id,
+                                    userId as string, // Current user is the customer
+                                    // Custom message from customer perspective
+                                    "I'd like to discuss my order with you."
+                                  );
+                                  
+                                  if (success) {
+                                    toast.success("Conversation started", { id: loadingToast });
+                                  } else {
+                                    toast.error("Could not start conversation", { id: loadingToast });
+                                    // Continue anyway to the chat interface
+                                  }
+                                } else {
+                                  // No driver assigned yet, show info message
+                                  toast.success("No driver assigned yet. Check back later.", { id: loadingToast });
+                                }
+                                
+                                // Navigate to messages view with order ID in state
+                                navigate(`/dashboard/messages`, { state: { orderId: order.id } });
+                              } catch (error) {
+                                console.error("Error starting conversation:", error);
+                                toast.error("Couldn't start conversation. Try again.", { id: loadingToast });
+                              }
+                            }}
+                          >
+                          </button>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col text-sm text-gray-900 dark:text-white">
@@ -595,17 +689,60 @@ const Order: React.FC = () => {
                             {t(`orders.status.${order.status}`)}
                           </span>
                         </td>
-                        
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button 
                             className="text-sunset hover:text-purple-600 transition-colors duration-200"
                             onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedOrder(order);
-                              setSelectedService(findServiceForOrder(order));
+                            e.stopPropagation();
+                            handleConfirmDelivery(order.id);
                             }}
                           >
-                            {t('Actions')}
+                            {t('Confirm Delivery')}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            className="text-sunset hover:text-purple-600 transition-colors duration-200"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const loadingToast = toast.loading("Opening conversation...");
+                              
+                              try {
+                                // Check if there's a driver assigned
+                                if (order.driver_id) {
+                                  // Try to initiate conversation if needed
+                                  await initiateOrderChat(
+                                    order.id,
+                                    order.driver_id,
+                                    userId as string,
+                                    "I'd like to discuss my order with you."
+                                  );
+                                  
+                                  // Get driver name and auth user ID
+                                  const { data: driverData } = await supabase
+                                    .from('profiles')
+                                    .select('name, user_id')
+                                    .eq('id', order.driver_id)
+                                    .single();
+                                    
+                                  if (driverData) {
+                                    setDriverName(driverData.name);
+                                    // Store driver's auth user ID for messaging
+                                    setDriverAuthId(driverData.user_id);
+                                  }
+                                }
+                                
+                                // Open chat modal instead of navigating
+                                setSelectedChatOrder(order);
+                                setIsChatModalOpen(true);
+                                toast.success("Chat opened", { id: loadingToast });
+                              } catch (error) {
+                                console.error("Error opening chat:", error);
+                                toast.error("Couldn't open chat. Try again.", { id: loadingToast });
+                              }
+                            }}
+                          >
+                            {t('Messages')}
                           </button>
                         </td>
                       </tr>
@@ -658,6 +795,27 @@ const Order: React.FC = () => {
           />
         )}
       </AnimatePresence>
+      
+      {/* Chat Modal */}
+      {selectedChatOrder && (
+        <ChatModal 
+          isOpen={isChatModalOpen}
+          onClose={() => {
+            setIsChatModalOpen(false);
+            setSelectedChatOrder(null);
+            setDriverAuthId("");
+          }}
+          orderId={selectedChatOrder.id}
+          userId={userId as string}
+          driverId={driverAuthId} // Pass the auth user ID for proper foreign key relationship
+          driverName={driverName}
+          orderDetails={{
+            pickup_location: selectedChatOrder.pickup_location,
+            dropoff_location: selectedChatOrder.dropoff_location,
+            status: selectedChatOrder.status
+          }}
+        />
+      )}
     </div>
   );
 };

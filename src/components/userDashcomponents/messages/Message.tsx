@@ -62,7 +62,12 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {
-    if (!orderId || !authUser?.id) return;
+    if (!orderId || !authUser?.id) {
+      setIsLoading(false);
+      const errorMsg = t('messages.missingData');
+      setError(errorMsg);
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -91,18 +96,29 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
         );
         
         if (unreadMessages.length > 0) {
-          const unreadIds = unreadMessages.map(msg => msg.id);
-          await supabase
-            .from('messages')
-            .update({ read: true })
-            .in('id', unreadIds);
+          try {
+            const unreadIds = unreadMessages.map(msg => msg.id);
+            await supabase
+              .from('messages')
+              .update({ read: true })
+              .in('id', unreadIds);
+          } catch (updateError) {
+            console.error('Error marking messages as read:', updateError);
+            // Continue processing - this is not a critical error
+          }
         }
+      } else {
+        // No messages found is not an error
+        setMessages([]);
       }
     } catch (error) {
       const errorMessage = (error as any)?.message || 'Unknown error fetching messages';
       console.error('Error in fetchMessages:', error);
-      setError(t('messages.errorFetching'));
-      toast.error(`${t('messages.errorFetching')}: ${errorMessage}`);
+      const displayError = `${t('messages.errorFetching')}: ${errorMessage}`;
+      setError(displayError);
+      toast.error(displayError);
+      // Set empty array to avoid undefined errors in rendering
+      setMessages([]);
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +126,11 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
 
   // Subscribe to new messages
   useEffect(() => {
-    if (!orderId || !authUser?.id) return;
+    if (!orderId || !authUser?.id) {
+      setError(t('messages.missingData'));
+      setIsLoading(false);
+      return;
+    }
 
     fetchMessages();
     
@@ -124,9 +144,17 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
       }, async (payload) => {
         const newMsg = payload.new as MessageType;
         if (newMsg?.receiver_id && (newMsg.receiver_id === authUser.id || newMsg.sender_id === authUser.id)) {
-          setMessages(prev => [...prev, { ...newMsg, read: newMsg.read ?? false }]);
+          // Add message to the state if it's not already there
+          setMessages(prev => {
+            // Check if message already exists to avoid duplicates
+            if (prev.some(m => m.id === newMsg.id)) {
+              return prev;
+            }
+            return [...prev, { ...newMsg, read: newMsg.read ?? false }];
+          });
           
-          if (newMsg.receiver_id === authUser.id) {
+          // Mark as read if we're the receiver
+          if (newMsg.receiver_id === authUser.id && !newMsg.read) {
             try {
               await supabase
                 .from('messages')
@@ -143,12 +171,14 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
     return () => {
       messageSubscription.unsubscribe();
     };
-  }, [orderId, authUser?.id, fetchMessages]);
+  }, [orderId, authUser?.id, fetchMessages, t]);
 
   // Handle sending a new message
   const handleSendMessage = async (messageText: string) => {
     if (!authUser?.id || !receiverId || !orderId) {
-      toast.error(t('messages.errorMissingData'));
+      const errorMsg = t('messages.errorMissingData');
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
@@ -168,12 +198,16 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
         
       if (error) throw error;
       
+      // Only show success toast for UI feedback
       toast.success(t('messages.sent'));
+      
+      // No need to manually add the message to the state since the subscription will handle it
     } catch (error) {
       const errorMessage = (error as any)?.message || 'Unknown error sending message';
       console.error('Error in handleSendMessage:', error);
-      setError(t('messages.errorSending'));
-      toast.error(`${t('messages.errorSending')}: ${errorMessage}`);
+      const displayError = `${t('messages.errorSending')}: ${errorMessage}`;
+      setError(displayError);
+      toast.error(displayError);
     } finally {
       setIsSending(false);
     }

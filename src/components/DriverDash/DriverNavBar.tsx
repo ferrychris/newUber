@@ -9,9 +9,10 @@ import { toast } from 'react-toastify';
 interface DriverNavBarProps {
   onToggleSidebar: () => void;
   driverName: string;
+  onOpenChatModal?: (orderId?: string, customerId?: string) => void;
 }
 
-export const DriverNavBar = ({ onToggleSidebar, driverName }: DriverNavBarProps) => {
+export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: DriverNavBarProps) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -37,7 +38,7 @@ export const DriverNavBar = ({ onToggleSidebar, driverName }: DriverNavBarProps)
       
       try {
         const { count, error } = await supabase
-          .from('messages')
+          .from('support_messages')
           .select('id', { count: 'exact', head: true })
           .eq('receiver_id', user.id)
           .eq('read', false);
@@ -96,15 +97,30 @@ export const DriverNavBar = ({ onToggleSidebar, driverName }: DriverNavBarProps)
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Messages icon with notification badge */}
-          <Link to="/driver/messages" className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full">
-            <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
-            {unreadMessages > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {unreadMessages > 9 ? '9+' : unreadMessages}
-              </span>
-            )}
-          </Link>
+          {/* Messages icon with notification badge - opens chat selection modal if handler provided */}
+          {onOpenChatModal ? (
+            <button 
+              onClick={() => onOpenChatModal()} 
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full"
+              title="Messages"
+            >
+              <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
+              {unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              )}
+            </button>
+          ) : (
+            <Link to="/driver/messages" className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full">
+              <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
+              {unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              )}
+            </Link>
+          )}
           
           {/* Notifications icon */}
           <button className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full">

@@ -82,6 +82,7 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const { user } = useAuth();
 
   // Subscribe to real-time status updates
@@ -127,11 +128,14 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
   // Subscribe to unread messages count
   useEffect(() => {
     const fetchUnreadCount = async () => {
+      if (!user?.id) return;
+      
       try {
         const { count } = await supabase
-          .from('order_messages')
+          .from('support_messages')
           .select('id', { count: 'exact' })
           .eq('order_id', orderId)
+          .eq('receiver_id', user.id)
           .eq('read', false);
         
         setUnreadCount(count || 0);
@@ -171,15 +175,41 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
     };
   }, [orderId]);
 
+  // Fetch order details to get customer ID
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      if (!orderId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('customer_id')
+          .eq('id', orderId)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data?.customer_id) {
+          setCustomerId(data.customer_id);
+        }
+      } catch (err) {
+        console.error('Error fetching customer ID:', err);
+      }
+    };
+    
+    fetchOrderDetails();
+  }, [orderId]);
+
   // Handle chat open/close
   const handleChatOpen = async () => {
     setChatOpen(true);
-    if (unreadCount > 0) {
+    if (unreadCount > 0 && user?.id) {
       try {
         await supabase
-          .from('order_messages')
+          .from('support_messages')
           .update({ read: true })
           .eq('order_id', orderId)
+          .eq('receiver_id', user.id)
           .eq('read', false);
         
         setUnreadCount(0);
@@ -295,22 +325,12 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
         </Box>
       </Box>
 
-      <Drawer
-        anchor="right"
+      <OrderChatDrawer
+        orderId={orderId}
         open={chatOpen}
         onClose={handleChatClose}
-      >
-        <Box sx={{ width: 350, p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Order Chat
-          </Typography>
-          <OrderChatDrawer
-            orderId={orderId}
-            open={chatOpen}
-            onClose={handleChatClose}
-          />
-        </Box>
-      </Drawer>
+        customerId={customerId || undefined}
+      />
     </Box>
   );
 }

@@ -1,5 +1,6 @@
 import { Order } from '../types/order';
 import { supabase } from '../lib/supabaseClient';
+import { initiateOrderChat } from './chatUtils';
 
 /**
  * Fetches orders by status
@@ -132,6 +133,37 @@ export async function updateOrderStatus(
     }
     
     console.log(`Successfully updated order ${orderId} status to ${newStatus}`);
+    
+    // If the order status changed to 'accepted', initiate a chat between driver and customer
+    if (newStatus === 'accepted') {
+      try {
+        // Get driver ID and customer ID from the order
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select('driver_id, user_id')
+          .eq('id', orderId)
+          .single();
+          
+        if (orderError) {
+          console.error('Error fetching order details for chat initialization:', orderError);
+        } else if (orderData && orderData.driver_id && orderData.user_id) {
+          // Initialize chat between driver and customer
+          const driverId = orderData.driver_id;
+          const customerId = orderData.user_id;
+          
+          await initiateOrderChat(
+            orderId,
+            driverId,
+            customerId,
+            'Your driver has been assigned. You can now communicate directly regarding your order.'
+          );
+        }
+      } catch (chatError) {
+        console.error('Error initiating order chat:', chatError);
+        // We don't throw the error here as the status update was successful
+      }
+    }
+    
     return;
   } catch (error) {
     console.error('Error updating order status:', error);

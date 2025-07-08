@@ -13,6 +13,7 @@ export interface Message {
   message: string;
   created_at: string;
   read: boolean;
+  is_system_message?: boolean;
 }
 
 export interface ReceiverInfo {

@@ -9,6 +9,9 @@ import { OrderAction } from './types';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchOrdersByStatus } from '../../utils/orderUtils';
 import { Order, ValidOrderStatus } from '../../types/order';
+import { initiateOrderChat } from '../../utils/chatUtils';
+import DriverChatModal from './KeyFeatures/Messages/DriverChatModal';
+import ChatSelectionModal from './KeyFeatures/Messages/ChatSelectionModal';
 
 export const DriverDashboard = () => {
   const { user } = useAuth();
@@ -17,6 +20,13 @@ export const DriverDashboard = () => {
   const [totalOrders, setTotalOrders] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'dashboard' | 'orders' | 'messages' | 'settings'>('dashboard');
+  
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatSelectionOpen, setIsChatSelectionOpen] = useState(false);
+  const [activeChatOrderId, setActiveChatOrderId] = useState<string | null>(null);
+  const [activeChatCustomerId, setActiveChatCustomerId] = useState<string | null>(null);
+  const [activeChatOrderInfo, setActiveChatOrderInfo] = useState<any>(null);
   
   // Orders state by status
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
@@ -274,6 +284,27 @@ export const DriverDashboard = () => {
       
       if (updateError) throw updateError;
       
+      // If order is accepted, initiate chat between driver and customer
+      if (action === 'accept') {
+        const driverId = user?.id;
+        const customerId = orderData.user_id;
+        
+        if (driverId && customerId) {
+          try {
+            await initiateOrderChat(
+              orderId,
+              driverId,
+              customerId,
+              'Your driver has been assigned. You can now communicate directly regarding your order.'
+            );
+            console.log('Order chat initiated successfully');
+          } catch (chatError) {
+            console.error('Error initiating order chat:', chatError);
+            // Don't fail the order acceptance if chat initiation fails
+          }
+        }
+      }
+      
       // Refresh all order lists
       await Promise.all([
         fetchActiveOrders(),
@@ -335,11 +366,55 @@ export const DriverDashboard = () => {
     }
   };
 
+  // Handle opening chat with customer
+  const handleOpenChat = async (orderId: string, customerId: string) => {
+    if (!user?.id) return;
+    
+    // Get order info for displaying in chat
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('pickup_location, dropoff_location, status')
+        .eq('id', orderId)
+        .single();
+        
+      if (error) throw error;
+      
+      setActiveChatOrderInfo({
+        id: orderId,
+        ...data
+      });
+    } catch (err) {
+      console.error('Error fetching order info for chat:', err);
+      setActiveChatOrderInfo({ id: orderId });
+    }
+    
+    setActiveChatOrderId(orderId);
+    setActiveChatCustomerId(customerId);
+    setIsChatOpen(true);
+    
+    // Initialize chat if this is the first interaction
+    await initiateOrderChat(orderId, user.id, customerId);
+  };
+  
+  const handleCloseChat = () => {
+    setIsChatOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#1a1a1a] overflow-hidden">
       <DriverNavBar
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         driverName={user?.email?.split('@')[0] || 'Driver'}
+        onOpenChatModal={(orderId, customerId) => {
+          // If specific order/customer, open the chat modal directly
+          if (orderId && customerId) {
+            handleOpenChat(orderId, customerId);
+          } else {
+            // If no specific order/customer, open the chat selection modal
+            setIsChatSelectionOpen(true);
+          }
+        }}
       />
       <Sidebar
         isOpen={isSidebarOpen}
@@ -372,9 +447,31 @@ export const DriverDashboard = () => {
           // Actions
           handleOrderAction,
           handleStatusUpdate,
+          handleOpenChat, // Add chat handler to context
           user
         }} />
       </main>
+      
+      {/* Driver Chat Modal */}
+      {activeChatOrderId && activeChatCustomerId && (
+        <DriverChatModal
+          open={isChatOpen}
+          onClose={handleCloseChat}
+          orderId={activeChatOrderId}
+          customerId={activeChatCustomerId}
+          orderInfo={activeChatOrderInfo}
+        />
+      )}
+      
+      {/* Chat Selection Modal */}
+      <ChatSelectionModal
+        open={isChatSelectionOpen}
+        onClose={() => setIsChatSelectionOpen(false)}
+        onSelectChat={(orderId, customerId) => {
+          setIsChatSelectionOpen(false);
+          handleOpenChat(orderId, customerId);
+        }}
+      />
     </div>
   );
 };

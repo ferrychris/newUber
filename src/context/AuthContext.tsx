@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 // Define types for our auth context
 interface UserSession {
   id: string;
+  user_id: string; // Foreign key to auth.users
   email: string;
   full_name: string;
   role: string;
@@ -12,6 +13,7 @@ interface UserSession {
   profile_image?: string | null;
   created_at: string;
   last_sign_in_at: string;
+  is_admin: boolean;
 }
 
 interface AuthContextType {
@@ -73,6 +75,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (localSession) {
         const parsedSession = JSON.parse(localSession) as UserSession;
         
+        // Add missing properties if needed for backwards compatibility
+        if (!('user_id' in parsedSession)) {
+          // Type assertion to bypass TypeScript error
+          (parsedSession as any).user_id = parsedSession.id;
+        }
+        if (!('is_admin' in parsedSession)) {
+          // Type assertion to bypass TypeScript error
+          (parsedSession as any).is_admin = parsedSession.role === 'admin';
+        }
+        
         if (parsedSession && parsedSession.id && parsedSession.role) {
           // Set user from localStorage immediately for faster UI response
           setUser(parsedSession);
@@ -107,8 +119,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Try getting user by ID first
         const { data: userById, error: userError } = await supabase
           .from('profiles')
-          .select('id, full_name, email, role, phone, profile_image')
-          .eq('id', session.user.id)
+          .select('id, user_id, full_name, email, role, phone, phone_number, profile_image, is_admin')
+          .eq('user_id', session.user.id)
           .single();
           
         if (userError) {
@@ -120,38 +132,75 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('User not found by ID, checking email...');
             
             // Try by email as fallback if user has an email
-            if (session.user.email) {
-              const { data: userByEmail, error: emailError } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, role, phone, profile_image')
-                .eq('email', session.user.email)
-                .single();
+            const { data: userByEmail, error: emailError } = await supabase
+              .from('profiles')
+              .select('id, user_id, full_name, email, role, phone, phone_number, profile_image, is_admin')
+              .eq('email', session.user.email || '')
+              .single();
                 
               if (!emailError && userByEmail) {
                 userData = userByEmail;
                 console.log('User found by email');
+                if (userData) {
+                  // Using type assertion to avoid TypeScript error
+                  const id = (userData as any).id;
+                  const role = (userData as any).role;
+                  const email = (userData as any).email;
+                  logAuthState('User Found By Email', { 
+                    userId: id,
+                    role: role,
+                    email: email
+                  });
+                }
+              } else {
+                userData = userById;
+                if (userData) {
+                  logAuthState('User Data Retrieved', { 
+                    method: 'by_id',
+                    id: userData.id,
+                    role: userData.role
+                  });
+                }
               }
+          } else {
+            userData = userById;
+            if (userData) {
+              // Using type assertion to avoid TypeScript error
+              const id = (userData as any).id;
+              const role = (userData as any).role;
+              logAuthState('User Data Retrieved', { 
+                method: 'by_id',
+                id: id,
+                role: role
+              });
             }
           }
         } else {
           userData = userById;
-          logAuthState('User Data Retrieved', { 
-            method: 'by_id',
-            id: userData.id,
-            role: userData.role
-          });
+          if (userData) {
+            // Using type assertion to avoid TypeScript error
+            const id = (userData as any).id;
+            const role = (userData as any).role;
+            logAuthState('User Data Retrieved', { 
+              method: 'by_id',
+              id: id,
+              role: role
+            });
+          }
         }
         
-        if (userData && userData.role) { // Ensure we have role data
+        if (userData) { 
           const userSession: UserSession = {
-            id: userData.id,
-            email: userData.email || (session.user.email || ''),
-            full_name: userData.full_name || 'User',
-            role: userData.role, // Role should be required
-            phone: userData.phone,
-            profile_image: userData.profile_image,
-            created_at: new Date().toISOString(),
-            last_sign_in_at: session.user.last_sign_in_at || new Date().toISOString()
+            id: (userData as any).id || '',
+            user_id: (userData as any).user_id || session.user.id,
+            email: (userData as any).email || session.user.email || '',
+            full_name: (userData as any).full_name || session.user.user_metadata?.full_name || '',
+            role: (userData as any).role || 'customer',
+            phone: (userData as any).phone_number || (userData as any).phone || null,
+            profile_image: (userData as any).profile_image || null,
+            created_at: (userData as any).created_at || new Date().toISOString(),
+            last_sign_in_at: session.user.last_sign_in_at || new Date().toISOString(),
+            is_admin: (userData as any).is_admin || false
           };
           
           // Set user state with valid role
@@ -195,29 +244,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: password
       });
       
+      // Handle authentication errors
       if (authError) {
         console.error('Auth error:', authError);
+        
+        // Check if this is an email verification error
+        if (authError.message.includes('Email not confirmed') || 
+            authError.message.toLowerCase().includes('verify') || 
+            authError.message.toLowerCase().includes('confirmed')) {
+          console.log('Email verification required error detected');
+          return { success: false, error: 'Please verify your email address before logging in.' };
+        }
+        
         return { success: false, error: 'Invalid email or password' };
       }
       
+      // Safety check - make sure we have a user from auth
+      if (!authData?.user?.id) {
+        console.error('Auth succeeded but no user data returned');
+        return { success: false, error: 'Authentication error. Please try again.' };
+      }
+      
+      console.log('Authentication successful for user:', authData.user.id);
+      
       // Auth was successful, now fetch the user's profile from the profiles table
+      // Note: We're looking up by user_id which is the foreign key to auth.users
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, phone, profile_image, created_at')
-        .eq('id', authData.user?.id)
+        .select('id, full_name, email, role, phone, phone_number, profile_image, created_at, is_admin, user_id')
+        .eq('user_id', authData.user.id)
         .maybeSingle();
       
-      // If there's no profile yet, create one for the passenger
+      // If there's no profile yet, create one for the customer
       if (!userProfile && !profileError) {
-        // Create a new profile for this user as a passenger
+        console.log('No profile found. Creating new profile for user:', authData.user.id);
+        
+        // Create a new profile for this user as a customer (default role)
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert([
             {
-              id: authData.user?.id,
-              email: authData.user?.email,
-              full_name: authData.user?.user_metadata?.full_name || 'Passenger',
+              user_id: authData.user.id,  // Set user_id as foreign key to auth.users
+              email: authData.user.email || '',
+              full_name: authData.user?.user_metadata?.full_name || (authData.user.email ? authData.user.email.split('@')[0] : 'User'),
               role: 'customer',
+              is_admin: false,
+              vehicle_type: 'car', // Using the default from schema
               created_at: new Date().toISOString()
             }
           ])
@@ -226,32 +298,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (createError) {
           console.error('Error creating user profile:', createError);
+          
+          // Check if this is a duplicate profile error (race condition)
+          if (createError.message.includes('duplicate key')) {
+            return { success: false, error: 'Profile already exists. Please try logging in again.' };
+          }
+          
           return { success: false, error: 'Failed to create user profile. Please try again.' };
         }
         
         if (newProfile) {
-          // Use the newly created profile
-          const sessionData: UserSession = {
-            id: newProfile.id,
-            email: newProfile.email,
-            full_name: newProfile.full_name,
-            role: 'customer',  // Default role for new users
-            phone: null,
-            profile_image: null,
-            created_at: newProfile.created_at || new Date().toISOString(),
-            last_sign_in_at: new Date().toISOString()
-          };
+          // Get the profile data we just created
+          const { data: createdProfile, error: profileFetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+            
+          if (createdProfile) {
+            // Create a session with the new profile
+            const newUserSession: UserSession = {
+              id: createdProfile.id,
+              user_id: authData.user.id,
+              email: createdProfile.email || authData.user.email || '',
+              full_name: createdProfile.full_name || (authData.user.email ? authData.user.email.split('@')[0] : 'User'),
+              role: createdProfile.role || 'customer',
+              phone: createdProfile.phone_number || createdProfile.phone || null,
+              profile_image: createdProfile.profile_image || null,
+              created_at: createdProfile.created_at || new Date().toISOString(),
+              last_sign_in_at: new Date().toISOString(),
+              is_admin: createdProfile.is_admin || false
+            };
+            
+            setUser(newUserSession);
+            localStorage.setItem('userSession', JSON.stringify(newUserSession));
+            
+            console.log('New user session created:', {
+              userId: newUserSession.id,
+              role: newUserSession.role,
+              name: newUserSession.full_name
+            });
+            
+            return { success: true };
+          }
           
-          setUser(sessionData);
-          localStorage.setItem('userSession', JSON.stringify(sessionData));
-          
-          console.log('New user profile created:', {
-            userId: sessionData.id,
-            role: sessionData.role,
-            name: sessionData.full_name
-          });
-          
-          return { success: true };
+          console.log('Profile created but could not be fetched', { error: profileFetchError });
+          return { success: true, error: 'Profile created but session incomplete. Please refresh.' };
         }
       }
       
@@ -260,42 +352,86 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: 'Error retrieving user profile. Please try again.' };
       }
       
-      // If we have a profile, verify role-specific data if needed
+      // If we have a profile, verify and reconcile role-specific data
       if (userProfile) {
-        // For drivers, verify they have a driver profile
-        if (userProfile.role === 'driver') {
-          const { data: driverData, error: driverError } = await supabase
-            .from('drivers')
-            .select('id')
-            .eq('id', userProfile.id)
-            .maybeSingle();
-            
-          if (driverError || !driverData) {
-            console.error('Driver profile not found:', driverError);
-            return { success: false, error: 'Driver profile not found. Please contact support.' };
+        console.log('Existing profile found:', userProfile);
+        
+        // ROLE MANAGEMENT LOGIC
+        // 1. Check if the user is a driver in the drivers table
+        const { data: driverData, error: driverError } = await supabase
+          .from('drivers')
+          .select('id, status')
+          .eq('profile_id', userProfile.id) // Assuming drivers table links to profiles via profile_id
+          .maybeSingle();
+        
+        console.log('Driver check result:', { driverExists: !!driverData, error: driverError });
+        
+        // ROLE RECONCILIATION
+        let finalRole = userProfile.role || 'customer'; // Default to customer if no role set
+        let isAdmin = userProfile.is_admin || false;
+        
+        // If they're in the drivers table, they should be a driver
+        if (driverData && !driverError) {
+          finalRole = 'driver';
+          
+          // If profile doesn't match drivers table, update the profile
+          if (userProfile.role !== 'driver') {
+            console.log('Updating user role to driver in profiles table');
+            await supabase
+              .from('profiles')
+              .update({ role: 'driver' })
+              .eq('id', userProfile.id);
           }
+        } 
+        // If they claim to be a driver but aren't in the drivers table
+        else if (userProfile.role === 'driver' && !driverData) {
+          console.warn('User has driver role but no driver record found');
+          
+          // For now, we'll keep their role as driver but with a warning
+          console.log('Allowing login with driver role despite missing driver record');
         }
         
-        // For customers (passengers), ensure they're properly marked in the profiles table
-        if (!userProfile.role || userProfile.role === '') {
-          // Update the profile to make sure role is set to 'customer'
+        // Check if admin role is consistent with is_admin flag
+        if (finalRole === 'admin' && !isAdmin) {
+          // Update is_admin flag to match role
+          console.log('Setting is_admin flag to true to match admin role');
+          await supabase
+            .from('profiles')
+            .update({ is_admin: true })
+            .eq('id', userProfile.id);
+          isAdmin = true;
+        } 
+        else if (isAdmin && finalRole !== 'admin') {
+          // Make sure role and is_admin flag are consistent
+          finalRole = 'admin';
+          console.log('Setting role to admin to match is_admin flag');
+          await supabase
+            .from('profiles')
+            .update({ role: 'admin' })
+            .eq('id', userProfile.id);
+        }
+        
+        // For users with no role, set to customer
+        if (!finalRole || finalRole === '') {
+          finalRole = 'customer';
+          console.log('Setting default customer role for user with no role');
           await supabase
             .from('profiles')
             .update({ role: 'customer' })
             .eq('id', userProfile.id);
-          
-          userProfile.role = 'customer';
         }
         
         // Create session data with verified role
         const sessionData: UserSession = {
           id: userProfile.id,
-          email: userProfile.email,
-          full_name: userProfile.full_name,
-          role: userProfile.role,
-          phone: userProfile.phone || null,
+          user_id: userProfile.user_id || authData.user.id, // Store both IDs
+          email: userProfile.email || '',
+          full_name: userProfile.full_name || (userProfile.email ? userProfile.email.split('@')[0] : 'User'),
+          role: finalRole,
+          phone: userProfile.phone_number || userProfile.phone || null,
           profile_image: userProfile.profile_image || null,
-          created_at: userProfile.created_at || new Date().toISOString(),
+          created_at: userProfile.created_at,
+          is_admin: isAdmin,
           last_sign_in_at: new Date().toISOString()
         };
         
@@ -305,7 +441,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           name: sessionData.full_name
         });
         
-        // Set user in state and localStorage
         setUser(sessionData);
         localStorage.setItem('userSession', JSON.stringify(sessionData));
         

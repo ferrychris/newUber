@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ValidOrderStatus } from '../../../../types/order';
+import { getUnreadMessageCount } from '../../../../utils/chatUtils';
 import {
   Dialog,
   DialogContent,
@@ -13,11 +14,11 @@ import {
   Grid,
   Stack,
   Skeleton,
-  Button
+  Button,
+  Badge
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PhoneIcon from '@mui/icons-material/Phone';
-import EmailIcon from '@mui/icons-material/Email';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ChatIcon from '@mui/icons-material/Chat';
 import { supabase } from '../../../../utils/supabaseClient';
@@ -53,9 +54,50 @@ const VALID_STATUSES: ValidOrderStatus[] = ['accepted', 'en_route', 'arrived', '
 export default function OrderDetails({ order, open, onClose }: OrderDetailsProps) {
   const navigate = useNavigate();
   const [displayedStatus, setDisplayedStatus] = useState<ValidOrderStatus>('accepted');
-  const [error, setError] = useState<Error | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [customerName, setCustomerName] = useState<string>('Loading...');
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  
+  // Fetch unread message count for this order
+  useEffect(() => {
+    if (!order?.id || !open) return;
+    
+    const fetchUnreadCount = async () => {
+      const count = await getUnreadMessageCount(order.id);
+      setUnreadCount(count);
+    };
+    
+    fetchUnreadCount();
+    
+    // Set up real-time subscription for new messages
+    const subscription = supabase
+      .channel(`messages-${order.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `order_id=eq.${order.id}`,
+      }, () => {
+        // Refresh unread count when new message arrives
+        fetchUnreadCount();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `order_id=eq.${order.id}`,
+      }, () => {
+        // Also refresh when messages are marked as read
+        fetchUnreadCount();
+      })
+      .subscribe();
+      
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [order?.id, open]);
+  
+
 
   // Fetch customer name
   useEffect(() => {
@@ -102,7 +144,8 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
     fetchCustomerName();
   }, [order?.user_id]);
 
-  const formatCurrency = (amount: number) => {
+  // Format currency for display
+  const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
@@ -162,7 +205,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
         <Grid container spacing={3}>
           {order ? (
             <>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} component="div">
                 <Stack spacing={3}>
                   {/* Customer Details */}
                   <Paper elevation={1} sx={{ p: 3 }}>
@@ -179,21 +222,23 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                       {order.customer_phone && (
                         <div>
                           <Typography variant="subtitle2" color="textSecondary">
-                            Phone
+                            Contact
                           </Typography>
-                          <Link 
-                            href={`tel:${order.customer_phone}`}
-                            sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                          >
+                          <Link href={`tel:${order.customer_phone}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <PhoneIcon fontSize="small" />
-                            {order.customer_phone}
+                            <span>{order.customer_phone}</span>
                           </Link>
                         </div>
                       )}
                       <div>
                         <Button
-                          variant="outlined"
-                          startIcon={<ChatIcon />}
+                          variant="contained"
+                          color="primary"
+                          startIcon={
+                            <Badge badgeContent={unreadCount} color="error" invisible={unreadCount === 0}>
+                              <ChatIcon />
+                            </Badge>
+                          }
                           onClick={() => {
                             navigate('/driver/messages', { state: { orderId: order.id } });
                             onClose();
@@ -201,9 +246,17 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                           sx={{ mt: 2 }}
                           fullWidth
                         >
-                          Open Chat
+                          Chat with Customer {unreadCount > 0 && `(${unreadCount})`}
                         </Button>
                       </div>
+                      {order.base_fare && (
+                        <div>
+                          <Typography variant="subtitle2" color="textSecondary">
+                            Base Fare
+                          </Typography>
+                          <Typography>{formatPrice(order.base_fare)}</Typography>
+                        </div>
+                      )}
                       {order.payment_method && (
                         <div>
                           <Typography variant="subtitle2" color="textSecondary">
@@ -277,7 +330,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                   )}
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} component="div">
                 <Paper elevation={1} sx={{ height: '400px', overflow: 'hidden' }}>
                   <OrderMap
                     pickupLocation={order.pickup_location}
@@ -287,8 +340,8 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
               </Grid>
             </>
           ) : (
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+            <Grid container spacing={3} component="div">
+              <Grid item xs={12} md={6} component="div">
                 <Stack spacing={3}>
                   <Paper elevation={1} sx={{ p: 3 }}>
                     <Skeleton variant="text" width="60%" height={32} />
@@ -301,7 +354,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                   </Paper>
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} component="div">
                 <Paper elevation={1} sx={{ height: '400px' }}>
                   <Skeleton variant="rectangular" height="100%" />
                 </Paper>

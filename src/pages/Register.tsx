@@ -180,6 +180,8 @@ export default function Register() {
           }
         }
       });
+      
+      // We'll move the sign-in step to after all the error checking
 
       if (authError) {
         toast.update(loadingToastId, {
@@ -202,12 +204,23 @@ export default function Register() {
         throw new Error('Failed to create user account');
       }
       
+      // Sign in the user immediately so that RLS policies work correctly
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: sanitizedEmail,
+        password: formData.password
+      });
+      
+      if (signInError) {
+        console.warn('Auto sign-in failed, continuing with account setup:', signInError);
+        // We'll still try to create the profiles but it might fail due to RLS
+      }
+      
       // Explicitly check that the profile has been created
       let profileCreated = false;
       let retryCount = 0;
       
       while (!profileCreated && retryCount < 5) {
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData } = await supabase
           .from('profiles')
           .select('id')
           .eq('id', userId)
@@ -234,18 +247,29 @@ export default function Register() {
         // Continue anyway to try wallet creation
       }
 
-      // Create wallet for the user - only after profile is confirmed
-      const { error: walletError } = await supabase
+      // Check if wallet already exists
+      const { data: existingWallet } = await supabase
         .from('wallets')
-        .insert({
-          user_id: userId,
-          balance: 0,
-          currency: 'USD'
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+    
+      // Create wallet only if it doesn't exist
+      if (!existingWallet) {
+        const { error: walletError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: userId,
+            balance: 0,
+            currency: 'USD'
+          });
 
-      if (walletError) {
-        console.error('Wallet creation error:', walletError);
-        // Continue despite wallet error - not critical
+        if (walletError) {
+          console.error('Wallet creation error:', walletError);
+          // Continue despite wallet error - not critical
+        }
+      } else {
+        console.log('Wallet already exists for user, skipping creation');
       }
 
       // If user is a driver, create driver profile
@@ -259,12 +283,22 @@ export default function Register() {
           });
           throw new Error('Vehicle type is required for drivers');
         }
+        
+        // Let's try a different approach to create the driver profile
+        // Make sure we're authenticated with the correct user
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session || session.user.id !== userId) {
+          console.warn('Authentication session mismatch, attempting to create driver profile anyway');
+        }
 
         const tempLicenseNumber = `TEMP_${Date.now()}_${userId.slice(-6)}`;
-        const { error: driverError } = await supabase
+        
+        // First try creating with proper RLS (as the logged-in user)
+        let { error: driverError } = await supabase
           .from('driver_profiles')
           .insert({
-            user_id: userId,
+            id: userId,
             vehicle_type: formData.vehicle_type,
             license_number: tempLicenseNumber,
             status: 'pending'
