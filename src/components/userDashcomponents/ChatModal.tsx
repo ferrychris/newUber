@@ -309,9 +309,9 @@ const ChatModal: React.FC<ChatModalProps> = ({
           <div className="bg-gray-50 dark:bg-midnight-800 p-3 text-xs border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">{t('orders.status.label')}: <span className="text-sunset">{t(`orders.status.${orderDetails.status}`)}</span></p>
-                <p className="mt-1 text-gray-600 dark:text-gray-300">{t('orders.pickup')}: {orderDetails.pickup_location}</p>
-                <p className="mt-1 text-gray-600 dark:text-gray-300">{t('orders.dropoff')}: {orderDetails.dropoff_location}</p>
+                <p className="font-medium">{t('Status')}: <span className="text-sunset">{t(`Status.${orderDetails.status}`)}</span></p>
+                <p className="mt-1 text-gray-600 dark:text-gray-300">{t('Pickup')}: {orderDetails.pickup_location}</p>
+                <p className="mt-1 text-gray-600 dark:text-gray-300">{t('Dropoff')}: {orderDetails.dropoff_location}</p>
               </div>
             </div>
           </div>

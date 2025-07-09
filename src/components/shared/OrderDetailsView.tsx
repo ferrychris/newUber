@@ -73,48 +73,62 @@ const OrderStatusDisplay = ({ status }: { status: string }) => {
   const { t } = useTranslation();
   
   const getStatusConfig = (status: string) => {
-    switch (status) {
+    // Normalize status to handle hyphen vs underscore differences
+    const normalizedStatus = status.replace('-', '_');
+    
+    switch (normalizedStatus) {
       case 'pending':
         return {
           icon: <FaClock />,
           color: 'text-sunset',
           bg: 'bg-sunset/10 dark:bg-sunset/20',
-          text: t('orders.status.pending')
+          text: t('Pending')
         };
       case 'active':
+      case 'accepted': // Add support for 'accepted' status used in OrderCard
         return {
           icon: <FaCheck />,
           color: 'text-green-500',
           bg: 'bg-green-100 dark:bg-green-900/30',
-          text: t('orders.status.active')
+          text: t(`Status.${normalizedStatus}`)
         };
       case 'in_transit':
+      case 'in-transit': // Support both underscore and hyphen versions
         return {
           icon: <FaTruck />,
           color: 'text-purple-500',
           bg: 'bg-purple-100 dark:bg-purple-900/30',
-          text: t('orders.status.in_transit')
+          text: t('In_transit')
         };
       case 'completed':
         return {
           icon: <FaCheck />,
           color: 'text-teal-500',
           bg: 'bg-teal-100 dark:bg-teal-900/30',
-          text: t('orders.status.completed')
+          text: t('Completed')
         };
       case 'cancelled':
+      case 'canceled': // Support both spelling variants
         return {
           icon: <FaTimes />,
           color: 'text-red-500',
           bg: 'bg-red-100 dark:bg-red-900/30',
-          text: t('orders.status.cancelled')
+          text: t('Cancelled')
+        };
+      case 'delivered': // Add support for 'delivered' status used in OrderCard
+        return {
+          icon: <FaCheck />,
+          color: 'text-blue-500',
+          bg: 'bg-blue-100 dark:bg-blue-900/30',
+          text: t('Delivered')
         };
       default:
         return {
           icon: <FaClock />,
           color: 'text-gray-500',
           bg: 'bg-gray-100 dark:bg-gray-800/50',
-          text: status
+          // Try to use translation if available, otherwise use the raw status
+          text: t(`orders.status.${normalizedStatus}`, { defaultValue: status })
         };
     }
   };
@@ -311,37 +325,37 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   <div className="space-y-4">
                     {renderMetaItem(
                       <FaMapMarkerAlt />,
-                      t('orders.pickupLocation'),
+                      t('Pickup Location'),
                       order.pickup_location
                     )}
                     
                     {renderMetaItem(
                       <FaMapMarkerAlt />,
-                      t('orders.dropoffLocation'),
+                      t('Dropoff Location'),
                       order.dropoff_location
                     )}
                     
                     {renderMetaItem(
                       <FaCalendarAlt />,
-                      t('orders.orderDate'),
+                      t('Order Date'),
                       formatDate(order.created_at)
                     )}
                     
                     {renderMetaItem(
                       <FaDollarSign />,
-                      t('orders.estimatedPrice'),
+                      t('Estimated Price'),
                       formatCurrency(order.estimated_price)
                     )}
                     
                     {order.actual_price && order.status === 'completed' && renderMetaItem(
                       <FaDollarSign />,
-                      t('orders.actualPrice'),
+                      t('Actual Price'),
                       formatCurrency(order.actual_price)
                     )}
                     
                     {renderMetaItem(
                       <FaMoneyBill />,
-                      t('orders.paymentMethod'),
+                      t('Payment Method'),
                       renderPaymentMethod()
                     )}
                   </div>
@@ -353,24 +367,24 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   {showUserDetails && customer && (
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        {t('orders.customerInfo')}
+                        {t('Customer Info')}
                       </h3>
                       <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
                         {renderContactItem(
                           <FaUser />,
-                          t('profile.name'),
+                          t('Name'),
                           customer.full_name || t('Not Provided')
                         )}
                         
                         {renderContactItem(
                           <FaPhone />,
-                          t('profile.phone'),
+                          t('Phone'),
                           customer.phone || t('Not Provided')
                         )}
                         
                         {renderContactItem(
                           <FaEnvelope />,
-                          t('profile.email'),
+                          t('Email'),
                           customer.email || t('Not Provided')
                         )}
                       </div>
@@ -380,24 +394,24 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                   {showDriverDetails && driver && (
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        {t('orders.driverInfo')}
+                        {t('Driver Info')}
                       </h3>
                       <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
                         {renderContactItem(
                           <FaUser />,
-                          t('profile.name'),
+                          t('Name'),
                           driver.full_name || t('Not Provided')
                         )}
                         
                         {renderContactItem(
                           <FaPhone />,
-                          t('profile.phone'),
+                          t('Phone'),
                           driver.phone || t('Not Provided')
                         )}
                         
                         {renderContactItem(
                           <FaEnvelope />,
-                          t('profile.email'),
+                          t('Email'),
                           driver.email || t('Not Provided')
                         )}
                       </div>
