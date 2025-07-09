@@ -41,10 +41,10 @@ export default function Navbar() {
 
   // Navigation items
   const navItems = [
-    { nameKey: 'navbar.home', nameDefault: 'Home', path: '/' },
-    { nameKey: 'navbar.services', nameDefault: 'Services', path: '/services' },
-    { nameKey: 'navbar.about', nameDefault: 'About', path: '/about' },
-    { nameKey: 'navbar.contact', nameDefault: 'Contact', path: '/contact' },
+    { nameKey: 'Home', nameDefault: 'Home', path: '/' },
+    { nameKey: 'Services', nameDefault: 'Services', path: '/services' },
+    { nameKey: 'About', nameDefault: 'About', path: '/about' },
+    { nameKey: 'Contact', nameDefault: 'Contact', path: '/contact' },
   ];
 
   return (
@@ -62,7 +62,7 @@ export default function Navbar() {
                 <Link
                   key={index}
                   to={item.path}
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B]"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-black dark:text-black hover:text-[#D95F3B]"
                 >
                   {item.nameDefault}
                 </Link>
@@ -70,15 +70,15 @@ export default function Navbar() {
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <button className="p-2 text-gray-600 hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Team Chat">
+            <button className="p-2 text-black hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Team Chat">
               <MessageSquare className="h-5 w-5" />
             </button>
-            <button className="p-2 text-gray-600 hover:text-[#D95F3B] hover:bg-gray-50 rounded-md transition-colors relative" aria-label="Notifications">
+            <button className="p-2 text-black hover:text-[#D95F3B] rounded-md transition-colors relative" aria-label="Notifications">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
             </button>
             <div className="relative">
-              <button className="p-2 text-gray-600 hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Account">
+              <button className="p-2 text-black hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Account">
                 <User className="h-5 w-5" />
               </button>
             </div>
@@ -91,23 +91,23 @@ export default function Navbar() {
             <div className="relative ml-3" ref={langMenuRef}>
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
-                className="flex items-center space-x-1 px-2 py-2 rounded-md hover:bg-gray-50 text-gray-700"
+                className="flex items-center space-x-1 px-2 py-2 rounded-md hover:text-[#D95F3B] text-black"
                 aria-label="Change language"
               >
-                <FaGlobe className="text-gray-600" />
+                <FaGlobe className="text-black" />
                 <span className="text-sm font-medium">{currentLanguage.toUpperCase()}</span>
               </button>
               {langMenuOpen && (
                 <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg py-1 z-20 border border-gray-200">
                   <button
                     onClick={() => handleLanguageChange('en')}
-                    className={`w-full text-left px-4 py-2 text-sm ${currentLanguage === 'en' ? 'bg-gray-50 text-[#D95F3B] font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                    className={`w-full text-left px-4 py-2 text-sm ${currentLanguage === 'en' ? 'text-[#D95F3B] font-medium' : 'text-black hover:text-[#D95F3B]'}`}
                   >
                     <T text="language.english" />
                   </button>
                   <button
                     onClick={() => handleLanguageChange('fr')}
-                    className={`w-full text-left px-4 py-2 text-sm ${currentLanguage === 'fr' ? 'bg-gray-50 text-[#D95F3B] font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                    className={`w-full text-left px-4 py-2 text-sm ${currentLanguage === 'fr' ? 'text-[#D95F3B] font-medium' : 'text-black hover:text-[#D95F3B]'}`}
                   >
                     <T text="language.french" />
                   </button>
@@ -118,7 +118,7 @@ export default function Navbar() {
           <div className="-mr-2 flex items-center md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:text-[#D95F3B] hover:bg-gray-50 dark:hover:bg-midnight-700 focus:outline-none"
+              className="inline-flex items-center justify-center p-2 rounded-md text-black dark:text-gray-200 hover:text-[#D95F3B] focus:outline-none"
               aria-expanded="false"
             >
               <span className="sr-only">
@@ -142,7 +142,7 @@ export default function Navbar() {
               <Link
                 key={index}
                 to={item.path}
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B]"
+                className="block px-3 py-2 rounded-md text-base font-medium text-black dark:text-gray-200 hover:text-[#D95F3B]"
                 onClick={() => setIsOpen(false)}
               >
                 {item.nameDefault}
@@ -156,7 +156,7 @@ export default function Navbar() {
               <T text="auth.signIn" />
             </Link>
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-midnight-600">
-              <p className="px-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+              <p className="px-3 text-sm font-medium text-black dark:text-gray-400">
                 <T text="language.select" />
               </p>
               <div className="flex space-x-2">
@@ -165,7 +165,7 @@ export default function Navbar() {
                     handleLanguageChange('en');
                     setIsOpen(false);
                   }}
-                  className={`flex-1 py-2 px-3 text-sm rounded-md ${currentLanguage === 'en' ? 'bg-gray-100 text-[#D95F3B] font-medium' : 'bg-white border border-gray-200 text-gray-700'}`}
+                  className={`flex-1 py-2 px-3 text-sm rounded-md ${currentLanguage === 'en' ? 'text-[#D95F3B] font-medium border border-[#D95F3B]' : 'border border-gray-200 text-black hover:text-[#D95F3B] hover:border-[#D95F3B]'}`}
                 >
                   <T text="language.english" />
                 </button>
@@ -174,7 +174,7 @@ export default function Navbar() {
                     handleLanguageChange('fr');
                     setIsOpen(false);
                   }}
-                  className={`flex-1 py-2 px-3 text-sm rounded-md ${currentLanguage === 'fr' ? 'bg-gray-100 text-[#D95F3B] font-medium' : 'bg-white border border-gray-200 text-gray-700'}`}
+                  className={`flex-1 py-2 px-3 text-sm rounded-md ${currentLanguage === 'fr' ? 'text-[#D95F3B] font-medium border border-[#D95F3B]' : 'border border-gray-200 text-black hover:text-[#D95F3B] hover:border-[#D95F3B]'}`}
                 >
                   <T text="language.french" />
                 </button>
