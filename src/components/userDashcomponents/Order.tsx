@@ -418,7 +418,7 @@ const Order: React.FC = () => {
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center sm:justify-between mb-6">
         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-          {t('orders.title')}
+          {t('Orders')}
         </h1>
         <div className="mt-4 sm:mt-0">
           <button
@@ -468,10 +468,10 @@ const Order: React.FC = () => {
         <div className="bg-white dark:bg-midnight-800 shadow-sm overflow-hidden rounded-xl border border-gray-200 dark:border-stone-600/10">
           <div className="px-4 py-5 sm:p-6 text-center">
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-              {t('orders.noOrders')}
+              No Orders
             </h3>
             <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-stone-400 mx-auto">
-              <p>{t('orders.createFirstOrder')}</p>
+              <p>Create your first order to get started!</p>
             </div>
             <div className="mt-5">
               <button
@@ -521,7 +521,7 @@ const Order: React.FC = () => {
                     
                     <div className="mt-2 space-y-2">
                       <div className="text-xs text-gray-500 dark:text-stone-400 uppercase font-medium tracking-wide">
-                        {t('orders.locations')}
+                        Locations
                       </div>
                       <div className="flex flex-col text-sm text-gray-900 dark:text-white">
                         <div className="flex items-center">
@@ -539,7 +539,7 @@ const Order: React.FC = () => {
                     <div className="mt-3 flex justify-between items-center">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-stone-400 uppercase font-medium tracking-wide">
-                          {t('orders.price')}
+                          Price
                         </div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {formatCurrency(order.estimated_price || 0)}
@@ -570,16 +570,16 @@ const Order: React.FC = () => {
                 <thead className="bg-gray-50 dark:bg-midnight-700/30">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                      {t('orders.service')}
+                      Service
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                      {t('orders.locations')}
+                      Locations
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                      {t('orders.price')}
+                      Price
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-stone-400 uppercase tracking-wider">
-                      {t('orders.status.title')}
+                      Status
                     </th>
                     <th scope="col" className="relative px-6 py-3">
                       <span className="sr-only">View</span>

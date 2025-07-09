@@ -62,15 +62,15 @@ export default function Navbar() {
                 <Link
                   key={index}
                   to={item.path}
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B] hover:bg-gray-50 dark:hover:bg-midnight-700"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B]"
                 >
-                  <T text={item.nameKey} />
+                  {item.nameDefault}
                 </Link>
               ))}
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <button className="p-2 text-gray-600 hover:text-[#D95F3B] hover:bg-gray-50 rounded-md transition-colors" aria-label="Team Chat">
+            <button className="p-2 text-gray-600 hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Team Chat">
               <MessageSquare className="h-5 w-5" />
             </button>
             <button className="p-2 text-gray-600 hover:text-[#D95F3B] hover:bg-gray-50 rounded-md transition-colors relative" aria-label="Notifications">
@@ -78,7 +78,7 @@ export default function Navbar() {
               <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
             </button>
             <div className="relative">
-              <button className="p-2 text-gray-600 hover:text-[#D95F3B] hover:bg-gray-50 rounded-md transition-colors" aria-label="Account">
+              <button className="p-2 text-gray-600 hover:text-[#D95F3B] rounded-md transition-colors" aria-label="Account">
                 <User className="h-5 w-5" />
               </button>
             </div>
@@ -142,10 +142,10 @@ export default function Navbar() {
               <Link
                 key={index}
                 to={item.path}
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B] hover:bg-gray-50 dark:hover:bg-midnight-700"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:text-[#D95F3B]"
                 onClick={() => setIsOpen(false)}
               >
-                <T text={item.nameKey} />
+                {item.nameDefault}
               </Link>
             ))}
             <Link
