@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, TextField, Button, Typography, Paper, Avatar, CircularProgress, Alert } from '@mui/material';
+import { Box, TextField, Button, Typography, Paper, Avatar, CircularProgress, Alert, IconButton, Tooltip } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
-import { Send as SendIcon } from '@mui/icons-material';
+import { Send as SendIcon, Phone as PhoneIcon } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -30,8 +30,24 @@ export const OrderChat: React.FC<OrderChatProps> = ({ orderId, otherUserId: init
   const [error, setError] = useState<string | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | undefined>(initialOtherUserId);
   const [otherUserName, setOtherUserName] = useState<string | undefined>(initialOtherUserName);
+  const [otherUserPhone, setOtherUserPhone] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+
+  // Format message from real-time updates
+  const formatMessage = (rawMessage: any): Message => {
+    // Ensure message has all required fields
+    return {
+      id: rawMessage.id,
+      content: rawMessage.content,
+      sender_id: rawMessage.sender_id,
+      receiver_id: rawMessage.receiver_id,
+      created_at: rawMessage.created_at,
+      read_at: rawMessage.read_at,
+      sender_name: rawMessage.sender_name || '',
+      receiver_name: rawMessage.receiver_name || ''
+    };
+  };
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -73,7 +89,7 @@ export const OrderChat: React.FC<OrderChatProps> = ({ orderId, otherUserId: init
       // Fetch other user's profile info
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('full_name, email')
+        .select('full_name, email, phone')
         .eq('id', targetUserId)
         .single();
         
@@ -81,6 +97,7 @@ export const OrderChat: React.FC<OrderChatProps> = ({ orderId, otherUserId: init
       
       setOtherUserId(targetUserId);
       setOtherUserName(profileData.full_name || profileData.email?.split('@')[0] || 'User');
+      setOtherUserPhone(profileData.phone || undefined);
     } catch (err) {
       console.error('Error fetching other user info:', err);
       // Don't set error state here as it's not critical
@@ -168,7 +185,32 @@ export const OrderChat: React.FC<OrderChatProps> = ({ orderId, otherUserId: init
         },
         (payload) => {
           console.log('Received message update:', payload);
-          fetchMessages();
+          
+          // Handle different event types more efficiently
+          if (payload.eventType === 'INSERT') {
+            // Add the new message to state directly without refetching
+            const newMessage = formatMessage(payload.new);
+            setMessages(currentMessages => [...currentMessages, newMessage]);
+            // Still mark messages as read
+            markMessagesAsRead();
+          } else if (payload.eventType === 'UPDATE') {
+            // Update the message in state
+            const updatedMessage = formatMessage(payload.new);
+            setMessages(currentMessages => 
+              currentMessages.map(msg => 
+                msg.id === updatedMessage.id ? updatedMessage : msg
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            // Remove the message from state
+            const deletedMessageId = payload.old.id;
+            setMessages(currentMessages => 
+              currentMessages.filter(msg => msg.id !== deletedMessageId)
+            );
+          } else {
+            // Fallback to fetching all messages
+            fetchMessages();
+          }
         }
       )
       .subscribe();
@@ -185,8 +227,45 @@ export const OrderChat: React.FC<OrderChatProps> = ({ orderId, otherUserId: init
     }
   }, [messages]);
 
+  // Handle phone call
+  const handleCall = () => {
+    if (otherUserPhone) {
+      window.location.href = `tel:${otherUserPhone}`;
+    } else {
+      toast.error('Phone number not available');
+    }
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Chat header with call button */}
+      <Box
+        sx={{
+          p: 2,
+          bgcolor: 'primary.main',
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTopLeftRadius: 4,
+          borderTopRightRadius: 4
+        }}
+      >
+        <Typography variant="h6">
+          {otherUserName || 'Chat'}
+        </Typography>
+        {otherUserPhone && (
+          <Tooltip title="Call">
+            <IconButton
+              color="inherit"
+              onClick={handleCall}
+              aria-label="Call"
+            >
+              <PhoneIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
       {/* Messages area */}
       <Box
         sx={{

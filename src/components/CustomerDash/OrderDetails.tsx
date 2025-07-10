@@ -13,11 +13,14 @@ import {
   Grid,
   Stack,
   Alert,
-  Snackbar
+  Snackbar,
+  Tooltip,
+  Link
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PhoneIcon from '@mui/icons-material/Phone';
 import { supabase } from '../../utils/supabaseClient';
 import OrderMap from '../DriverDash/KeyFeatures/Orders/OrderMap';
 
@@ -181,7 +184,20 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
                           <Typography variant="subtitle2" color="textSecondary">
                             Phone
                           </Typography>
-                          <Typography>{order.driver_phone}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography>{order.driver_phone}</Typography>
+                            <Tooltip title="Call Driver">
+                              <IconButton 
+                                color="primary" 
+                                size="small" 
+                                component={Link}
+                                href={`tel:${order.driver_phone}`}
+                                aria-label="Call driver"
+                              >
+                                <PhoneIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Box>
                       )}
                     </Box>

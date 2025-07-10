@@ -700,51 +700,7 @@ const Order: React.FC = () => {
                             {t('Confirm Delivery')}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button 
-                            className="text-sunset hover:text-purple-600 transition-colors duration-200"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const loadingToast = toast.loading("Opening conversation...");
-                              
-                              try {
-                                // Check if there's a driver assigned
-                                if (order.driver_id) {
-                                  // Try to initiate conversation if needed
-                                  await initiateOrderChat(
-                                    order.id,
-                                    order.driver_id,
-                                    userId as string,
-                                    "I'd like to discuss my order with you."
-                                  );
-                                  
-                                  // Get driver name and auth user ID
-                                  const { data: driverData } = await supabase
-                                    .from('profiles')
-                                    .select('name, user_id')
-                                    .eq('id', order.driver_id)
-                                    .single();
-                                    
-                                  if (driverData) {
-                                    setDriverName(driverData.name);
-                                    // Store driver's auth user ID for messaging
-                                    setDriverAuthId(driverData.user_id);
-                                  }
-                                }
-                                
-                                // Open chat modal instead of navigating
-                                setSelectedChatOrder(order);
-                                setIsChatModalOpen(true);
-                                toast.success("Chat opened", { id: loadingToast });
-                              } catch (error) {
-                                console.error("Error opening chat:", error);
-                                toast.error("Couldn't open chat. Try again.", { id: loadingToast });
-                              }
-                            }}
-                          >
-                            {t('Messages')}
-                          </button>
-                        </td>
+                       
                       </tr>
                     );
                   })}

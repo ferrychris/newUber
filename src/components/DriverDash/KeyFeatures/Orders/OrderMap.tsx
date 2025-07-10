@@ -59,12 +59,10 @@ export default function OrderMap({ pickupLocation, dropoffLocation }: OrderMapPr
           // Add markers
           new mapboxgl.Marker({ color: '#2196f3' })
             .setLngLat(pickupCoords)
-            .setPopup(new mapboxgl.Popup().setHTML('Pickup Location'))
             .addTo(map.current);
 
           new mapboxgl.Marker({ color: '#4caf50' })
             .setLngLat(dropoffCoords)
-            .setPopup(new mapboxgl.Popup().setHTML('Dropoff Location'))
             .addTo(map.current);
 
           // Get and add route
