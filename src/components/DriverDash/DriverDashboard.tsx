@@ -12,6 +12,7 @@ import { Order, ValidOrderStatus } from '../../types/order';
 import { initiateOrderChat } from '../../utils/chatUtils';
 import DriverChatModal from './KeyFeatures/Messages/DriverChatModal';
 import ChatSelectionModal from './KeyFeatures/Messages/ChatSelectionModal';
+import MobileMenu from './MobileMenu';
 
 export const DriverDashboard = () => {
   const { user } = useAuth();
@@ -423,7 +424,7 @@ export const DriverDashboard = () => {
         onNavigate={handleNavigate}
       />
       
-      <main className="flex-1 p-8 pt-24 ml-0 lg:ml-64 transition-all duration-300">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 pt-20 md:pt-24 ml-0 lg:ml-64 transition-all duration-300 pb-20 lg:pb-8">
         <Outlet context={{ 
           // New state
           activeOrders,
@@ -451,6 +452,13 @@ export const DriverDashboard = () => {
           user
         }} />
       </main>
+      
+      {/* Mobile Menu */}
+      <MobileMenu 
+        onNavigate={handleNavigate}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        unreadMessages={0} // TODO: Pass actual unread message count
+      />
       
       {/* Driver Chat Modal */}
       {activeChatOrderId && activeChatCustomerId && (

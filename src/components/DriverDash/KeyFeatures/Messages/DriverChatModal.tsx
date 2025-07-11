@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -8,21 +8,21 @@ import {
   CircularProgress, 
   IconButton,
   Avatar,
-  Divider,
   useTheme,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  DialogContentText
+  DialogActions
 } from '@mui/material';
 import { 
   Close as CloseIcon,
-  Send as SendIcon
+  Send as SendIcon,
+  Phone as PhoneIcon
 } from '@mui/icons-material';
 import { useUser } from '@supabase/auth-helpers-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../../../utils/supabaseClient';
+import { fetchUserProfile, getProfileDisplayName, getProfilePhoneNumber, ProfileData } from '../../../../utils/profileUtils';
 
 interface Message {
   id: string;
@@ -35,11 +35,7 @@ interface Message {
   is_system_message: boolean;
 }
 
-interface CustomerProfile {
-  id: string;
-  full_name?: string;
-  profile_image?: string;
-}
+// Using ProfileData from profileUtils.ts instead of defining a separate interface
 
 interface DriverChatModalProps {
   open: boolean;
@@ -69,7 +65,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<ProfileData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch messages for this order and customer
@@ -109,17 +105,19 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
           }
         }
 
-        // Fetch customer profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, profile_image')
-          .eq('id', customerId)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching customer profile:', profileError);
-        } else {
+        // Fetch customer profile using centralized utility
+        const profileData = await fetchUserProfile(customerId);
+        
+        if (profileData) {
+          console.log('Customer profile found:', profileData);
           setCustomerProfile(profileData);
+        } else {
+          console.log('No customer profile found for ID:', customerId);
+          // Create a fallback profile with order info
+          setCustomerProfile({
+            id: customerId,
+            full_name: orderInfo?.customer_name || `User ${customerId.substring(0, 8)}`
+          });
         }
       } catch (err) {
         console.error('Error fetching messages:', err);
@@ -130,37 +128,121 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
     };
 
     fetchMessages();
-
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel(`support-messages-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'support_messages',
-          filter: `order_id=eq.${orderId}`
-        },
-        async (payload) => {
-          const newMsg = payload.new as Message;
-          setMessages(prevMessages => [...prevMessages, newMsg]);
-
-          // Mark as read if we are the receiver
-          if (newMsg.receiver_id === user.id && !newMsg.read) {
-            await supabase
-              .from('support_messages')
-              .update({ read: true })
-              .eq('id', newMsg.id);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [open, orderId, customerId, user]);
+
+  // Add TypeScript interface for the global subscription registry
+declare global {
+  interface Window {
+    GLOBAL_SUBSCRIPTIONS: Map<string, any>;
+  }
+}
+
+// Use a single global registry for all active subscriptions
+// This is a static reference that persists across all component instances
+const GLOBAL_SUBSCRIPTIONS = window.GLOBAL_SUBSCRIPTIONS || new Map<string, any>();
+if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPTIONS;
+  
+  // Create a unique channel name for this subscription
+  const channelName = useMemo(() => {
+    return orderId && user ? `public:support_messages:order_id=eq.${orderId}` : null;
+  }, [orderId, user]);
+
+  // Message handler function - defined outside useEffect to avoid recreation
+  const handleNewMessage = useCallback(async (payload: any) => {
+    const newMsg = payload.new as Message;
+    setMessages(prevMessages => [...prevMessages, newMsg]);
+
+    // Mark as read if we are the receiver
+    if (user && newMsg.receiver_id === user.id && !newMsg.read) {
+      await supabase
+        .from('support_messages')
+        .update({ read: true })
+        .eq('id', newMsg.id);
+    }
+  }, [user, setMessages]);
+
+  // Set up real-time subscription with improved global management
+  useEffect(() => {
+    // Only proceed if component is open and we have all required data
+    if (!open || !orderId || !customerId || !user || !channelName) return;
+    
+    // Track this component instance's subscription
+    let unsubscribeFn: (() => void) | null = null;
+    
+    // Check if we already have an active subscription for this channel
+    let existingSubscription = GLOBAL_SUBSCRIPTIONS.get(channelName);
+    
+    if (!existingSubscription) {
+      console.log(`Creating new subscription for channel: ${channelName}`);      
+      
+      // Create a new subscription using the channel
+      const channel = supabase.channel(`chat-${orderId}`);
+      
+      // Set up the subscription
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'support_messages',
+            filter: `order_id=eq.${orderId}`
+          },
+          handleNewMessage
+        )
+        .subscribe((status) => {
+          console.log(`Subscription status for ${channelName}:`, status);
+        });
+      
+      // Create subscription object with reference counting
+      existingSubscription = {
+        channel,
+        refCount: 0,
+        unsubscribe: () => {
+          channel.unsubscribe();
+          GLOBAL_SUBSCRIPTIONS.delete(channelName);
+          console.log(`Removed subscription for ${channelName}`);
+        }
+      };
+      
+      // Store in global registry
+      GLOBAL_SUBSCRIPTIONS.set(channelName, existingSubscription);
+    } else {
+      console.log(`Reusing existing subscription for channel: ${channelName}`);
+    }
+    
+    // Increment reference count
+    existingSubscription.refCount += 1;
+    console.log(`Subscription ref count for ${channelName}: ${existingSubscription.refCount}`);
+    
+    // Create unsubscribe function for this component instance
+    unsubscribeFn = () => {
+      const subscription = GLOBAL_SUBSCRIPTIONS.get(channelName);
+      if (subscription) {
+        subscription.refCount -= 1;
+        console.log(`Decreased ref count for ${channelName} to ${subscription.refCount}`);
+        
+        // If no more references, clean up the subscription
+        if (subscription.refCount <= 0) {
+          subscription.unsubscribe();
+        }
+      }
+    };
+
+    // Cleanup function
+    return () => {
+      if (unsubscribeFn) {
+        unsubscribeFn();
+      }
+    };
+  }, [open, orderId, customerId, user, channelName, handleNewMessage]);
+  
+  // For TypeScript to recognize the global property
+  declare global {
+    interface Window {
+      GLOBAL_SUBSCRIPTIONS: Map<string, any>;
+    }
+  }
 
   // Auto scroll to bottom when messages change
   useEffect(() => {
@@ -203,7 +285,10 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
     }
   };
 
-  const customerName = customerProfile?.full_name || orderInfo?.customer_name || 'Customer';
+  // Get the customer name using our utility function
+  const customerName = useMemo(() => {
+    return getProfileDisplayName(customerProfile, orderInfo?.customer_name);
+  }, [customerProfile, orderInfo]);
 
   return (
     <Dialog 
@@ -236,6 +321,14 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
               Order #{orderId.slice(0, 8)}
               {orderInfo?.status && ` • ${orderInfo.status}`}
             </Typography>
+            {getProfilePhoneNumber(customerProfile) && (
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <PhoneIcon fontSize="small" sx={{ fontSize: '0.9rem', mr: 0.5 }} />
+                  {getProfilePhoneNumber(customerProfile)}
+                </Box>
+              </Typography>
+            )}
           </Box>
         </Box>
         <IconButton onClick={onClose} sx={{ color: 'white' }}>

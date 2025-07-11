@@ -147,7 +147,7 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
     setTabValue(newValue);
   };
   
-  // Handle chat with customer
+  // Handle r
   const handleChatClick = async (orderId: string, customerId: string) => {
     if (!user?.id || !handleOpenChat) return;
     

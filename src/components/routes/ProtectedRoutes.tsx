@@ -22,66 +22,26 @@ export default function ProtectedRoute({
   driverRequired = false 
 }: ProtectedRouteProps) {
   const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
-
   const location = useLocation();
   const { user, isAuthenticated, loading: authLoading, hasRole } = useAuth();
 
+  // Log route check information
   useEffect(() => {
     logRouteState('Route Check', {
       path: location.pathname,
       user: user ? { id: user.id, role: user.role } : null,
-      loading,
-      authenticated: !!user
+      isAuthenticated,
+      authLoading
     });
-  }, [location.pathname, user, loading]);
+  }, [location.pathname, user, isAuthenticated, authLoading]);
 
+  // Update loading state based on auth loading
   useEffect(() => {
-    const checkAuthorization = async () => {
-      // Wait for auth to finish loading
-      if (authLoading) {
-        setLoading(true);
-        return;
-      }
+    setLoading(authLoading);
+  }, [authLoading]);
 
-      setLoading(true);
-      
-      try {
-        // Check if user is authenticated
-        if (!isAuthenticated || !user) {
-          console.log('User not authenticated, redirecting to login');
-          setAuthorized(false);
-          return;
-        }
-        
-        // Check role requirements
-        if (adminRequired && !hasRole('admin')) {
-          console.log('Admin access required but user is not admin');
-          setAuthorized(false);
-          return;
-        }
-        
-        if (driverRequired && !hasRole('driver')) {
-          console.log('Driver access required but user is not driver');
-          setAuthorized(false);
-          return;
-        }
-        
-        // If we get here, the user is authenticated and has the correct role
-        console.log('User authorized with role:', user.role);
-        setAuthorized(true);
-      } catch (error) {
-        console.error('Authorization check error:', error);
-        setAuthorized(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuthorization();
-  }, [user, isAuthenticated, authLoading, adminRequired, driverRequired, hasRole]);
-
-  if (authLoading || loading) {
+  // Show loading spinner while authentication is being checked
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark">
         <motion.div
@@ -96,38 +56,52 @@ export default function ProtectedRoute({
     );
   }
 
-  // Handle unauthorized access
-  if (!authorized && !loading && !authLoading) {
-    if (!isAuthenticated || !user) {
-      return <Navigate to="/login" state={{ 
-        message: 'Please log in to access this page',
-        from: location.pathname 
-      }} />;
-    } else {
-      return <Navigate to="/" state={{ 
-        message: adminRequired 
-          ? 'Unauthorized access. You must be an administrator to access this page.'
-          : driverRequired
-          ? 'Unauthorized access. You must be a driver to access this page.'
-          : 'Unauthorized access.'
-      }} />;
-    }
-  }
-
-  // Check role based on route
-  const requiredRole = location.pathname.includes('/driver') ? 'driver' : 'customer';
-  
-  if (!user || !hasRole(requiredRole)) {
-    logRouteState('Access Denied', { 
-      reason: 'Invalid role',
-      required: requiredRole,
-      actual: user?.role
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    logRouteState('Redirecting to Login', {
+      reason: 'User not authenticated',
+      from: location.pathname
     });
-    return <Navigate to="/unauthorized" />;
+    return <Navigate to="/login" state={{ 
+      message: 'Please log in to access this page',
+      from: location.pathname 
+    }} />;
   }
 
+  // Check role requirements
+  let authorized = true;
+  let redirectMessage = '';
+  
+  // Admin role check
+  if (adminRequired && !hasRole('admin')) {
+    authorized = false;
+    redirectMessage = 'Unauthorized access. You must be an administrator to access this page.';
+    logRouteState('Access Denied', { 
+      reason: 'Not admin',
+      required: 'admin',
+      actual: user.role
+    });
+  }
+  
+  // Driver role check
+  else if (driverRequired && !hasRole('driver')) {
+    authorized = false;
+    redirectMessage = 'Unauthorized access. You must be a driver to access this page.';
+    logRouteState('Access Denied', { 
+      reason: 'Not driver',
+      required: 'driver',
+      actual: user.role
+    });
+  }
+  
+  // If not authorized based on role requirements, redirect to home
+  if (!authorized) {
+    return <Navigate to="/" state={{ message: redirectMessage }} />;
+  }
+
+  // If we reach here, the user is authenticated and authorized
   logRouteState('Access Granted', {
-    user: user ? { id: user.id, role: user.role } : null,
+    user: { id: user.id, role: user.role },
     path: location.pathname
   });
 

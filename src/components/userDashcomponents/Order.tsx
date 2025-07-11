@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { initiateOrderChat } from "../../utils/chatUtils";
-import ChatModal from "./ChatModal";
+import DriverChatModal from "../DriverDash/KeyFeatures/Messages/DriverChatModal";
 import { FaSpinner, FaMapMarkerAlt } from "react-icons/fa";
 import { SERVICES } from "./orders/constants";
 import { getToastConfig, validateFrenchAddress, getStatusConfig } from "./orders/utils";
@@ -754,21 +754,21 @@ const Order: React.FC = () => {
       
       {/* Chat Modal */}
       {selectedChatOrder && (
-        <ChatModal 
-          isOpen={isChatModalOpen}
+        <DriverChatModal 
+          open={isChatModalOpen}
           onClose={() => {
             setIsChatModalOpen(false);
             setSelectedChatOrder(null);
             setDriverAuthId("");
           }}
           orderId={selectedChatOrder.id}
-          userId={userId as string}
-          driverId={driverAuthId} // Pass the auth user ID for proper foreign key relationship
-          driverName={driverName}
-          orderDetails={{
+          customerId={driverAuthId}
+          orderInfo={{
+            id: selectedChatOrder.id,
             pickup_location: selectedChatOrder.pickup_location,
             dropoff_location: selectedChatOrder.dropoff_location,
-            status: selectedChatOrder.status
+            status: selectedChatOrder.status,
+            customer_name: driverName
           }}
         />
       )}

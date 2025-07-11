@@ -22,6 +22,7 @@ import DeliveriesManagement from './admincomponents/DeliveriesManagement';
 import { ThemeProvider } from './utils/theme';
 import ProtectedRoute from './components/routes/ProtectedRoutes';
 import RoleBasedRedirect from './components/routes/RoleBasedRedirect';
+import SessionChecker from './components/routes/SessionChecker';
 import { AuthProvider } from './context/AuthContext';
 import { TranslationProvider } from './components/GeminiTranslate';
 // Language selector removed
@@ -42,7 +43,8 @@ function App() {
         <ThemeProvider>
           <div className="min-h-screen bg-white dark:bg-midnight-900 text-gray-900 dark:text-white transition-colors duration-500">
             <BrowserRouter>
-            <Routes>
+              <SessionChecker />
+              <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/register" element={<Register />} />

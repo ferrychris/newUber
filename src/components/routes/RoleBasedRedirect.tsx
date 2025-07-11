@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast';
  * - Admins are redirected to /admin/dashboard
  */
 const RoleBasedRedirect: React.FC = () => {
-  const { user, loading, isAuthenticated, refreshSession } = useAuth();
+  const { user, loading, refreshSession } = useAuth();
   const location = useLocation();
   
   // Get the intended destination from location state, if any
@@ -58,7 +58,7 @@ const RoleBasedRedirect: React.FC = () => {
   }, [loading, user, refreshSession]);
 
   // Show loading state while auth is being determined
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark">
         <div className="p-8 rounded-lg bg-white/10 backdrop-blur-sm">
@@ -69,47 +69,37 @@ const RoleBasedRedirect: React.FC = () => {
     );
   }
 
-  // If not authenticated, redirect to login
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" state={{ from: location.pathname }} />;
-  }
-
-  // Determine redirect path based on user role
-  let redirectPath;
-  switch (user.role) {
-    case 'driver':
-      redirectPath = '/driver/dashboard';
-      break;
-    case 'admin':
-      redirectPath = '/admin/dashboard';
-      break;
-    case 'customer':
-    default:
-      redirectPath = '/dashboard';
-      break;
-  }
-
-  // If there was a specific destination requested, use that instead
-  // but only if it's appropriate for the user's role
-  if (from) {
+  // At this point, user is authenticated and available
+  // Check if the 'from' location is appropriate for this user's role
+  // If it is, redirect them there
+  if (from && from !== '/' && from !== '/login') {
     const isDriverRoute = from.startsWith('/driver');
     const isAdminRoute = from.startsWith('/admin');
-    const isCustomerRoute = from.startsWith('/dashboard') && !isDriverRoute && !isAdminRoute;
-
-    const canAccessRoute = (
+    const isCustomerRoute = from.startsWith('/dashboard') || (!isDriverRoute && !isAdminRoute);
+    
+    const canAccessRoute = 
       (isDriverRoute && user.role === 'driver') ||
       (isAdminRoute && user.role === 'admin') ||
-      (isCustomerRoute && user.role === 'customer') ||
-      user.role === 'admin' // Admins can access all routes
-    );
-
+      (isCustomerRoute && (user.role === 'customer' || user.role === 'admin'));
+    
     if (canAccessRoute) {
-      redirectPath = from;
+      console.log(`Redirecting to previous location: ${from}`);
+      return <Navigate to={from} replace={true} />;
     }
   }
 
-  console.log(`Redirecting user with role ${user.role} to ${redirectPath}`);
-  return <Navigate to={redirectPath} replace />;
+  // If no suitable 'from' location, or it's not appropriate for this role,
+  // redirect to the default dashboard for their role
+  let redirectPath = '/dashboard'; // Default
+  
+  if (user.role === 'admin') {
+    redirectPath = '/admin';
+  } else if (user.role === 'driver') {
+    redirectPath = '/driver/dashboard';
+  }
+
+  console.log(`Redirecting to role-based dashboard: ${redirectPath}`);
+  return <Navigate to={redirectPath} replace={true} />;
 };
 
 export default RoleBasedRedirect;

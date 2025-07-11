@@ -16,7 +16,7 @@ import { supabase } from '../../../../utils/supabaseClient';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { updateOrderStatus } from '../../../../utils/orderUtils';
 import type { ValidOrderStatus, StatusConfig } from '../../../../types/order';
-import { OrderChatDrawer } from './OrderChatDrawer';
+import DriverChatModal from '../../KeyFeatures/Messages/DriverChatModal';
 
 interface OrderStatusControlProps {
   orderId: string;
@@ -325,11 +325,15 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
         </Box>
       </Box>
 
-      <OrderChatDrawer
+      <DriverChatModal
         orderId={orderId}
         open={chatOpen}
         onClose={handleChatClose}
-        customerId={customerId || undefined}
+        customerId={customerId || ''}
+        orderInfo={{
+          id: orderId,
+          status: currentStatus
+        }}
       />
     </Box>
   );

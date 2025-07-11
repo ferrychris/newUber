@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ValidOrderStatus } from '../../../../types/order';
 import { getUnreadMessageCount } from '../../../../utils/chatUtils';
@@ -24,6 +24,7 @@ import ChatIcon from '@mui/icons-material/Chat';
 import { supabase } from '../../../../utils/supabaseClient';
 import OrderMap from './OrderMap';
 import { OrderStatusControl } from './OrderStatusControl';
+import DriverChatModal from '../Messages/DriverChatModal';
 import { updateOrderStatus } from '../../../../utils/orderUtils';
 
 interface OrderDetailsProps {
@@ -57,6 +58,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
   const [isUpdating, setIsUpdating] = useState(false);
   const [customerName, setCustomerName] = useState<string>('Loading...');
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isChatModalOpen, setIsChatModalOpen] = useState<boolean>(false);
   
   // Fetch unread message count for this order
   useEffect(() => {
@@ -186,20 +188,22 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Order Details</Typography>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        fullWidth
+        maxWidth="lg"
+        aria-labelledby="order-details-dialog-title"
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Order Details</Typography>
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
 
       <DialogContent>
         <Grid container spacing={3}>
@@ -240,8 +244,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                             </Badge>
                           }
                           onClick={() => {
-                            navigate('/driver/messages', { state: { orderId: order.id } });
-                            onClose();
+                            setIsChatModalOpen(true);
                           }}
                           sx={{ mt: 2 }}
                           fullWidth
@@ -364,5 +367,23 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
         </Grid>
       </DialogContent>
     </Dialog>
+
+    {/* Driver Chat Modal */}
+    {order && (
+      <DriverChatModal
+        open={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        orderId={order.id}
+        customerId={order.user_id}
+        orderInfo={{
+          id: order.id,
+          pickup_location: order.pickup_location,
+          dropoff_location: order.dropoff_location,
+          status: order.status,
+          customer_name: order.customer_name || undefined
+        }}
+      />
+    )}
+    </>
   );
 }

@@ -84,24 +84,24 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
   return (
     <nav className="fixed w-full top-0 left-0 bg-white dark:bg-midnight-900 border-b border-slate-200 dark:border-stone-700/20 shadow-sm z-40">
       <div className="px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4">
           <button
             onClick={onToggleSidebar}
             className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-lg lg:hidden"
           >
             <Menu className="h-6 w-6 text-gray-700 dark:text-stone-300" />
           </button>
-          <span className="font-semibold text-gray-800 dark:text-white">
+          <span className="font-semibold text-gray-800 dark:text-white text-sm md:text-base truncate max-w-[150px] md:max-w-none">
             {t('driver.welcomeMessage', { name: driverName })}
           </span>
         </div>
         
-        <div className="flex items-center space-x-4">
-          {/* Messages icon with notification badge - opens chat selection modal if handler provided */}
+        <div className="flex items-center space-x-2 md:space-x-4">
+          {/* Messages icon with notification badge - only visible on larger screens */}
           {onOpenChatModal ? (
             <button 
               onClick={() => onOpenChatModal()} 
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex"
               title="Messages"
             >
               <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
@@ -112,7 +112,7 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
               )}
             </button>
           ) : (
-            <Link to="/driver/messages" className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full">
+            <Link to="/driver/messages" className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex">
               <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
               {unreadMessages > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -122,21 +122,21 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
             </Link>
           )}
           
-          {/* Notifications icon */}
-          <button className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full">
+          {/* Notifications icon - only visible on larger screens */}
+          <button className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex">
             <Bell className="h-6 w-6 text-gray-700 dark:text-stone-300" />
           </button>
           
           {/* Profile dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button 
-              className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-lg"
+              className="flex items-center p-1 md:p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-lg"
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
               <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium">
                 {driverName.substring(0, 1).toUpperCase()}
               </div>
-              <ChevronDown className="h-4 w-4 text-gray-600 dark:text-stone-400" />
+              <ChevronDown className="h-4 w-4 text-gray-600 dark:text-stone-400 hidden md:block ml-1" />
             </button>
             
             {dropdownOpen && (

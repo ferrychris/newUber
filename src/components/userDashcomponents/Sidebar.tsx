@@ -43,12 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: "/dashboard/orders", 
       icon: <FaClipboardList />, 
       label: "Orders"
-    },
-    { 
-      path: "/dashboard/message", 
-      icon: <FaRegEnvelope />, 
-      label: "Message",
-      badge: "4"
     }
   ];
 

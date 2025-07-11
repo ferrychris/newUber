@@ -10,12 +10,12 @@ import {
   FaClock,
   FaDollarSign,
   FaTimes,
-  FaComment,
+
   FaCommentDots,
   FaMoneyBill,
   FaWallet
 } from 'react-icons/fa';
-import ChatModal from '../userDashcomponents/ChatModal';
+import DriverChatModal from '../DriverDash/KeyFeatures/Messages/DriverChatModal';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../utils/i18n';
 import { supabase } from '../../utils/supabase';
@@ -462,13 +462,13 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       
       {/* Chat Modal */}
       {order && order.driver_id && (
-        <ChatModal 
-          isOpen={isChatModalOpen}
+        <DriverChatModal 
+          open={isChatModalOpen}
           onClose={() => setIsChatModalOpen(false)}
           orderId={order.id}
-          userId={order.user_id}
-          driverId={order.driver_id}
-          orderDetails={{
+          customerId={order.user_id}
+          orderInfo={{
+            id: order.id,
             pickup_location: order.pickup_location,
             dropoff_location: order.dropoff_location,
             status: order.status
