@@ -33,6 +33,26 @@
     "save": "Enregistrer",
     "cancel": "Annuler",
     "submit": "Soumettre",
-    "authError": "Erreur d'authentification. Veuillez vous reconnecter."
+    "authError": "Erreur d'authentification. Veuillez vous reconnecter.",
+    "processing": "Traitement en cours..."
+  },
+  "tracking": {
+    "orders": "Commandes",
+    "orderDetails": "Détails de la commande",
+    "orderStatus": "Statut de la commande",
+    "pickup": "Ramassage",
+    "destination": "Destination",
+    "driver": "Chauffeur",
+    "messageDriver": "Message au chauffeur",
+    "locations": "Emplacements",
+    "locationCoordinates": "Coordonnées de l'emplacement",
+    "cancelOrder": "Annuler la commande",
+    "cancelConfirmation": "Annuler la commande",
+    "cancelWarning": "Êtes-vous sûr de vouloir annuler cette commande? Cette action ne peut pas être annulée.",
+    "confirmCancel": "Oui, annuler la commande",
+    "confirmDelivery": "Confirmer la livraison",
+    "confirmDeliveryMessage": "Êtes-vous sûr de vouloir confirmer cette livraison? Cette action ne peut pas être annulée.",
+    "yesConfirmDelivery": "Oui, confirmer la livraison",
+    "deliveryConfirmed": "Livraison confirmée"
   }
 }

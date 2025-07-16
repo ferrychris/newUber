@@ -1,3 +1,17 @@
+// For TypeScript to recognize the subscription registry type
+declare global {
+  interface Window {
+    GLOBAL_SUBSCRIPTIONS: Map<string, any>;
+  }
+}
+
+// Add TypeScript interface for subscription registry
+type SubscriptionItem = {
+  channel: any;
+  refCount: number;
+  unsubscribe: () => void;
+};
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Box, 
@@ -130,17 +144,14 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
     fetchMessages();
   }, [open, orderId, customerId, user]);
 
-  // Add TypeScript interface for the global subscription registry
-declare global {
-  interface Window {
-    GLOBAL_SUBSCRIPTIONS: Map<string, any>;
-  }
-}
-
-// Use a single global registry for all active subscriptions
-// This is a static reference that persists across all component instances
-const GLOBAL_SUBSCRIPTIONS = window.GLOBAL_SUBSCRIPTIONS || new Map<string, any>();
-if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPTIONS;
+  // Use a global subscription registry to prevent multiple subscriptions
+  const subscriptionRegistry = useMemo(() => {
+    // Initialize global registry if it doesn't exist
+    if (!window.GLOBAL_SUBSCRIPTIONS) {
+      window.GLOBAL_SUBSCRIPTIONS = new Map<string, SubscriptionItem>();
+    }
+    return window.GLOBAL_SUBSCRIPTIONS;
+  }, []);
   
   // Create a unique channel name for this subscription
   const channelName = useMemo(() => {
@@ -170,7 +181,7 @@ if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPT
     let unsubscribeFn: (() => void) | null = null;
     
     // Check if we already have an active subscription for this channel
-    let existingSubscription = GLOBAL_SUBSCRIPTIONS.get(channelName);
+    let existingSubscription = subscriptionRegistry.get(channelName);
     
     if (!existingSubscription) {
       console.log(`Creating new subscription for channel: ${channelName}`);      
@@ -200,13 +211,13 @@ if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPT
         refCount: 0,
         unsubscribe: () => {
           channel.unsubscribe();
-          GLOBAL_SUBSCRIPTIONS.delete(channelName);
+          subscriptionRegistry.delete(channelName);
           console.log(`Removed subscription for ${channelName}`);
         }
       };
       
       // Store in global registry
-      GLOBAL_SUBSCRIPTIONS.set(channelName, existingSubscription);
+      subscriptionRegistry.set(channelName, existingSubscription);
     } else {
       console.log(`Reusing existing subscription for channel: ${channelName}`);
     }
@@ -217,7 +228,7 @@ if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPT
     
     // Create unsubscribe function for this component instance
     unsubscribeFn = () => {
-      const subscription = GLOBAL_SUBSCRIPTIONS.get(channelName);
+      const subscription = subscriptionRegistry.get(channelName);
       if (subscription) {
         subscription.refCount -= 1;
         console.log(`Decreased ref count for ${channelName} to ${subscription.refCount}`);
@@ -237,12 +248,7 @@ if (!window.GLOBAL_SUBSCRIPTIONS) window.GLOBAL_SUBSCRIPTIONS = GLOBAL_SUBSCRIPT
     };
   }, [open, orderId, customerId, user, channelName, handleNewMessage]);
   
-  // For TypeScript to recognize the global property
-  declare global {
-    interface Window {
-      GLOBAL_SUBSCRIPTIONS: Map<string, any>;
-    }
-  }
+  // Global declaration is already at the top of the file
 
   // Auto scroll to bottom when messages change
   useEffect(() => {

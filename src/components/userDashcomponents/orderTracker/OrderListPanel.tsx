@@ -5,14 +5,43 @@ import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../../utils/i18n';
 import { getStatusConfig } from '../orders/utils';
 
+// Define our custom Order type to match what we're using in OrderTracker
+interface Order {
+  id: string;
+  status: string;
+  user_id: string;
+  driver_id?: string;
+  created_at: string;
+  pickup_location?: string | [number, number];
+  destination_location?: string | [number, number];
+  services?: {
+    id: string;
+    name: string;
+    type?: string;
+    description?: string;
+    image?: string;
+  };
+  estimated_price?: number;
+  actual_price?: number;
+  payment_method?: 'wallet' | 'cash';
+}
+
+// Define our custom DriverDetails type
+interface DriverDetails {
+  id: string;
+  full_name: string;
+  phone?: string;
+  profile_image?: string;
+}
+
 interface OrderListPanelProps {
-  orders: any[];
+  orders: Order[];
   isLoading: boolean; // Combined initial loading state
   isLoadingOrders: boolean;
   error: string | null;
-  selectedOrder: any | null;
-  driverDetails: any | null;
-  handleSelectOrder: (order: any) => void;
+  selectedOrder: Order | null;
+  driverDetails: DriverDetails | null;
+  handleSelectOrder: (order: Order) => void;
 }
 
 // Create a memoized Order item component to prevent unnecessary re-renders
@@ -22,7 +51,7 @@ const OrderItem = memo(({
   onSelect, 
   getOrderStatus 
 }: { 
-  order: any; 
+  order: Order; 
   isSelected: boolean; 
   onSelect: () => void; 
   getOrderStatus: (status: string) => JSX.Element;
@@ -38,16 +67,16 @@ const OrderItem = memo(({
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-2 sm:space-x-3">
-          <div className={`p-2 rounded-lg ${order.services?.name === 'Shopping' ? 'bg-sunset-500/10' : order.services?.name === 'Parcels' ? 'bg-blue-500/10' : 'bg-teal-500/10'}`}>
+          <div className={`p-2 rounded-lg ${order.services?.name === 'Shopping' ? 'bg-sunset-500/10' : order.services?.name === 'Parcels' ? 'bg-blue-500/10' : order.services?.name === 'Large items' ? 'bg-purple-500/10' : 'bg-teal-500/10'}`}>
             {order.services?.name === 'Shopping' ? (
-              <FaShoppingBag className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : 'text-teal-500'}`} />
+              <FaShoppingBag className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : order.services?.name === 'Large items' ? 'text-purple-500' : 'text-teal-500'}`} />
             ) : (
-              <FaTruck className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : 'text-teal-500'}`} />
+              <FaTruck className={`w-4 h-4 ${order.services?.name === 'Shopping' ? 'text-sunset-500' : order.services?.name === 'Parcels' ? 'text-blue-500' : order.services?.name === 'Large items' ? 'text-purple-500' : 'text-teal-500'}`} />
             )}
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-white text-sm">
-              {order.services?.name || 'Delivery'}
+              {order.services?.name === 'Meals' ? 'Large items' : order.services?.name || 'Delivery'}
             </p>
             <div className="mt-1">
               {getOrderStatus(order.status)}
@@ -59,7 +88,7 @@ const OrderItem = memo(({
         </div>
         <div className="text-right">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {formatCurrency(order.estimated_price)}
+            {formatCurrency(order.estimated_price || 0)}
           </p>
           <div className="flex items-center justify-end text-xs mt-1 text-gray-500">
             {order.payment_method === 'wallet' ? (

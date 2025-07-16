@@ -85,5 +85,20 @@
     "processingError": "Error processing payment",
     "stripeNotLoaded": "Payment system is not loaded. Please try again.",
     "cardElementMissing": "Card details missing. Please reload the page."
+  },
+  "orders": {
+    "status": {
+      "arrived": "Arrived",
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "pickup": "Picked Up",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "completed": "Completed"
+    }
+  },
+  "errors": {
+    "driverDataFailed": "Failed to load driver information",
+    "customerDataFailed": "Failed to load customer information"
   }
 } 

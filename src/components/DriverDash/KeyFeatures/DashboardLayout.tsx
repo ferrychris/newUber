@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Grid, Paper, Container } from '@mui/material';
+import { Paper, Container } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { useOutletContext } from 'react-router-dom';
 import TabContext from '@mui/lab/TabContext';
 import TabPanel from '@mui/lab/TabPanel';
@@ -11,14 +12,21 @@ import DriverWallet from './Wallet/DriverWallet';
 interface Order {
   id: string;
   status: string;
-  customer_id?: string;
+  user_id: string;
+  pickup_location: string;
+  dropoff_location: string;
+  created_at: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  base_fare: number;
+  distance_fare?: number;
+  time_fare?: number;
+  total_fare: number;
+  payment_method?: string;
+  payment_status?: 'pending' | 'completed' | 'failed';
+  notes?: string;
   driver_id?: string;
-  pickup_location?: string;
-  dropoff_location?: string;
-  created_at?: string;
   updated_at?: string;
-  customer_name?: string;
-  price?: number;
 }
 
 interface DashboardContext {
@@ -49,9 +57,9 @@ export default function DashboardLayout() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: { xs: 8, md: 4 } }}>
-      <Grid container spacing={{ xs: 2, md: 3 }}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* Orders Section */}
-        <Grid item xs={12} md={8}>
+        <div className="md:col-span-8">
           <Paper
             sx={{
               p: { xs: 1, sm: 2 },
@@ -98,10 +106,10 @@ export default function DashboardLayout() {
               </TabPanel>
             </TabContext>
           </Paper>
-        </Grid>
+        </div>
 
         {/* Wallet Section */}
-        <Grid item xs={12} md={4}>
+        <div className="md:col-span-4">
           <Paper
             sx={{
               p: { xs: 1, sm: 2 },
@@ -113,8 +121,8 @@ export default function DashboardLayout() {
           >
             <DriverWallet />
           </Paper>
-        </Grid>
-      </Grid>
+        </div>
+      </div>
 
       {/* Order Details Dialog */}
       <OrderDetails

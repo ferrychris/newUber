@@ -32,7 +32,7 @@ export interface OrderCardProps {
   onChatClick?: (orderId: string, customerId: string) => void;
 }
 
-type StatusConfigKey = 'accepted' | 'en_route' | 'arrived' | 'picked_up' | 'delivered';
+type StatusConfigKey = 'accepted' | 'en_route' | 'arrived' | 'picked_up' | 'delivered' | 'completed' | 'cancelled';
 
 const STATUS_CONFIG: Record<StatusConfigKey, {
   color: string;
@@ -45,6 +45,8 @@ const STATUS_CONFIG: Record<StatusConfigKey, {
   arrived: { color: '#9c27b0', label: 'Arrived', nextStatus: 'picked_up', nextLabel: 'Confirm Pickup' },
   picked_up: { color: '#009688', label: 'Picked Up', nextStatus: 'delivered', nextLabel: 'Complete Delivery' },
   delivered: { color: '#4caf50', label: 'Delivered', nextStatus: null, nextLabel: null },
+  completed: { color: '#4caf50', label: 'Completed', nextStatus: null, nextLabel: null },
+  cancelled: { color: '#f44336', label: 'Cancelled', nextStatus: null, nextLabel: null },
 };
 
 export default function OrderCard({ 

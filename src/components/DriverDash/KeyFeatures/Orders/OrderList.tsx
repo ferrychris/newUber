@@ -24,7 +24,7 @@ const ORDER_TABS = {
   completed: {
     label: '✅ Completed',
     color: 'success',
-    statuses: ['delivered'] as Order['status'][]
+    statuses: ['delivered', 'completed'] as Order['status'][]
   },
   cancelled: {
     label: '❌ Cancelled',
@@ -87,7 +87,7 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
       ['accepted', 'en_route', 'arrived', 'picked_up'].includes(order.status)
     ) || [];
     const completed = contextPastOrders?.filter(order => 
-      order.status === 'delivered'
+      order.status === 'delivered' || order.status === 'completed'
     ) || [];
     const cancelled = contextPastOrders?.filter(order => 
       order.status === 'cancelled'

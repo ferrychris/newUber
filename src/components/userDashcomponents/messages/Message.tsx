@@ -124,52 +124,92 @@ const Message: React.FC<MessageProps> = ({ orderId, receiverId, isDriver, onClos
     }
   }, [orderId, authUser?.id, t]);
 
-  // Subscribe to new messages
   useEffect(() => {
-    if (!orderId || !authUser?.id) {
-      setError(t('messages.missingData'));
-      setIsLoading(false);
-      return;
+    if (!window.GLOBAL_SUBSCRIPTIONS) {
+      window.GLOBAL_SUBSCRIPTIONS = new Map<string, any>();
     }
+  }, []);
 
-    fetchMessages();
+  useEffect(() => {
+    if (!orderId || !authUser?.id) return;
     
-    const messageSubscription = supabase
-      .channel(`messages-${orderId}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages',
-        filter: `order_id=eq.${orderId}`
-      }, async (payload) => {
-        const newMsg = payload.new as MessageType;
-        if (newMsg?.receiver_id && (newMsg.receiver_id === authUser.id || newMsg.sender_id === authUser.id)) {
-          // Add message to the state if it's not already there
-          setMessages(prev => {
-            // Check if message already exists to avoid duplicates
-            if (prev.some(m => m.id === newMsg.id)) {
-              return prev;
-            }
-            return [...prev, { ...newMsg, read: newMsg.read ?? false }];
-          });
-          
-          // Mark as read if we're the receiver
-          if (newMsg.receiver_id === authUser.id && !newMsg.read) {
-            try {
-              await supabase
-                .from('messages')
-                .update({ read: true })
-                .eq('id', newMsg.id);
-            } catch (error) {
-              console.error('Error marking subscribed message as read:', error);
+    const channelName = `public:messages:order_id=eq.${orderId}`;
+    let unsubscribeFn: (() => void) | null = null;
+    
+    const subscriptionRegistry = window.GLOBAL_SUBSCRIPTIONS;
+    
+    let existingSubscription = subscriptionRegistry.get(channelName);
+    
+    if (!existingSubscription) {
+      console.log(`Creating new subscription for channel: ${channelName}`);
+      
+      const channel = supabase.channel(`messages-${orderId}`);
+      
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `order_id=eq.${orderId}`
+          },
+          async (payload) => {
+            const newMsg = payload.new as MessageType;
+            
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMsg.id)) {
+                return prev;
+              }
+              return [...prev, { ...newMsg, read: newMsg.read ?? false }];
+            });
+            
+            if (newMsg.receiver_id === authUser.id && !newMsg.read) {
+              try {
+                await supabase
+                  .from('messages')
+                  .update({ read: true })
+                  .eq('id', newMsg.id);
+              } catch (error) {
+                console.error('Error marking subscribed message as read:', error);
+              }
             }
           }
-        }
-      })
-      .subscribe();
+        )
+        .subscribe();
       
+      existingSubscription = {
+        channel,
+        refCount: 0,
+        unsubscribe: () => {
+          channel.unsubscribe();
+          subscriptionRegistry.delete(channelName);
+          console.log(`Removed subscription for ${channelName}`);
+        }
+      };
+      
+      subscriptionRegistry.set(channelName, existingSubscription);
+    } else {
+      console.log(`Reusing existing subscription for channel: ${channelName}`);
+    }
+    
+    existingSubscription.refCount += 1;
+    console.log(`Subscription ref count for ${channelName}: ${existingSubscription.refCount}`);
+    
+    unsubscribeFn = () => {
+      const subscription = subscriptionRegistry.get(channelName);
+      if (subscription) {
+        subscription.refCount -= 1;
+        console.log(`Decreased ref count for ${channelName} to ${subscription.refCount}`);
+        
+        if (subscription.refCount <= 0) {
+          subscription.unsubscribe();
+        }
+      }
+    };
+    
     return () => {
-      messageSubscription.unsubscribe();
+      if (unsubscribeFn) unsubscribeFn();
     };
   }, [orderId, authUser?.id, fetchMessages, t]);
 

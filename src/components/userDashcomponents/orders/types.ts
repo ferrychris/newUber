@@ -10,7 +10,7 @@ export enum ServiceType {
 
 export enum OrderStatus {
   PENDING = 'pending',
-  ACTIVE = 'active',
+  ACCEPTED = 'accepted',
   IN_TRANSIT = 'in_transit',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled'

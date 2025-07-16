@@ -10,12 +10,15 @@ import {
   FaClock,
   FaDollarSign,
   FaTimes,
-
+  FaInfoCircle,
   FaCommentDots,
+  FaCommentAlt,
   FaMoneyBill,
   FaWallet
 } from 'react-icons/fa';
-import DriverChatModal from '../DriverDash/KeyFeatures/Messages/DriverChatModal';
+import { Dialog, DialogContent } from '@mui/material';
+import Message from '../userDashcomponents/messages/Message';
+import CustomerDashboardChat from '../CustomerDash/CustomerDashboardChat';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../utils/i18n';
 import { supabase } from '../../utils/supabase';
@@ -26,21 +29,27 @@ import toast from 'react-hot-toast';
 interface Order {
   id: string;
   user_id: string;
+  driver_id?: string;
   service_id: string;
   pickup_location: string;
   dropoff_location: string;
   status: string;
-  estimated_price: number;
-  actual_price?: number;
   created_at: string;
-  payment_method?: 'wallet' | 'cash';
-  driver_id?: string;
-  services?: {
-    id: string;
-    name: string;
-    [key: string]: any;
-  };
+  updated_at: string;
+  price: number;
+  payment_method: string;
+  payment_status: string;
 }
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  profile_image?: string;
+}
+
+// OrderDetailsViewProps is defined below with service as Service type
 
 interface Service {
   id: string;
@@ -156,8 +165,8 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
   // State for chat modal
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const { t } = useTranslation();
-  const [customer, setCustomer] = useState<any>(null);
-  const [driver, setDriver] = useState<any>(null);
+  const [customer, setCustomer] = useState<UserProfile | null>(null);
+  const [driver, setDriver] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
 
@@ -167,33 +176,59 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       try {
         // Fetch customer data if showing user details
         if (showUserDetails && order.user_id) {
-          const { data: userData, error: userError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', order.user_id)
-            .single();
-            
-          if (userError) {
-            console.error('Error fetching customer:', userError);
+          try {
+            const { data: userData, error: userError } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, phone, profile_image')
+              .eq('id', order.user_id)
+              .maybeSingle(); // Use maybeSingle instead of single to avoid 406 error
+                
+            if (userError) {
+              console.error('Error fetching customer:', userError);
+              toast.error(t('errors.customerDataFailed'));
+            } else if (userData) {
+              setCustomer(userData);
+            } else {
+              // No customer data found but no error (empty result)
+              console.warn(`No customer profile found for ID: ${order.user_id}`);
+              // Create a minimal customer object with just the ID
+              setCustomer({ id: order.user_id, full_name: t('Customer Not Found'), email: '', phone: '' });
+            }
+          } catch (err) {
+            console.error('Exception fetching customer data:', err);
             toast.error(t('errors.customerDataFailed'));
-          } else if (userData) {
-            setCustomer(userData);
           }
         }
+
         
-        // Fetch driver data if showing driver details
-        if (showDriverDetails && order.driver_id) {
-          const { data: driverData, error: driverError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', order.driver_id)
-            .single();
-            
-          if (driverError) {
-            console.error('Error fetching driver:', driverError);
+        // Always fetch driver data if driver_id is available
+        if (order.driver_id) {
+          try {
+            // Fetch driver profile data from public.profiles table
+            const { data: driverData, error: driverError } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, phone, profile_image')
+              .eq('id', order.driver_id)
+              .maybeSingle(); // Use maybeSingle instead of single to avoid 406 error
+              
+            if (driverError) {
+              console.error('Error fetching driver:', driverError);
+              toast.error(t('errors.driverDataFailed'));
+            } else if (driverData) {
+              // Ensure phone number is available
+              if (!driverData.phone) {
+                console.warn('Driver phone number not found in database');
+              }
+              setDriver(driverData);
+            } else {
+              // No driver data found but no error (empty result)
+              console.warn(`No driver profile found for ID: ${order.driver_id}`);
+              // Create a minimal driver object with just the ID
+              setDriver({ id: order.driver_id, full_name: t('Driver Not Found'), email: '', phone: '' });
+            }
+          } catch (err) {
+            console.error('Exception fetching driver data:', err);
             toast.error(t('errors.driverDataFailed'));
-          } else if (driverData) {
-            setDriver(driverData);
           }
         }
       } catch (err) {
@@ -219,14 +254,36 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
     </div>
   );
   
-  const renderContactItem = (icon: React.ReactNode, label: string, value: string) => (
+  const renderContactItem = (icon: React.ReactNode, label: string, value: string, isPhone: boolean = false, showChat: boolean = false) => (
     <div className="flex items-center space-x-3 mb-3">
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-sunset/10 dark:bg-sunset/20 flex items-center justify-center text-sunset">
         {icon}
       </div>
-      <div>
+      <div className="flex-grow">
         <p className="text-xs text-gray-500 dark:text-stone-400">{label}</p>
-        <p className="text-sm font-medium text-gray-900 dark:text-white">{value}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{value}</p>
+          <div className="flex">
+            {isPhone && value !== t('Not Provided') && (
+              <a 
+                href={`tel:${value}`} 
+                className="ml-2 p-2 bg-sunset/10 hover:bg-sunset/20 text-sunset rounded-full flex items-center justify-center transition-colors duration-200"
+                aria-label="Call"
+              >
+                <FaPhone size={14} />
+              </a>
+            )}
+            {showChat && (
+              <button
+                onClick={() => setIsChatModalOpen(true)}
+                className="ml-2 p-2 bg-sunset/10 hover:bg-sunset/20 text-sunset rounded-full flex items-center justify-center transition-colors duration-200"
+                aria-label="Chat"
+              >
+                <FaCommentDots size={14} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -261,10 +318,10 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
             <div>
               <div className="flex items-center space-x-2 mb-2">
                 <span className="bg-sunset/10 dark:bg-sunset/20 text-sunset p-2 rounded-lg">
-                  {service.icon || <FaTruck />}
+                  {service?.icon || <FaTruck />}
                 </span>
                 <h3 className="font-medium text-lg text-gray-900 dark:text-white">
-                  {service.name}
+                  {service?.name || t('Service')}
                 </h3>
               </div>
               
@@ -343,15 +400,11 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                     
                     {renderMetaItem(
                       <FaDollarSign />,
-                      t('Estimated Price'),
-                      formatCurrency(order.estimated_price)
+                      t('Price'),
+                      formatCurrency(order.price)
                     )}
                     
-                    {order.actual_price && order.status === 'completed' && renderMetaItem(
-                      <FaDollarSign />,
-                      t('Actual Price'),
-                      formatCurrency(order.actual_price)
-                    )}
+                    {/* Price is already shown above */}
                     
                     {renderMetaItem(
                       <FaMoneyBill />,
@@ -364,6 +417,95 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
               
               {activeTab === 'contact' && (
                 <div className="space-y-6">
+                  {/* Driver information - show first if available */}
+                  {order.driver_id && (
+                    <div className="animate-fadeIn">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                          {t('Driver Info')}
+                        </h3>
+                        {driver && driver.phone && (
+                          <a 
+                            href={`tel:${driver.phone}`}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-sunset text-white rounded-full hover:bg-sunset/90 transition-colors duration-200"
+                          >
+                            <FaPhone size={14} />
+                            <span className="text-sm font-medium">{t('Call Driver')}</span>
+                          </a>
+                        )}
+                      </div>
+                      
+                      {driver ? (
+                        <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="col-span-1">
+                              {/* Driver basic info */}
+                              {renderContactItem(
+                                <FaUser />,
+                                t('Name'),
+                                driver.full_name || t('Not Provided')
+                              )}
+                              
+                              {/* Phone with click-to-call */}
+                              {renderContactItem(
+                                <FaPhone />,
+                                t('Phone'),
+                                driver.phone || t('Not Provided'),
+                                true,
+                                !isDriver && !!order.driver_id
+                              )}
+                              
+                              {renderContactItem(
+                                <FaEnvelope />,
+                                t('Email'),
+                                driver.email || t('Not Provided')
+                              )}
+                            </div>
+                            
+                            <div className="col-span-1">
+                              {/* Contact instructions */}
+                              <div className="mb-4">
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
+                                  {t('Contact Instructions')}
+                                </h4>
+                                
+                                <div className="bg-sunset/5 p-3 rounded-lg border border-sunset/10">
+                                  <div className="flex items-start space-x-3">
+                                    <div className="mt-1">
+                                      <FaInfoCircle className="text-sunset" size={16} />
+                                    </div>
+                                    <p className="text-sm text-gray-600 dark:text-stone-300">
+                                      {t('If you need to contact your driver, you can call them directly using the phone number or the Call Driver button above.')}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Message button */}
+                                <button
+                                  onClick={() => setIsChatModalOpen(true)}
+                                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-midnight-700 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-midnight-600 transition-colors duration-200"
+                                >
+                                  <FaCommentAlt size={14} />
+                                  <span>{t('Send Message')}</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10 flex items-center justify-center">
+                          <div className="text-center py-6">
+                            <div className="animate-pulse flex justify-center mb-3">
+                              <FaUser className="text-gray-400 dark:text-stone-500" size={24} />
+                            </div>
+                            <p className="text-gray-500 dark:text-stone-400">{t('Loading driver information...')}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Customer information */}
                   {showUserDetails && customer && (
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -379,7 +521,9 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                         {renderContactItem(
                           <FaPhone />,
                           t('Phone'),
-                          customer.phone || t('Not Provided')
+                          customer.phone || t('Not Provided'),
+                          true,
+                          isDriver && !!order.user_id
                         )}
                         
                         {renderContactItem(
@@ -391,30 +535,10 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                     </div>
                   )}
                   
-                  {showDriverDetails && driver && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        {t('Driver Info')}
-                      </h3>
-                      <div className="bg-gray-50 dark:bg-midnight-700/50 rounded-lg p-4 border border-gray-200 dark:border-stone-600/10">
-                        {renderContactItem(
-                          <FaUser />,
-                          t('Name'),
-                          driver.full_name || t('Not Provided')
-                        )}
-                        
-                        {renderContactItem(
-                          <FaPhone />,
-                          t('Phone'),
-                          driver.phone || t('Not Provided')
-                        )}
-                        
-                        {renderContactItem(
-                          <FaEnvelope />,
-                          t('Email'),
-                          driver.email || t('Not Provided')
-                        )}
-                      </div>
+                  {/* No contact information available */}
+                  {!showUserDetails && !order.driver_id && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-stone-400">{t('No contact information available')}</p>
                     </div>
                   )}
                 </div>
@@ -461,19 +585,49 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
       </div>
       
       {/* Chat Modal */}
-      {order && order.driver_id && (
-        <DriverChatModal 
-          open={isChatModalOpen}
-          onClose={() => setIsChatModalOpen(false)}
-          orderId={order.id}
-          customerId={order.user_id}
-          orderInfo={{
-            id: order.id,
-            pickup_location: order.pickup_location,
-            dropoff_location: order.dropoff_location,
-            status: order.status
-          }}
-        />
+      {order && (
+        isDriver ? (
+          // Driver perspective - chat with customer
+          order.user_id && (
+            <Dialog
+              open={isChatModalOpen}
+              onClose={() => setIsChatModalOpen(false)}
+              fullWidth
+              maxWidth="md"
+              PaperProps={{
+                style: {
+                  borderRadius: '12px',
+                  overflow: 'hidden'
+                }
+              }}
+            >
+              <DialogContent sx={{ p: 0, height: '70vh', overflow: 'hidden' }}>
+                <Message
+                  orderId={order.id}
+                  receiverId={order.user_id}
+                  isDriver={true}
+                  onClose={() => setIsChatModalOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )
+        ) : (
+          // Customer perspective - chat with driver
+          order.driver_id && (
+            <CustomerDashboardChat
+              open={isChatModalOpen}
+              onClose={() => setIsChatModalOpen(false)}
+              orderId={order.id}
+              driverId={order.driver_id}
+              orderInfo={{
+                id: order.id,
+                pickup_location: order.pickup_location,
+                dropoff_location: order.dropoff_location,
+                status: order.status
+              }}
+            />
+          )
+        )
       )}
     </>
   );

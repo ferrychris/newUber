@@ -13,6 +13,7 @@ import { initiateOrderChat } from '../../utils/chatUtils';
 import DriverChatModal from './KeyFeatures/Messages/DriverChatModal';
 import ChatSelectionModal from './KeyFeatures/Messages/ChatSelectionModal';
 import MobileMenu from './MobileMenu';
+import MobileWallet from './MobileWallet';
 
 export const DriverDashboard = () => {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export const DriverDashboard = () => {
   const navigate = useNavigate();
   const [totalOrders, setTotalOrders] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileWalletOpen, setIsMobileWalletOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'dashboard' | 'orders' | 'messages' | 'settings'>('dashboard');
   
   // Chat state
@@ -82,14 +84,14 @@ export const DriverDashboard = () => {
     }
   }, [user]);
   
-  // Fetch completed orders (delivered)
+  // Fetch completed orders (delivered and completed)
   const fetchCompletedOrders = useCallback(async () => {
     if (!user?.id) return;
     
     setIsLoadingCompletedOrders(true);
     
     try {
-      const { data, error } = await fetchOrdersByStatus(user.id, ['delivered'] as ValidOrderStatus[]);
+      const { data, error } = await fetchOrdersByStatus(user.id, ['delivered', 'completed'] as ValidOrderStatus[]);
       
       if (error) throw error;
       
@@ -457,7 +459,7 @@ export const DriverDashboard = () => {
       <MobileMenu 
         onNavigate={handleNavigate}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        unreadMessages={0} // TODO: Pass actual unread message count
+        onOpenWallet={() => setIsMobileWalletOpen(true)}
       />
       
       {/* Driver Chat Modal */}
@@ -479,6 +481,12 @@ export const DriverDashboard = () => {
           setIsChatSelectionOpen(false);
           handleOpenChat(orderId, customerId);
         }}
+      />
+      
+      {/* Mobile Wallet */}
+      <MobileWallet 
+        isOpen={isMobileWalletOpen}
+        onClose={() => setIsMobileWalletOpen(false)}
       />
     </div>
   );

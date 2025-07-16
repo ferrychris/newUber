@@ -56,6 +56,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
   const navigate = useNavigate();
   const [displayedStatus, setDisplayedStatus] = useState<ValidOrderStatus>('accepted');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>('Loading...');
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isChatModalOpen, setIsChatModalOpen] = useState<boolean>(false);
@@ -113,32 +114,32 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
       try {
         console.log('Fetching name for user_id:', order.user_id);
 
-        // Get profile by id without using single()
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
+        // Get user by id without using single()
+        const { data: users, error: userError } = await supabase
+          .from('users')
           .select('full_name')
           .eq('id', order.user_id);
 
-        console.log('Profile query result:', profiles, profileError);
+        console.log('User query result:', users, userError);
 
-        // Use the first profile if found
-        const profileData = profiles?.[0];
+        // Use the first user if found
+        const userData = users?.[0];
 
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          throw profileError;
+        if (userError) {
+          console.error('Error fetching user:', userError);
+          throw userError;
         }
 
-        if (profileData?.full_name) {
-          console.log('Found name:', profileData.full_name);
-          setCustomerName(profileData.full_name);
+        if (userData?.full_name) {
+          console.log('Found name:', userData.full_name);
+          setCustomerName(userData.full_name);
         } else {
           console.log('No name found for ID:', order.user_id);
           setCustomerName('Unknown Customer');
         }
       } catch (error) {
         const err = error as Error;
-        console.error('Error in profile fetch process:', err);
+        console.error('Error in user fetch process:', err);
         setCustomerName('Unknown Customer');
       }
     };
@@ -209,7 +210,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
         <Grid container spacing={3}>
           {order ? (
             <>
-              <Grid item xs={12} md={6} component="div">
+              <Grid item xs={12} md={6}>
                 <Stack spacing={3}>
                   {/* Customer Details */}
                   <Paper elevation={1} sx={{ p: 3 }}>
@@ -333,7 +334,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                   )}
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={6} component="div">
+              <Grid item xs={12} md={6}>
                 <Paper elevation={1} sx={{ height: '400px', overflow: 'hidden' }}>
                   <OrderMap
                     pickupLocation={order.pickup_location}
@@ -343,8 +344,8 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
               </Grid>
             </>
           ) : (
-            <Grid container spacing={3} component="div">
-              <Grid item xs={12} md={6} component="div">
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
                 <Stack spacing={3}>
                   <Paper elevation={1} sx={{ p: 3 }}>
                     <Skeleton variant="text" width="60%" height={32} />
@@ -357,7 +358,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                   </Paper>
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={6} component="div">
+              <Grid item xs={12} md={6}>
                 <Paper elevation={1} sx={{ height: '400px' }}>
                   <Skeleton variant="rectangular" height="100%" />
                 </Paper>

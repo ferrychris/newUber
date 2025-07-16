@@ -2,11 +2,6 @@ import i18n from 'i18next';
 import { InitOptions, Resource } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-interface IpApiResponse {
-  country: string;
-  error?: boolean;
-}
-
 interface TimeTranslations {
   minutes: string;
   hours: string;
@@ -804,13 +799,15 @@ i18n
   } as InitOptions);
 
 // Format currency in EUR
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | undefined): string {
+  // Default to 0 if amount is undefined
+  const safeAmount = amount ?? 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(amount);
+  }).format(safeAmount);
 }
 
 // Format date in English format

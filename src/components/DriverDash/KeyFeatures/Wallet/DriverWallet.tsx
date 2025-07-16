@@ -14,7 +14,6 @@ import {
 import { 
   FaWallet, 
   FaMoneyBillWave, 
-  FaHistory, 
   FaExchangeAlt, 
   FaArrowUp,
   FaArrowDown
@@ -57,7 +56,6 @@ const DriverWallet: React.FC = () => {
     orderCount: 0
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [walletId, setWalletId] = useState<string>('');
 
   // Fetch wallet data when the component mounts
   useEffect(() => {
@@ -168,7 +166,7 @@ const DriverWallet: React.FC = () => {
     
     try {
       const { data, error } = await supabase
-        .from('transactions')
+        .from('wallet_transactions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })

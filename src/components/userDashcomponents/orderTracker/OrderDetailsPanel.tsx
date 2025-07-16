@@ -7,8 +7,29 @@ import {
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../../utils/i18n';
 
+// Import a custom Order type that matches what we're using in OrderTracker
+interface Order {
+  id: string;
+  status: string;
+  user_id: string;
+  driver_id?: string;
+  created_at: string;
+  pickup_location?: string | [number, number];
+  destination_location?: string | [number, number];
+  services?: {
+    id: string;
+    name: string;
+    type?: string;
+    description?: string;
+    image?: string;
+  };
+  estimated_price?: number;
+  actual_price?: number;
+  payment_method?: 'wallet' | 'cash';
+}
+
 interface OrderDetailsPanelProps {
-  selectedOrder: any;
+  selectedOrder: Order;
   unreadMessageCounts: {[key: string]: number};
   handleOpenOrderDetails: () => void;
   handleOpenMessageDialog: () => void;
@@ -25,7 +46,7 @@ const OrderHeader = memo(({
 }: { 
   handleOpenOrderDetails: () => void; 
   handleOpenMessageDialog: () => void; 
-  selectedOrder: any; 
+  selectedOrder: Order; 
   unreadMessageCounts: {[key: string]: number}; 
 }) => {
   const { t } = useTranslation();

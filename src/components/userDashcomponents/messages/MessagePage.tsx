@@ -103,7 +103,7 @@ const MessagePage: React.FC<MessagePageProps> = ({ isDriver = false }) => {
             
             if (otherParticipantId) {
               const { data: userData } = await supabase
-                .from('profiles')
+                .from('users')
                 .select('id, full_name, profile_image')
                 .eq('id', otherParticipantId)
                 .single();

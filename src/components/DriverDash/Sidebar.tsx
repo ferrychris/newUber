@@ -96,7 +96,7 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
             
             <Link
               to="/driver/messages"
-              className={`flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-midnight-800 transition-colors ${isActive('messages') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium' : 'text-gray-700 dark:text-stone-300'}`}
+              className={`flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-midnight-800 transition-colors ${isActive('messages') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium' : 'text-gray-700 dark:text-stone-300'} lg:flex hidden`}
               onClick={(e) => {
                 if (onNavigate) {
                   e.preventDefault();

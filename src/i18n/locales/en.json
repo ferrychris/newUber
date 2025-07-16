@@ -50,6 +50,26 @@
     "submit": "Submit",
     "authError": "Authentication error. Please log in again.",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "processing": "Processing..."
+  },
+  "tracking": {
+    "orders": "Orders",
+    "orderDetails": "Order Details",
+    "orderStatus": "Order Status",
+    "pickup": "Pickup",
+    "destination": "Destination",
+    "driver": "Driver",
+    "messageDriver": "Message Driver",
+    "locations": "Locations",
+    "locationCoordinates": "Location coordinates",
+    "cancelOrder": "Cancel Order",
+    "cancelConfirmation": "Cancel Order",
+    "cancelWarning": "Are you sure you want to cancel this order? This action cannot be undone.",
+    "confirmCancel": "Yes, Cancel Order",
+    "confirmDelivery": "Confirm Delivery",
+    "confirmDeliveryMessage": "Are you sure you want to confirm this delivery? This action cannot be undone.",
+    "yesConfirmDelivery": "Yes, Confirm Delivery",
+    "deliveryConfirmed": "Delivery Confirmed"
   }
 }

@@ -104,12 +104,12 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
           }
         }
 
-        // Fetch customer profile
+        // Fetch customer profile from profiles table
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, full_name, profile_image')
           .eq('id', customerId)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid 406 error if no user found
 
         if (profileError) {
           console.error('Error fetching customer profile:', profileError);
@@ -245,9 +245,10 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          backgroundColor: theme.palette.grey[50],
+          backgroundColor: theme.palette.mode === 'dark' ? 'rgba(45, 55, 72, 0.5)' : theme.palette.grey[50],
           maxHeight: 'calc(100vh - 360px)',
-          minHeight: '300px'
+          minHeight: '300px',
+          border: theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
         }}
       >
         {isLoading ? (
@@ -275,14 +276,20 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
                 sx={{
                   p: 2,
                   backgroundColor: message.sender_id === user?.id 
-                    ? theme.palette.primary.main 
-                    : theme.palette.grey[200],
+                    ? '#F97316' // sunset color for sent messages
+                    : theme.palette.mode === 'dark' 
+                      ? 'rgba(45, 55, 72, 0.8)' // dark mode received messages
+                      : theme.palette.grey[100], // light mode received messages
                   color: message.sender_id === user?.id 
                     ? 'white' 
-                    : 'inherit',
+                    : theme.palette.mode === 'dark' ? 'white' : 'inherit',
                   borderRadius: message.sender_id === user?.id
                     ? '20px 20px 5px 20px'
-                    : '20px 20px 20px 5px'
+                    : '20px 20px 20px 5px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                  border: theme.palette.mode === 'dark' && message.sender_id !== user?.id 
+                    ? '1px solid rgba(255, 255, 255, 0.1)' 
+                    : 'none'
                 }}
               >
                 {message.is_system_message && (
@@ -328,7 +335,12 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
           p: 2,
           display: 'flex',
           alignItems: 'center',
-          borderTop: `1px solid ${theme.palette.divider}`
+          borderTop: theme.palette.mode === 'dark' 
+            ? '1px solid rgba(255, 255, 255, 0.1)' 
+            : `1px solid ${theme.palette.divider}`,
+          backgroundColor: theme.palette.mode === 'dark' 
+            ? 'rgba(45, 55, 72, 0.3)' 
+            : theme.palette.background.paper
         }}
         onSubmit={(e) => {
           e.preventDefault();
@@ -347,11 +359,17 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
         />
         <Button
           variant="contained"
-          color="primary"
-          endIcon={<SendIcon />}
           onClick={handleSendMessage}
           disabled={isSending || !newMessage.trim()}
           size="small"
+          endIcon={<SendIcon />}
+          sx={{
+            backgroundColor: '#F97316', // sunset color
+            '&:hover': {
+              backgroundColor: '#EA580C', // darker sunset on hover
+            },
+            color: 'white'
+          }}
         >
           Send
         </Button>

@@ -67,6 +67,12 @@ const statusConfig: Record<ValidOrderStatus, StatusConfig> = {
   delivered: {
     label: 'Delivered',
     color: 'success',
+    // Final status, no transition to completed
+  },
+  confirmed: {
+    label: 'Confirmed',
+    color: 'success',
+    // Final status, no next transition needed
   },
   cancelled: {
     label: 'Cancelled',

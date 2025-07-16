@@ -1,15 +1,17 @@
 import React from 'react';
-import { Home, Truck, Settings, Menu } from 'lucide-react';
+import { Home, Truck, Settings, Menu, Wallet } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 interface MobileMenuProps {
   onNavigate: (section: 'dashboard' | 'orders' | 'messages' | 'settings') => void;
   onToggleSidebar: () => void;
+  onOpenWallet?: () => void;
 }
 
 const MobileMenu: React.FC<MobileMenuProps> = ({ 
   onNavigate, 
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenWallet
 }) => {
   const location = useLocation();
   
@@ -29,7 +31,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
       <div className="flex justify-around items-center h-16">
         <button 
           onClick={() => onNavigate('dashboard')}
-          className={`flex flex-col items-center justify-center w-1/4 py-2 ${
+          className={`flex flex-col items-center justify-center w-1/5 py-2 ${
             isActive('dashboard') 
               ? 'text-purple-600 dark:text-purple-400' 
               : 'text-gray-600 dark:text-stone-400'
@@ -41,7 +43,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
         
         <button 
           onClick={() => onNavigate('orders')}
-          className={`flex flex-col items-center justify-center w-1/4 py-2 ${
+          className={`flex flex-col items-center justify-center w-1/5 py-2 ${
             isActive('orders') 
               ? 'text-purple-600 dark:text-purple-400' 
               : 'text-gray-600 dark:text-stone-400'
@@ -52,8 +54,16 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
         </button>
         
         <button 
+          onClick={onOpenWallet}
+          className="flex flex-col items-center justify-center w-1/5 py-2 text-gray-600 dark:text-stone-400"
+        >
+          <Wallet className="h-5 w-5" />
+          <span className="text-xs mt-1">Wallet</span>
+        </button>
+        
+        <button 
           onClick={() => onNavigate('settings')}
-          className={`flex flex-col items-center justify-center w-1/4 py-2 ${
+          className={`flex flex-col items-center justify-center w-1/5 py-2 ${
             isActive('settings') 
               ? 'text-purple-600 dark:text-purple-400' 
               : 'text-gray-600 dark:text-stone-400'
@@ -65,7 +75,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
         
         <button 
           onClick={onToggleSidebar}
-          className="flex flex-col items-center justify-center w-1/4 py-2 text-gray-600 dark:text-stone-400"
+          className="flex flex-col items-center justify-center w-1/5 py-2 text-gray-600 dark:text-stone-400"
         >
           <Menu className="h-5 w-5" />
           <span className="text-xs mt-1">More</span>

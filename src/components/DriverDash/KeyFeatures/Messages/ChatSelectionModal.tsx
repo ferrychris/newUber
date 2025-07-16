@@ -238,7 +238,7 @@ const ChatSelectionModal: React.FC<ChatSelectionModalProps> = ({
             {filteredOrders.map((order, index) => (
               <React.Fragment key={order.id}>
                 <ListItem 
-                  button 
+                  component="div"
                   alignItems="flex-start" 
                   onClick={() => onSelectChat(order.id, order.customer_id)}
                   sx={{ 
@@ -247,7 +247,8 @@ const ChatSelectionModal: React.FC<ChatSelectionModalProps> = ({
                     bgcolor: order.has_unread_messages ? 'rgba(25, 118, 210, 0.05)' : 'transparent',
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)'
-                    }
+                    },
+                    cursor: 'pointer'
                   }}
                 >
                   <ListItemAvatar>

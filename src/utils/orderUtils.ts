@@ -1,6 +1,7 @@
 import { Order } from '../types/order';
 import { supabase } from '../lib/supabaseClient';
 import { initiateOrderChat } from './chatUtils';
+import { creditDriverWalletForCompletedOrder } from './walletUtils';
 
 /**
  * Fetches orders by status
@@ -59,7 +60,7 @@ export async function updateOrderStatus(
 ): Promise<void> {
   try {
     // Validate the status
-    const validStatuses: Order['status'][] = ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered'];
+    const validStatuses: Order['status'][] = ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered', 'completed'];
     if (!validStatuses.includes(newStatus)) {
       throw new Error(`Invalid status: ${newStatus}`);
     }
@@ -133,6 +134,23 @@ export async function updateOrderStatus(
     }
     
     console.log(`Successfully updated order ${orderId} status to ${newStatus}`);
+    
+    // Credit driver's wallet when order changes from delivered to completed
+    if (newStatus === 'completed' && oldStatus === 'delivered') {
+      try {
+        console.log(`Crediting driver's wallet for completed order ${orderId}`);
+        const { success, error } = await creditDriverWalletForCompletedOrder(orderId);
+        
+        if (success) {
+          console.log(`Successfully credited driver's wallet for order ${orderId}`);
+        } else {
+          console.error(`Failed to credit driver's wallet for order ${orderId}:`, error);
+        }
+      } catch (walletError) {
+        console.error(`Error crediting driver's wallet for order ${orderId}:`, walletError);
+        // Continue with the order status update even if wallet credit fails
+      }
+    }
     
     // If the order status changed to 'accepted', initiate a chat between driver and customer
     if (newStatus === 'accepted') {

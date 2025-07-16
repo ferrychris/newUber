@@ -7,8 +7,6 @@ export interface ProfileData {
   phone_number?: string; // Fallback field
   profile_image?: string;
   email?: string;
-  vehicle_type?: string;
-  role?: string;
 }
 
 /**
@@ -28,7 +26,7 @@ export const fetchUserProfile = async (userId: string): Promise<ProfileData | nu
     // Try a direct query to the database with explicit ID match
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, full_name, email, phone, profile_image, vehicle_type, role')
+      .select('id, full_name, email, phone, profile_image')
       .eq('id', userId)
       .maybeSingle();
       
