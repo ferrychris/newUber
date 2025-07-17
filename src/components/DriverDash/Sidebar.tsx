@@ -1,13 +1,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Truck, Settings, LogOut, MessageCircle, X } from 'lucide-react';
+import { Home, Truck, Settings, LogOut, MessageCircle, X, Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-toastify';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activeSection?: 'dashboard' | 'orders' | 'messages' | 'settings';
-  onNavigate?: (section: 'dashboard' | 'orders' | 'messages' | 'settings') => void;
+  activeSection?: 'dashboard' | 'orders' | 'messages' | 'settings' | 'wallet';
+  onNavigate?: (section: 'dashboard' | 'orders' | 'messages' | 'settings' | 'wallet') => void;
 }
 
 export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNavigate }: SidebarProps) => {
@@ -26,7 +26,7 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
     }
   };
 
-  const isActive = (section: 'dashboard' | 'orders' | 'messages' | 'settings') => {
+  const isActive = (section: 'dashboard' | 'orders' | 'messages' | 'settings' | 'wallet') => {
     if (activeSection) {
       return activeSection === section;
     }
@@ -35,7 +35,8 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
       dashboard: '/driver',
       orders: '/driver/orders',
       messages: '/driver/messages',
-      settings: '/driver/settings'
+      settings: '/driver/settings',
+      wallet: '/driver/wallet'
     };
     return location.pathname === pathMap[section] || 
            (section === 'dashboard' && location.pathname === '/driver');
@@ -107,6 +108,21 @@ export const Sidebar = ({ isOpen, onClose, activeSection = 'dashboard', onNaviga
             >
               <MessageCircle className="h-5 w-5" />
               <span>Messages</span>
+            </Link>
+
+            <Link
+              to="/driver/wallet"
+              className={`flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-midnight-800 transition-colors ${isActive('wallet') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-medium' : 'text-gray-700 dark:text-stone-300'}`}
+              onClick={(e) => {
+                if (onNavigate) {
+                  e.preventDefault();
+                  onNavigate('wallet');
+                  onClose();
+                }
+              }}
+            >
+              <Wallet className="h-5 w-5" />
+              <span>Wallet</span>
             </Link>
 
             <Link

@@ -15,6 +15,7 @@ import DriverOrders from './pages/DriverOrders';
 import DriverDashboardPage from './pages/DriverDashboard';
 import DriverSettings from './pages/DriverSettings';
 import DriverMessages from "./pages/DriverMessages";
+import DriverWalletPage from "./pages/DriverWallet";
 import FretersManagement from './admincomponents/FretersManagement';
 import OrdersManagement from './admincomponents/OrdersManagement';
 import UsersManagement from './admincomponents/UsersManagement';
@@ -74,6 +75,7 @@ function App() {
                 <Route path="orders" element={<DriverOrders />} />
                 <Route path="chat/:orderId/:customerId" element={<DriverMessages chatMode="single" />} />
                 <Route path="messages" element={<DriverMessages />} />
+                <Route path="wallet" element={<DriverWalletPage />} />
                 <Route path="settings" element={<DriverSettings />} />
               </Route>
               
