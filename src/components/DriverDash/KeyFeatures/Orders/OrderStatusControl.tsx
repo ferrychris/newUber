@@ -92,7 +92,7 @@ const statusConfig: Record<ValidOrderStatus, StatusConfig> = {
   }
 };
 
-export function OrderStatusControl({ orderId, currentStatus: initialStatus, onStatusUpdate }: OrderStatusControlProps): JSX.Element {
+export default function OrderStatusControl({ orderId, currentStatus: initialStatus, onStatusUpdate }: OrderStatusControlProps): JSX.Element {
   const [currentStatus, setCurrentStatus] = useState<ValidOrderStatus>(initialStatus);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);

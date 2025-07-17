@@ -65,6 +65,7 @@ const DriverWallet: React.FC = () => {
     orderCount: 0
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [walletId, setWalletId] = useState<string | null>(null);
 
   // Fetch wallet data when the component mounts
   useEffect(() => {

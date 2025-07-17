@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { testOrderStatus } from '../../../../utils/testOrderStatus';
-import { OrderStatusControl } from './OrderStatusControl';
+import OrderStatusControl from './OrderStatusControl';
 import type { ValidOrderStatus } from '../../../../types/order';
 
 const TEST_ORDER_FLOW: ValidOrderStatus[] = [
