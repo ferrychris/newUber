@@ -285,7 +285,7 @@ export const creditDriverWalletForCompletedOrder = async (
     // Get the order details to find the driver_id and price
     const { data: orderData, error: orderError } = await client
       .from('orders')
-      .select('driver_id, price, id')
+      .select('driver_id, price, id, tip')
       .eq('id', orderId)
       .single();
     
@@ -302,12 +302,21 @@ export const creditDriverWalletForCompletedOrder = async (
       };
     }
     
-    // Ensure price is a valid number, default to minimum amount if zero
+    // Calculate the total amount including tips
     const orderPrice = orderData.price ? parseFloat(orderData.price.toString()) : 0;
+    const orderTip = orderData.tip ? parseFloat(orderData.tip.toString()) : 0;
     const minimumAmount = 5.00; // Minimum amount for testing purposes
-    const creditAmount = orderPrice > 0 ? orderPrice : minimumAmount;
     
-    console.log(`Found order with driver_id: ${orderData.driver_id} and price: ${orderPrice}, using credit amount: ${creditAmount}`);
+    // Driver gets 80% of the fare plus full tip
+    const driverShare = 0.8; // Driver gets 80% of the fare
+    const driverBaseEarnings = orderPrice * driverShare;
+    const totalDriverEarnings = driverBaseEarnings + orderTip;
+    
+    // Ensure we have a valid amount
+    const creditAmount = totalDriverEarnings > 0 ? totalDriverEarnings : minimumAmount;
+    
+    console.log(`Found order with driver_id: ${orderData.driver_id}, price: ${orderPrice}, tip: ${orderTip}`);
+    console.log(`Driver earnings: ${driverBaseEarnings} + ${orderTip} tip = ${creditAmount} total`);
     
     // Check if the driver has a wallet
     const { data: walletData, error: walletError } = await client
@@ -317,7 +326,7 @@ export const creditDriverWalletForCompletedOrder = async (
       .maybeSingle();
       
     if (walletError && walletError.code !== 'PGRST116') {
-      console.error('Error fetching driver wallet:', walletError);
+      console.error('Error fetching wallet:', walletError);
       return { success: false, error: walletError };
     }
     
@@ -332,13 +341,14 @@ export const creditDriverWalletForCompletedOrder = async (
           balance: creditAmount,
           currency: 'USD',
           created_at: new Date(),
-          updated_at: new Date()
+          updated_at: new Date(),
+          user_type: 'driver' // Add a user_type field to distinguish between users and drivers
         })
         .select('id')
         .single();
         
       if (createError) {
-        console.error('Error creating driver wallet:', createError);
+        console.error('Error creating wallet:', createError);
         return { success: false, error: createError };
       }
       
@@ -362,7 +372,7 @@ export const creditDriverWalletForCompletedOrder = async (
         .eq('id', walletId);
         
       if (updateError) {
-        console.error('Error updating driver wallet:', updateError);
+        console.error('Error updating wallet:', updateError);
         return { success: false, error: updateError };
       }
     }
@@ -376,7 +386,13 @@ export const creditDriverWalletForCompletedOrder = async (
         type: 'earnings',
         status: 'completed',
         description: `Earnings from order #${orderData.id}`,
-        metadata: { order_id: orderData.id },
+        metadata: { 
+          order_id: orderData.id,
+          base_earnings: driverBaseEarnings,
+          tip: orderTip,
+          driver_share: driverShare,
+          user_type: 'driver' // Add user_type to metadata for better filtering
+        },
         user_id: orderData.driver_id,
         transaction_date: new Date(),
         created_at: new Date()

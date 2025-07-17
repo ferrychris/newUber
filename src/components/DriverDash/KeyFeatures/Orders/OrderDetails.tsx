@@ -24,9 +24,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ChatIcon from '@mui/icons-material/Chat';
 import { supabase } from '../../../../utils/supabaseClient';
 import OrderMap from './OrderMap';
-import { OrderStatusControl } from './OrderStatusControl';
+import OrderStatusControl from './OrderStatusControl';
 import DriverChatModal from '../Messages/DriverChatModal';
-import { updateOrderStatus } from '../../../../utils/orderUtils';
 
 interface OrderDetailsProps {
   order: {
@@ -56,8 +55,7 @@ const VALID_STATUSES: ValidOrderStatus[] = ['pending', 'accepted', 'en_route', '
 export default function OrderDetails({ order, open, onClose }: OrderDetailsProps) {
   const navigate = useNavigate();
   const [displayedStatus, setDisplayedStatus] = useState<ValidOrderStatus>(order?.status as ValidOrderStatus || 'pending');
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Removed unused state variables
   const [customerName, setCustomerName] = useState<string>('Loading...');
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isChatModalOpen, setIsChatModalOpen] = useState<boolean>(false);

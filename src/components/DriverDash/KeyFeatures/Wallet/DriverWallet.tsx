@@ -31,6 +31,15 @@ interface Transaction {
   status: string;
   description: string;
   created_at: string;
+  wallet_id: string;
+  user_id: string;
+  metadata?: {
+    order_id?: string;
+    base_earnings?: number;
+    tip?: number;
+    driver_share?: number;
+    [key: string]: any;
+  };
 }
 
 interface WalletData {
@@ -74,7 +83,7 @@ const DriverWallet: React.FC = () => {
     try {
       setLoading(true);
       
-      // First check if the wallet exists
+      // Check for the driver's wallet
       const { data: walletData, error: walletError } = await supabase
         .from('wallets')
         .select('*')
@@ -87,23 +96,26 @@ const DriverWallet: React.FC = () => {
       
       if (walletData) {
         // Use existing wallet
+        console.log('Found wallet:', walletData);
         setWallet({
           balance: walletData.balance,
-          currency: walletData.currency,
+          currency: walletData.currency || 'USD',
           last_updated: walletData.updated_at
         });
         setWalletId(walletData.id);
         
         // Fetch transaction history
-        fetchTransactionHistory();
+        fetchTransactionHistory(walletData.id);
       } else {
         // Create a new wallet if it doesn't exist
+        console.log('No wallet found, creating new wallet');
         const newWallet = {
           user_id: user.id,
           balance: 0,
           currency: 'USD',
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          user_type: 'driver' // Add user_type to distinguish between users and drivers
         };
         
         const { data: createdWallet, error: createError } = await supabase
@@ -113,13 +125,14 @@ const DriverWallet: React.FC = () => {
           .single();
         
         if (createError) {
+          console.error('Error creating wallet:', createError);
           throw createError;
         }
         
         if (createdWallet) {
           setWallet({
             balance: createdWallet.balance,
-            currency: createdWallet.currency,
+            currency: createdWallet.currency || 'USD',
             last_updated: createdWallet.updated_at
           });
           setWalletId(createdWallet.id);
@@ -161,21 +174,37 @@ const DriverWallet: React.FC = () => {
     }
   };
 
-  const fetchTransactionHistory = async () => {
+  const fetchTransactionHistory = async (walletId?: string) => {
     if (!user?.id) return;
     
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
       
-      if (error) throw error;
+      // If we have a specific wallet ID, filter by that
+      if (walletId) {
+        query = query.eq('wallet_id', walletId);
+      } else {
+        // Otherwise, get all transactions for this user
+        query = query.eq('user_id', user.id);
+      }
       
-      if (data) {
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Error in transaction query:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        console.log(`Found ${data.length} transactions`);
         setTransactions(data);
+      } else {
+        console.log('No transactions found');
+        setTransactions([]);
       }
     } catch (error) {
       console.error('Error fetching transaction history:', error);
@@ -189,11 +218,42 @@ const DriverWallet: React.FC = () => {
         return <FaArrowDown className="text-green-500" />;
       case 'withdrawal':
         return <FaArrowUp className="text-red-500" />;
-      case 'earning':
+      case 'earnings':
+        return <FaMoneyBillWave className="text-blue-500" />;
+      case 'earning': // Handle both singular and plural forms
         return <FaMoneyBillWave className="text-blue-500" />;
       default:
         return <FaExchangeAlt className="text-gray-500" />;
     }
+  };
+  
+  // Format transaction description with additional details if available
+  const formatTransactionDetails = (transaction: Transaction) => {
+    if (transaction.type === 'earnings' || transaction.type === 'earning') {
+      const metadata = transaction.metadata || {};
+      const baseEarnings = metadata.base_earnings ? parseFloat(metadata.base_earnings.toString()) : 0;
+      const tip = metadata.tip ? parseFloat(metadata.tip.toString()) : 0;
+      
+      if (baseEarnings > 0 || tip > 0) {
+        return (
+          <>
+            <Typography variant="body2">{transaction.description}</Typography>
+            {baseEarnings > 0 && (
+              <Typography variant="caption" color="textSecondary">
+                Base fare: {formatCurrency(baseEarnings.toString())}
+              </Typography>
+            )}
+            {tip > 0 && (
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', color: 'green' }}>
+                Tip: {formatCurrency(tip.toString())}
+              </Typography>
+            )}
+          </>
+        );
+      }
+    }
+    
+    return <Typography variant="body2">{transaction.description}</Typography>;
   };
 
   if (loading) {
@@ -307,7 +367,9 @@ const DriverWallet: React.FC = () => {
                       {getTransactionIcon(transaction.type)}
                     </Box>
                     <ListItemText
-                      primary={transaction.description}
+                      primary={
+                        formatTransactionDetails(transaction)
+                      }
                       secondary={
                         <React.Fragment>
                           <Typography
