@@ -509,30 +509,22 @@ const Order: React.FC = () => {
             try {
               setIsConfirmingDelivery(true);
               
-              // Update the order status to 'completed'
-              const { error } = await supabase
-                .from('orders')
-                .update({ 
-                  status: 'completed',
+              // Import the updateOrderStatus function
+              const { updateOrderStatus } = await import('../../utils/orderUtils');
+              
+              // Update the order status to 'completed' using the updateOrderStatus function
+              // This will automatically handle crediting the driver's wallet
+              await updateOrderStatus(
+                orderId,
+                'completed',
+                'Customer confirmed delivery',
+                userId || undefined,
+                {
                   delivery_confirmed: true,
                   confirmed_at: new Date().toISOString(),
                   confirmed_by: userId || ''
-                })
-                .eq('id', orderId);
-              
-              if (error) {
-                throw error;
-              }
-              
-              // Import the wallet utility function
-              const { creditDriverWalletForCompletedOrder } = await import('../../utils/walletUtils');
-              
-              // Credit the driver's wallet
-              const { success, error: walletError } = await creditDriverWalletForCompletedOrder(orderId);
-              
-              if (!success && walletError) {
-                console.error('Error crediting driver wallet:', walletError);
-              }
+                }
+              );
               
               // Update the local orders list
               if (userId) {

@@ -237,6 +237,23 @@
       "hours": "Support Hours",
       "availability": "Monday to Friday: 9am - 6pm"
     },
+    "tracking": {
+      "deliveryStatus": "Delivery Status",
+      "orderAccepted": "Order Accepted",
+      "waitingAcceptance": "Waiting for driver acceptance",
+      "driverAssigned": "Driver has been assigned",
+      "driverEnRoute": "Driver En Route",
+      "driverArrived": "Driver Arrived",
+      "orderPickedUp": "Order Picked Up",
+      "itemInTransit": "Your item is in transit",
+      "waitingPickup": "Waiting for pickup",
+      "inTransit": "In Transit",
+      "delivered": "Delivered",
+      "orderDelivered": "Your order has been delivered",
+      "waitingDelivery": "Waiting for delivery",
+      "orderCompleted": "Order completed",
+      "statusUnknown": "Status unknown"
+    },
     "account": {
       "title": "Account Settings",
       "subtitle": "Manage your personal information and preferences",

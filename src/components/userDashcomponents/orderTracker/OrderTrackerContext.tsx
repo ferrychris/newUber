@@ -328,7 +328,7 @@ export const OrderTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // Fetch active orders
+  // Fetch active orders for the current user
   const fetchActiveOrders = async () => {
     if (!userId) return;
     
@@ -346,7 +346,16 @@ export const OrderTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ 
           )
         `)
         .eq('user_id', userId)
-        .in('status', ['pending', 'accepted', 'en_route', 'arrived', 'picked_up', 'delivered'])
+        .in('status', [
+          'pending',
+          'accepted',
+          'active',
+          'en_route',
+          'arrived',
+          'picked_up',
+          'in_transit',
+          'delivered'
+        ])
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -459,10 +468,53 @@ export const OrderTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, []);
 
-  // Fetch orders when userId changes
+  // Fetch orders when userId changes and set up real-time subscription
   useEffect(() => {
     if (userId) {
       fetchActiveOrders();
+      
+      // Set up real-time subscription to order status changes
+      const orderSubscription = supabase
+        .channel('order-status-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'orders',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => {
+            console.log('Order updated:', payload);
+            const updatedOrder = payload.new;
+            
+            // Update the orders list with the updated order
+            setOrders(prevOrders => {
+              return prevOrders.map(order => {
+                if (order.id === updatedOrder.id) {
+                  // Merge the updated order with the existing order to preserve any fields
+                  // that might not be included in the payload
+                  return { ...order, ...updatedOrder };
+                }
+                return order;
+              });
+            });
+            
+            // If this is the currently selected order, update it
+            if (selectedOrder && selectedOrder.id === updatedOrder.id) {
+              setSelectedOrder(prevOrder => {
+                if (!prevOrder) return null;
+                return { ...prevOrder, ...updatedOrder };
+              });
+            }
+          }
+        )
+        .subscribe();
+      
+      // Clean up subscription when component unmounts or userId changes
+      return () => {
+        orderSubscription.unsubscribe();
+      };
     }
   }, [userId]);
 

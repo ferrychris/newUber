@@ -1,8 +1,10 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, FaTruck, 
-  FaWallet, FaMoneyBill, FaComments, FaSpinner, FaTimes, FaCommentDots 
+  FaInfoCircle, FaCalendarAlt, FaClock, FaCheck, 
+  FaWallet, FaMoneyBill, FaComments, FaSpinner, FaTimes, FaCommentDots,
+  FaBox, FaFlag, FaCar,
+  FaMapMarkerAlt, FaCheckCircle
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../../utils/i18n';
@@ -182,6 +184,37 @@ const PaymentInfo = memo(({ selectedOrder }: { selectedOrder: any }) => {
 const DeliveryStatus = memo(({ selectedOrder }: { selectedOrder: any }) => {
   const { t } = useTranslation();
   
+  // Define the order of statuses for the progress bar
+  // Only include statuses that are valid in the database's order_status enum
+  const statusOrder = [
+    'pending',
+    'accepted',
+    'en_route',
+    'arrived',
+    'picked_up',
+    'delivered',
+    'completed'
+  ];
+  
+  // Map status to a standardized value
+  const standardizeStatus = (status: string): string => {
+    // Handle legacy 'active' status
+    if (status === 'active') return 'accepted';
+    return status;
+  };
+  
+  const currentStatus = standardizeStatus(selectedOrder.status);
+  const currentIndex = statusOrder.indexOf(currentStatus);
+  
+  // Helper function to determine if a status is active or completed
+  const getStatusState = (checkStatus: string) => {
+    const checkIndex = statusOrder.indexOf(checkStatus);
+    if (checkIndex === -1) return 'inactive';
+    if (checkIndex < currentIndex) return 'completed';
+    if (checkIndex === currentIndex) return 'active';
+    return 'inactive';
+  };
+
   return (
     <div className="mt-6 border-t border-gray-100 dark:border-stone-700/20 pt-4">
       <div className="flex items-center space-x-2 mb-3">
@@ -192,8 +225,9 @@ const DeliveryStatus = memo(({ selectedOrder }: { selectedOrder: any }) => {
       </div>
       
       <div className="relative">
+        {/* Order Accepted */}
         <div className="flex items-center mb-6">
-          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${selectedOrder.status === 'accepted' || selectedOrder.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('accepted') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('accepted') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
             <FaCheck className="h-4 w-4" />
           </div>
           <div className="ml-4">
@@ -201,27 +235,101 @@ const DeliveryStatus = memo(({ selectedOrder }: { selectedOrder: any }) => {
               {t('tracking.orderAccepted')}
             </p>
             <p className="text-sm text-gray-500 dark:text-stone-400">
-              {selectedOrder.status === 'pending' 
+              {currentStatus === 'pending' 
                 ? t('tracking.waitingAcceptance')
                 : t('tracking.driverAssigned')}
             </p>
           </div>
         </div>
         
-        <div className="absolute top-8 left-4 bottom-8 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+        {/* Connecting line */}
+        <div className="absolute top-8 left-4 h-16 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
         
-        <div className="flex items-center">
-          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${selectedOrder.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-            <FaTruck className="h-4 w-4" />
+        {/* Driver En Route */}
+        <div className="flex items-center mb-6">
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('en_route') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('en_route') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <FaCar className="h-4 w-4" />
           </div>
           <div className="ml-4">
             <p className="font-medium text-gray-900 dark:text-white">
-              {t('tracking.inTransit')}
+              {t('tracking.driverEnRoute')}
             </p>
             <p className="text-sm text-gray-500 dark:text-stone-400">
-              {selectedOrder.status === 'active' 
-                ? t('tracking.itemInTransit') 
-                : t('tracking.waitingPickup')}
+              {currentStatus === 'en_route' ? t('tracking.driverEnRoute') : ''}
+            </p>
+          </div>
+        </div>
+        
+        {/* Connecting line */}
+        <div className="absolute top-24 left-4 h-16 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+        
+        {/* Driver Arrived */}
+        <div className="flex items-center mb-6">
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('arrived') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('arrived') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <FaMapMarkerAlt className="h-4 w-4" />
+          </div>
+          <div className="ml-4">
+            <p className="font-medium text-gray-900 dark:text-white">
+              {t('tracking.driverArrived')}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">
+              {currentStatus === 'arrived' ? t('tracking.waitingPickup') : ''}
+            </p>
+          </div>
+        </div>
+        
+        {/* Connecting line */}
+        <div className="absolute top-40 left-4 h-16 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+        
+        {/* Order Picked Up */}
+        <div className="flex items-center mb-6">
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('picked_up') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('picked_up') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <FaBox className="h-4 w-4" />
+          </div>
+          <div className="ml-4">
+            <p className="font-medium text-gray-900 dark:text-white">
+              {t('tracking.orderPickedUp')}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">
+              {currentStatus === 'picked_up' ? t('tracking.itemInTransit') : ''}
+            </p>
+          </div>
+        </div>
+        
+        {/* Connecting line */}
+        <div className="absolute top-56 left-4 h-16 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+        
+        {/* Delivered */}
+        <div className="flex items-center mb-6">
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('delivered') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('delivered') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <FaCheckCircle className="h-4 w-4" />
+          </div>
+          <div className="ml-4">
+            <p className="font-medium text-gray-900 dark:text-white">
+              {t('tracking.delivered')}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">
+              {currentStatus === 'delivered' ? t('tracking.orderDelivered') : ''}
+            </p>
+          </div>
+        </div>
+        
+        {/* Connecting line */}
+        <div className="absolute top-88 left-4 h-16 w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+        
+        {/* Completed */}
+        <div className="flex items-center">
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getStatusState('completed') === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : getStatusState('completed') === 'active' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <FaFlag className="h-4 w-4" />
+          </div>
+          <div className="ml-4">
+            <p className="font-medium text-gray-900 dark:text-white">
+              {t('orders.status.completed')}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">
+              {currentStatus === 'completed' || currentStatus === 'confirmed' 
+                ? t('tracking.orderCompleted') 
+                : ''}
             </p>
           </div>
         </div>

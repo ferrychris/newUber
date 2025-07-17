@@ -1,22 +1,30 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from './supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file
+dotenv.config({ path: join(__dirname, '..', '.env') });
+
+// Initialize Supabase client
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://hcyodecaeoeiadwyyzrz.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseKey) {
+  console.error('Missing Supabase key. Please check your .env file.');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * Credit a user's wallet with a specified amount
- * @param userId The user ID whose wallet to credit
- * @param amount The amount to credit (as a string or number)
- * @param description Description of the transaction
- * @param metadata Additional metadata for the transaction
- * @param client Optional Supabase client (uses default if not provided)
- * @returns Object containing success status and any error
  */
-export const creditUserWallet = async (
-  userId: string,
-  amount: string | number,
-  description: string,
-  metadata: Record<string, any> = {},
-  client: SupabaseClient = supabase
-): Promise<{ success: boolean; error: any }> => {
+async function creditUserWallet(userId, amount, description, metadata = {}) {
   try {
     // Convert amount to number for calculations
     const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -28,7 +36,7 @@ export const creditUserWallet = async (
     console.log(`Crediting user ${userId} wallet with amount: ${creditAmount}`);
     
     // Get the user's wallet
-    const { data: walletData, error: walletError } = await client
+    const { data: walletData, error: walletError } = await supabase
       .from('wallets')
       .select('id, balance')
       .eq('user_id', userId)
@@ -42,7 +50,7 @@ export const creditUserWallet = async (
     // If wallet doesn't exist, create one with the credited amount
     if (!walletData) {
       console.log(`Creating new wallet for user ${userId}`);
-      const { data: newWallet, error: createError } = await client
+      const { data: newWallet, error: createError } = await supabase
         .from('wallets')
         .insert({
           user_id: userId,
@@ -60,12 +68,12 @@ export const creditUserWallet = async (
       }
       
       // Create transaction record for the credit
-      const { error: transactionError } = await client
+      const { error: transactionError } = await supabase
         .from('wallet_transactions')
         .insert({
           wallet_id: newWallet.id,
           amount: creditAmount,
-          type: 'deposit',
+          type: 'credit',
           status: 'completed',
           description,
           metadata,
@@ -79,7 +87,7 @@ export const creditUserWallet = async (
         return { success: false, error: transactionError };
       }
       
-      console.log(`Successfully created wallet and credited user ${userId} with amount: ${creditAmount}`);
+      console.log(`Successfully created wallet and transaction record for user ${userId}`);
       return { success: true, error: null };
     }
     
@@ -87,7 +95,7 @@ export const creditUserWallet = async (
     const currentBalance = parseFloat(walletData.balance || '0');
     const newBalance = currentBalance + creditAmount;
     
-    const { error: updateError } = await client
+    const { error: updateError } = await supabase
       .from('wallets')
       .update({ 
         balance: newBalance,
@@ -101,12 +109,12 @@ export const creditUserWallet = async (
     }
     
     // Create transaction record
-    const { error: transactionError } = await client
+    const { error: transactionError } = await supabase
       .from('wallet_transactions')
       .insert({
         wallet_id: walletData.id,
         amount: creditAmount,
-        type: 'deposit',
+        type: 'credit',
         status: 'completed',
         description,
         metadata,
@@ -126,30 +134,12 @@ export const creditUserWallet = async (
     console.error('Unexpected error in creditUserWallet:', error);
     return { success: false, error };
   }
-};
+}
 
 /**
- * Credit a driver's wallet when an order is completed
- * @param orderId The ID of the completed order
- * @param client Optional Supabase client (uses default if not provided)
- * @returns Object containing success status and any error
- */
-/**
  * Debit a user's wallet with a specified amount
- * @param userId The user ID whose wallet to debit
- * @param amount The amount to debit (as a string or number)
- * @param description Description of the transaction
- * @param metadata Additional metadata for the transaction
- * @param client Optional Supabase client (uses default if not provided)
- * @returns Object containing success status and any error
  */
-export const debitUserWallet = async (
-  userId: string,
-  amount: string | number,
-  description: string,
-  metadata: Record<string, any> = {},
-  client: SupabaseClient = supabase
-): Promise<{ success: boolean; error: any }> => {
+async function debitUserWallet(userId, amount, description, metadata = {}) {
   try {
     // Convert amount to number for calculations
     const amountNum = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -161,7 +151,7 @@ export const debitUserWallet = async (
     console.log(`Debiting user ${userId} wallet with amount: ${debitAmount}`);
 
     // Get the user's wallet
-    const { data: walletData, error: walletError } = await client
+    const { data: walletData, error: walletError } = await supabase
       .from('wallets')
       .select('id, balance')
       .eq('user_id', userId)
@@ -175,7 +165,7 @@ export const debitUserWallet = async (
     // If wallet doesn't exist, create one with zero balance
     if (!walletData) {
       console.log(`Creating new wallet for user ${userId}`);
-      const { data: newWallet, error: createError } = await client
+      const { data: newWallet, error: createError } = await supabase
         .from('wallets')
         .insert({
           user_id: userId,
@@ -194,7 +184,7 @@ export const debitUserWallet = async (
       
       // Create transaction record for the debit
       // For testing purposes, we'll create the transaction but won't enforce balance check
-      const { error: transactionError } = await client
+      const { error: transactionError } = await supabase
         .from('wallet_transactions')
         .insert({
           wallet_id: newWallet.id,
@@ -234,7 +224,7 @@ export const debitUserWallet = async (
     
     const newBalance = Math.max(0, currentBalance - debitAmount); // Ensure balance doesn't go negative
     
-    const { error: updateError } = await client
+    const { error: updateError } = await supabase
       .from('wallets')
       .update({ 
         balance: newBalance,
@@ -248,7 +238,7 @@ export const debitUserWallet = async (
     }
     
     // Create transaction record
-    const { error: transactionError } = await client
+    const { error: transactionError } = await supabase
       .from('wallet_transactions')
       .insert({
         wallet_id: walletData.id,
@@ -273,17 +263,17 @@ export const debitUserWallet = async (
     console.error('Unexpected error in debitUserWallet:', error);
     return { success: false, error };
   }
-};
+}
 
-export const creditDriverWalletForCompletedOrder = async (
-  orderId: string,
-  client: SupabaseClient = supabase
-): Promise<{ success: boolean; error: any }> => {
+/**
+ * Credit a driver's wallet when an order is completed
+ */
+async function creditDriverWalletForCompletedOrder(orderId) {
   try {
     console.log(`Crediting driver wallet for completed order ${orderId}`);
     
     // Get the order details to find the driver_id and price
-    const { data: orderData, error: orderError } = await client
+    const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select('driver_id, price, id')
       .eq('id', orderId)
@@ -310,7 +300,7 @@ export const creditDriverWalletForCompletedOrder = async (
     console.log(`Found order with driver_id: ${orderData.driver_id} and price: ${orderPrice}, using credit amount: ${creditAmount}`);
     
     // Check if the driver has a wallet
-    const { data: walletData, error: walletError } = await client
+    const { data: walletData, error: walletError } = await supabase
       .from('wallets')
       .select('id, balance')
       .eq('user_id', orderData.driver_id)
@@ -322,10 +312,10 @@ export const creditDriverWalletForCompletedOrder = async (
     }
     
     // If wallet doesn't exist, create one
-    let walletId: string;
+    let walletId;
     if (!walletData) {
       console.log(`Creating new wallet for driver ${orderData.driver_id}`);
-      const { data: newWallet, error: createError } = await client
+      const { data: newWallet, error: createError } = await supabase
         .from('wallets')
         .insert({
           user_id: orderData.driver_id,
@@ -353,7 +343,7 @@ export const creditDriverWalletForCompletedOrder = async (
       
       console.log(`Updating wallet ${walletId} balance from ${currentBalance} to ${newBalance}`);
       
-      const { error: updateError } = await client
+      const { error: updateError } = await supabase
         .from('wallets')
         .update({ 
           balance: newBalance,
@@ -368,7 +358,7 @@ export const creditDriverWalletForCompletedOrder = async (
     }
     
     // Create transaction record in wallet_transactions table
-    const { error: transactionError } = await client
+    const { error: transactionError } = await supabase
       .from('wallet_transactions')
       .insert({
         wallet_id: walletId,
@@ -393,4 +383,172 @@ export const creditDriverWalletForCompletedOrder = async (
     console.error('Unexpected error in creditDriverWalletForCompletedOrder:', error);
     return { success: false, error };
   }
-};
+}
+
+/**
+ * Find or create a test order
+ */
+async function findOrCreateTestOrder() {
+  try {
+    // Find a completed order to test with
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('id, user_id, driver_id, status, price')
+      .eq('status', 'completed')
+      .limit(1);
+      
+    if (error) {
+      console.error('Error fetching test order:', error);
+      return null;
+    }
+    
+    if (!orders || orders.length === 0) {
+      console.log('No completed orders found. Creating a test order...');
+      // Create a test order if none exists
+      const { data: newOrder, error: createError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: '41aacdd8-b5b0-4a03-8b76-463dc8632d45', // Replace with a valid user ID
+          driver_id: '74a4c03f-64cf-4e0b-8a51-3fd0f38fcd78', // Replace with a valid driver ID
+          status: 'completed',
+          price: 15.99,
+          pickup_location: 'Test Pickup',
+          dropoff_location: 'Test Dropoff',
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .select()
+        .single();
+        
+      if (createError) {
+        console.error('Error creating test order:', createError);
+        return null;
+      }
+      
+      return newOrder;
+    }
+    
+    return orders[0];
+  } catch (error) {
+    console.error('Unexpected error in findOrCreateTestOrder:', error);
+    return null;
+  }
+}
+
+/**
+ * Check wallet transactions for an order
+ */
+async function checkWalletTransactions(orderId) {
+  try {
+    // Check if wallet transactions exist for this order
+    const { data, error } = await supabase
+      .from('wallet_transactions')
+      .select('id, wallet_id, amount, type, status, user_id')
+      .filter('metadata->>order_id', 'eq', orderId);
+      
+    if (error) {
+      console.error('Error checking wallet transactions:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in checkWalletTransactions:', error);
+    return [];
+  }
+}
+
+/**
+ * Main test function
+ */
+async function main() {
+  try {
+    console.log('Starting wallet utility functions test...');
+    
+    // Find or create a test order
+    const order = await findOrCreateTestOrder();
+    if (!order) {
+      console.error('Failed to find or create a test order');
+      return;
+    }
+    
+    console.log('Found test order:', order);
+    
+    // Check for existing transactions
+    const existingTransactions = await checkWalletTransactions(order.id);
+    console.log(`Found ${existingTransactions.length} existing transactions for order ${order.id}`);
+    
+    if (existingTransactions.length > 0) {
+      console.log('Existing transactions:', existingTransactions);
+      console.log('Deleting existing transactions for clean test...');
+      
+      // Delete existing transactions for this order
+      for (const tx of existingTransactions) {
+        const { error } = await supabase
+          .from('wallet_transactions')
+          .delete()
+          .eq('id', tx.id);
+          
+        if (error) {
+          console.error(`Error deleting transaction ${tx.id}:`, error);
+        }
+      }
+    }
+    
+    console.log('Testing wallet utility functions...');
+    
+    // Test debitUserWallet
+    console.log('\n1. Testing debitUserWallet...');
+    const debitResult = await debitUserWallet(
+      order.user_id,
+      order.price || 10.00,
+      `Payment for order #${order.id}`,
+      { order_id: order.id }
+    );
+    
+    console.log('debitUserWallet result:', debitResult);
+    
+    // Test creditDriverWalletForCompletedOrder
+    console.log('\n2. Testing creditDriverWalletForCompletedOrder...');
+    const driverCreditResult = await creditDriverWalletForCompletedOrder(order.id);
+    
+    console.log('creditDriverWalletForCompletedOrder result:', driverCreditResult);
+    
+    // Test creditUserWallet
+    console.log('\n3. Testing creditUserWallet...');
+    const creditResult = await creditUserWallet(
+      order.user_id,
+      5.00,
+      'Refund for test',
+      { order_id: order.id, refund: true }
+    );
+    
+    console.log('creditUserWallet result:', creditResult);
+    
+    // Verify the transactions were created
+    const finalTransactions = await checkWalletTransactions(order.id);
+    console.log(`\nVerified ${finalTransactions.length} transactions created for order ${order.id}`);
+    console.log('Transactions:', finalTransactions);
+    
+    // Check wallet balances
+    const { data: wallets, error: walletsError } = await supabase
+      .from('wallets')
+      .select('id, user_id, balance')
+      .in('user_id', [order.user_id, order.driver_id]);
+      
+    if (walletsError) {
+      console.error('Error fetching wallets:', walletsError);
+    } else {
+      console.log('\nWallet balances:');
+      wallets.forEach(wallet => {
+        console.log(`User ${wallet.user_id}: ${wallet.balance}`);
+      });
+    }
+    
+    console.log('\nWallet utility functions test completed successfully!');
+  } catch (error) {
+    console.error('Unexpected error in main:', error);
+  }
+}
+
+main().catch(console.error);

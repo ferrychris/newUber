@@ -50,19 +50,10 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
     setError(null);
     try {
       // Call the provided callback to update the order status
+      // This will trigger the updateOrderStatus function which handles crediting the driver's wallet
       await onConfirmDelivery(order.id);
       
-      // Import the wallet utility function
-      const { creditDriverWalletForCompletedOrder } = await import('../../utils/walletUtils');
-      
-      // Credit the driver's wallet
-      const { success, error: walletError } = await creditDriverWalletForCompletedOrder(order.id);
-      
-      if (!success && walletError) {
-        console.error('Error crediting driver wallet:', walletError);
-        // We don't want to show an error to the customer if the wallet update fails
-        // The order status update was successful, which is what matters to the customer
-      }
+      // The driver's wallet is credited in the updateOrderStatus function when status changes to 'completed'
       
       setSuccess(true);
     } catch (err) {

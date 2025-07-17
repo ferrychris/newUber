@@ -51,7 +51,7 @@ export const DriverDashboard = () => {
   const [isLoadingPastOrders, setIsLoadingPastOrders] = useState(false);
   const [isLoadingUnacceptedOrders, setIsLoadingUnacceptedOrders] = useState(false);
   
-  // Fetch active orders (accepted, en_route, arrived, picked_up)
+  // Fetch active orders (accepted, en_route, arrived, picked_up, delivered)
   const fetchActiveOrders = useCallback(async () => {
     if (!user?.id) return;
     
@@ -59,7 +59,7 @@ export const DriverDashboard = () => {
     setIsLoadingCurrentOrders(true); // For backward compatibility
     
     try {
-      const activeStatuses: ValidOrderStatus[] = ['accepted', 'en_route', 'arrived', 'picked_up'];
+      const activeStatuses: ValidOrderStatus[] = ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered'];
       const { data, error } = await fetchOrdersByStatus(user.id, activeStatuses);
       
       if (error) throw error;
@@ -84,14 +84,14 @@ export const DriverDashboard = () => {
     }
   }, [user]);
   
-  // Fetch completed orders (delivered and completed)
+  // Fetch completed orders (only status 'completed')
   const fetchCompletedOrders = useCallback(async () => {
     if (!user?.id) return;
     
     setIsLoadingCompletedOrders(true);
     
     try {
-      const { data, error } = await fetchOrdersByStatus(user.id, ['delivered', 'completed'] as ValidOrderStatus[]);
+      const { data, error } = await fetchOrdersByStatus(user.id, ['completed'] as ValidOrderStatus[]);
       
       if (error) throw error;
       
@@ -197,6 +197,24 @@ export const DriverDashboard = () => {
     }
   }, [user]);
   
+  // Fetch delivered orders (only status 'delivered')
+  const fetchDeliveredOrders = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await fetchOrdersByStatus(user.id, ['delivered'] as ValidOrderStatus[]);
+      
+      if (error) throw error;
+      
+      const orders = data || [];
+      console.log(`Found ${orders.length} delivered orders`);
+      // We don't need to store these separately, they're just for display in the active orders tab
+    } catch (err) {
+      console.error('Error fetching delivered orders:', err);
+      toast.error('Failed to load delivered orders');
+    }
+  }, [user]);
+
   // Handle status updates
   const handleStatusUpdate = useCallback(async (orderId: string, newStatus: Order['status']) => {
     try {
@@ -220,9 +238,17 @@ export const DriverDashboard = () => {
       if (['accepted', 'en_route', 'arrived', 'picked_up'].includes(newStatus)) {
         fetchActiveOrders();
       } else if (newStatus === 'delivered') {
+        fetchDeliveredOrders();
+        // Also update active orders since the order is no longer active
+        fetchActiveOrders();
+      } else if (newStatus === 'completed') {
         fetchCompletedOrders();
+        // Also update active orders since the order is no longer active
+        fetchActiveOrders();
       } else if (newStatus === 'cancelled') {
         fetchCancelledOrders();
+        // Also update active orders since the order is no longer active
+        fetchActiveOrders();
       } else if (newStatus === 'pending') {
         fetchPendingOrders();
       }
@@ -232,7 +258,7 @@ export const DriverDashboard = () => {
       console.error('Error updating order status:', err);
       toast.error('Failed to update order status');
     }
-  }, [fetchActiveOrders, fetchCompletedOrders, fetchCancelledOrders, fetchPendingOrders]);
+  }, [fetchActiveOrders, fetchCompletedOrders, fetchCancelledOrders, fetchPendingOrders, fetchDeliveredOrders]);
 
   // Handle order actions
   const handleOrderAction = useCallback(async (orderId: string, action: OrderAction) => {
@@ -338,15 +364,16 @@ export const DriverDashboard = () => {
     }
   }, [location]);
   
-  // Fetch all order types on component mount
+  // Fetch all orders when component mounts
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchActiveOrders();
+      fetchPendingOrders();
       fetchCompletedOrders();
       fetchCancelledOrders();
-      fetchPendingOrders();
+      fetchDeliveredOrders();
     }
-  }, [user, fetchActiveOrders, fetchCompletedOrders, fetchCancelledOrders, fetchPendingOrders]);
+  }, [user, fetchActiveOrders, fetchPendingOrders, fetchCompletedOrders, fetchCancelledOrders, fetchDeliveredOrders]);
 
   // Handle navigation between sections
   const handleNavigate = (section: 'dashboard' | 'orders' | 'messages' | 'settings') => {

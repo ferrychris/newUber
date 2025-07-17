@@ -15,7 +15,8 @@ import {
   Stack,
   Skeleton,
   Button,
-  Badge
+  Badge,
+  CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -50,16 +51,21 @@ interface OrderDetailsProps {
   onClose: () => void;
 }
 
-const VALID_STATUSES: ValidOrderStatus[] = ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered'];
+const VALID_STATUSES: ValidOrderStatus[] = ['pending', 'accepted', 'en_route', 'arrived', 'picked_up', 'delivered', 'completed'];
 
 export default function OrderDetails({ order, open, onClose }: OrderDetailsProps) {
   const navigate = useNavigate();
-  const [displayedStatus, setDisplayedStatus] = useState<ValidOrderStatus>('accepted');
+  const [displayedStatus, setDisplayedStatus] = useState<ValidOrderStatus>(order?.status as ValidOrderStatus || 'pending');
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>('Loading...');
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isChatModalOpen, setIsChatModalOpen] = useState<boolean>(false);
+  
+  // Loading states
+  const [isLoading, setIsLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [statusLoaded, setStatusLoaded] = useState(false);
   
   // Fetch unread message count for this order
   useEffect(() => {
@@ -102,11 +108,12 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
   
 
 
-  // Fetch customer name
+  // Fetch customer name from profiles table
   useEffect(() => {
     if (!order?.user_id) {
       console.log('No user_id available in order:', order);
       setCustomerName('Unknown Customer');
+      setProfileLoaded(true); // Mark as loaded even if no user_id
       return;
     }
 
@@ -114,33 +121,35 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
       try {
         console.log('Fetching name for user_id:', order.user_id);
 
-        // Get user by id without using single()
-        const { data: users, error: userError } = await supabase
-          .from('users')
+        // Get profile by id without using single()
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
           .select('full_name')
           .eq('id', order.user_id);
 
-        console.log('User query result:', users, userError);
+        console.log('Profile query result:', profiles);
 
-        // Use the first user if found
-        const userData = users?.[0];
+        // Use the first profile if found
+        const profileData = profiles?.[0];
 
-        if (userError) {
-          console.error('Error fetching user:', userError);
-          throw userError;
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          throw profileError;
         }
 
-        if (userData?.full_name) {
-          console.log('Found name:', userData.full_name);
-          setCustomerName(userData.full_name);
+        if (profileData?.full_name) {
+          console.log('Found name:', profileData.full_name);
+          setCustomerName(profileData.full_name);
         } else {
           console.log('No name found for ID:', order.user_id);
           setCustomerName('Unknown Customer');
         }
       } catch (error) {
         const err = error as Error;
-        console.error('Error in user fetch process:', err);
+        console.error('Error in profile fetch process:', err);
         setCustomerName('Unknown Customer');
+      } finally {
+        setProfileLoaded(true); // Mark profile as loaded regardless of result
       }
     };
 
@@ -157,36 +166,113 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
 
   // Initialize and sync status with order
   useEffect(() => {
-    if (order?.status) {
-      const status = order.status as ValidOrderStatus;
-      if (VALID_STATUSES.includes(status)) {
-        setDisplayedStatus(status);
-      } else if (status === 'pending' && !isUpdating) {
-        // Only update to accepted if we're not in the middle of another update
-        setDisplayedStatus('accepted');
-        handleStatusUpdate('accepted');
+    if (!order?.id) return;
+    
+    // Always fetch the current status directly from the database
+    // This ensures we're showing the true status regardless of local state
+    const fetchInitialStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', order.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching initial order status:', error);
+          return;
+        }
+        
+        if (data?.status) {
+          const dbStatus = data.status as ValidOrderStatus;
+          console.log(`Initial status from database: ${dbStatus}`);
+          
+          if (VALID_STATUSES.includes(dbStatus)) {
+            // Update the displayed status to match the database
+            setDisplayedStatus(dbStatus);
+          } else {
+            console.warn(`Invalid status received from database: ${dbStatus}`);
+          }
+        }
+      } catch (err) {
+        console.error('Error in initial status fetch:', err);
+      } finally {
+        setStatusLoaded(true); // Mark status as loaded regardless of result
       }
+    };
+    
+    fetchInitialStatus();
+  }, [order?.id]); // Run when order ID changes
+  
+  // Set up real-time subscription for order status updates
+  useEffect(() => {
+    if (!order?.id) return;
+    
+    console.log(`Setting up real-time subscription for order ${order.id} status updates`);
+    
+    // Initial fetch to ensure we have the latest status
+    const fetchCurrentStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', order.id)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data && data.status) {
+          const dbStatus = data.status as ValidOrderStatus;
+          console.log(`Initial status from database: ${dbStatus}`);
+          if (VALID_STATUSES.includes(dbStatus)) {
+            setDisplayedStatus(dbStatus);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching current order status:', err);
+      }
+    };
+    
+    fetchCurrentStatus();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel(`order-status-${order.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `id=eq.${order.id}`,
+      }, (payload) => {
+        const updatedOrder = payload.new as typeof order;
+        if (updatedOrder && updatedOrder.status) {
+          const newStatus = updatedOrder.status as ValidOrderStatus;
+          console.log(`Received real-time status update: ${newStatus}`);
+          if (VALID_STATUSES.includes(newStatus)) {
+            setDisplayedStatus(newStatus);
+          }
+        }
+      })
+      .subscribe((status) => {
+        console.log(`Subscription status for order ${order.id}:`, status);
+      });
+      
+    return () => {
+      console.log(`Cleaning up subscription for order ${order.id}`);
+      subscription.unsubscribe();
+    };
+  }, [order?.id]);
+
+  // Note: Direct status updates are now handled by the OrderStatusControl component
+  // We rely on the real-time subscription to keep the UI in sync with the database
+  
+  // Update overall loading state when all data is loaded
+  useEffect(() => {
+    if (profileLoaded && statusLoaded) {
+      console.log('All data loaded, setting isLoading to false');
+      setIsLoading(false);
     }
-  }, [order?.status]); // Run when order status changes
-
-  // Handle status updates
-  const handleStatusUpdate = async (newStatus: ValidOrderStatus) => {
-    if (!order) return;
-
-    setIsUpdating(true);
-    setError(null);
-
-    try {
-      await updateOrderStatus(order.id, newStatus);
-      // Status will be updated via real-time subscription
-    } catch (error) {
-      const err = error as Error;
-      setError(err);
-      console.error('Error updating order status:', err);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+  }, [profileLoaded, statusLoaded]);
 
   return (
     <>
@@ -207,6 +293,14 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
         </DialogTitle>
 
       <DialogContent>
+        {isLoading ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+            <CircularProgress size={60} />
+            <Typography variant="h6" sx={{ mt: 2 }}>
+              Loading order details...
+            </Typography>
+          </Box>
+        ) : (
         <Grid container spacing={3}>
           {order ? (
             <>
@@ -315,9 +409,10 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                         orderId={order.id}
                         currentStatus={displayedStatus}
                         onStatusUpdate={(_orderId: string, newStatus: ValidOrderStatus) => {
-                          console.log(`OrderDetails: Status updated to ${newStatus}`);
-                          // Let the real-time subscription handle the status update
-                          // This prevents race conditions between local and server state
+                          console.log(`OrderDetails: Status update received: ${newStatus}`);
+                          // Don't update local state here - let the database subscription handle it
+                          // This ensures we always show the actual status from the database
+                          // and prevents UI from getting out of sync with the actual data
                         }}
                       />
                     </div>
@@ -366,6 +461,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
             </Grid>
           )}
         </Grid>
+        )}
       </DialogContent>
     </Dialog>
 

@@ -30,7 +30,8 @@ const STATUS_STEPS = [
   { value: 'en_route', label: 'En Route' },
   { value: 'arrived', label: 'Arrived' },
   { value: 'picked_up', label: 'Picked Up' },
-  { value: 'delivered', label: 'Delivered' }
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'completed', label: 'Completed' }
 ] as const;
 
 const statusConfig: Record<ValidOrderStatus, StatusConfig> = {
@@ -67,16 +68,27 @@ const statusConfig: Record<ValidOrderStatus, StatusConfig> = {
   delivered: {
     label: 'Delivered',
     color: 'success',
-    // Final status, no transition to completed
+    // Final status for drivers - they cannot complete orders
+    nextStatus: undefined,
+    nextLabel: undefined
+  },
+  completed: {
+    label: 'Completed',
+    color: 'success',
+    nextStatus: undefined,
+    nextLabel: undefined
   },
   confirmed: {
     label: 'Confirmed',
     color: 'success',
-    // Final status, no next transition needed
+    nextStatus: undefined,
+    nextLabel: undefined
   },
   cancelled: {
     label: 'Cancelled',
     color: 'error',
+    nextStatus: undefined,
+    nextLabel: undefined
   }
 };
 
@@ -305,7 +317,7 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
 
       <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          {statusConfig[currentStatus].nextStatus && (
+          {statusConfig[currentStatus]?.nextStatus && (
             <Button
               variant="contained"
               color="primary"
@@ -314,6 +326,19 @@ export function OrderStatusControl({ orderId, currentStatus: initialStatus, onSt
               startIcon={isUpdating ? <CircularProgress size={20} /> : undefined}
             >
               {statusConfig[currentStatus].nextLabel}
+            </Button>
+          )}
+          
+          {/* Add cancel button for active orders */}
+          {['pending', 'accepted', 'en_route', 'arrived', 'picked_up'].includes(currentStatus) && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => handleStatusUpdate('cancelled')}
+              disabled={isUpdating}
+              sx={{ ml: 2 }}
+            >
+              Cancel Order
             </Button>
           )}
         </Box>

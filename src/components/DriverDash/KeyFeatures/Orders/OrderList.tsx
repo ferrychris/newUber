@@ -14,7 +14,7 @@ const ORDER_TABS = {
   active: {
     label: '🔵 Active',
     color: 'primary',
-    statuses: ['accepted', 'en_route', 'arrived', 'picked_up'] as Order['status'][]
+    statuses: ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered'] as Order['status'][]
   },
   available: {
     label: '⏳ Pending',
@@ -24,7 +24,7 @@ const ORDER_TABS = {
   completed: {
     label: '✅ Completed',
     color: 'success',
-    statuses: ['delivered', 'completed'] as Order['status'][]
+    statuses: ['completed'] as Order['status'][] // Only show 'completed' status, not 'delivered'
   },
   cancelled: {
     label: '❌ Cancelled',
@@ -41,12 +41,24 @@ interface OrderListProps {
 }
 
 interface DashboardContext {
+  // New state structure
+  activeOrders: Order[];
+  pendingOrders: Order[];
+  completedOrders: Order[];
+  cancelledOrders: Order[];
+  isLoadingActiveOrders: boolean;
+  isLoadingPendingOrders: boolean;
+  isLoadingCompletedOrders: boolean;
+  isLoadingCancelledOrders: boolean;
+  
+  // Legacy state for backward compatibility
   currentOrders: Order[];
   pastOrders: Order[];
   unacceptedOrders: Order[];
   isLoadingCurrentOrders: boolean;
   isLoadingPastOrders: boolean;
   isLoadingUnacceptedOrders: boolean;
+  
   handleOpenChat?: (orderId: string, customerId: string) => Promise<void>;
 }
 
@@ -55,9 +67,20 @@ const getTabKey = (index: number): TabStatus => {
   return keys[index] || keys[0];
 };
 
-function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: OrderListProps) {
+function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate, defaultTab }: OrderListProps) {
   const user = useUser();
   const { 
+    // Use new state structure
+    activeOrders,
+    pendingOrders,
+    completedOrders,
+    cancelledOrders,
+    isLoadingActiveOrders,
+    isLoadingPendingOrders,
+    isLoadingCompletedOrders,
+    isLoadingCancelledOrders,
+    
+    // Legacy state for backward compatibility
     currentOrders: contextCurrentOrders,
     pastOrders: contextPastOrders,
     unacceptedOrders: contextUnacceptedOrders,
@@ -66,7 +89,15 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
     isLoadingUnacceptedOrders,
     handleOpenChat,
   } = useOutletContext<DashboardContext>();
-  const [tabValue, setTabValue] = useState(0);
+  
+  // Set initial tab value based on defaultTab prop if provided
+  const getInitialTabValue = (): number => {
+    if (!defaultTab) return 0;
+    const tabIndex = ['active', 'available', 'completed', 'cancelled'].indexOf(defaultTab);
+    return tabIndex >= 0 ? tabIndex : 0;
+  };
+  
+  const [tabValue, setTabValue] = useState(getInitialTabValue());
   const [orders, setOrders] = useState<OrderMap | null>(null);
 
   const currentTabKey = getTabKey(tabValue);
@@ -74,25 +105,30 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
   // Determine if we're loading based on current tab
   let isLoading = false;
   if (currentTabKey === 'active') {
-    isLoading = isLoadingCurrentOrders;
-  } else if (currentTabKey === 'completed' || currentTabKey === 'cancelled') {
-    isLoading = isLoadingPastOrders;
+    isLoading = isLoadingActiveOrders || isLoadingCurrentOrders;
+  } else if (currentTabKey === 'completed') {
+    isLoading = isLoadingCompletedOrders || isLoadingPastOrders;
+  } else if (currentTabKey === 'cancelled') {
+    isLoading = isLoadingCancelledOrders || isLoadingPastOrders;
   } else if (currentTabKey === 'available') {
-    isLoading = isLoadingUnacceptedOrders;
+    isLoading = isLoadingPendingOrders || isLoadingUnacceptedOrders;
   }
 
   useEffect(() => {
-    // Filter orders by status, ensuring no duplicates
-    const active = contextCurrentOrders?.filter(order => 
-      ['accepted', 'en_route', 'arrived', 'picked_up'].includes(order.status)
+    // Use new state structure first, fall back to legacy state if needed
+    const active = activeOrders || contextCurrentOrders?.filter(order => 
+      ['accepted', 'en_route', 'arrived', 'picked_up', 'delivered'].includes(order.status)
     ) || [];
-    const completed = contextPastOrders?.filter(order => 
-      order.status === 'delivered' || order.status === 'completed'
+    
+    const completed = completedOrders || contextPastOrders?.filter(order => 
+      order.status === 'completed' // Only show orders with status 'completed'
     ) || [];
-    const cancelled = contextPastOrders?.filter(order => 
+    
+    const cancelled = cancelledOrders || contextPastOrders?.filter(order => 
       order.status === 'cancelled'
     ) || [];
-    const available = contextUnacceptedOrders?.filter(order => 
+    
+    const available = pendingOrders || contextUnacceptedOrders?.filter(order => 
       order.status === 'pending'
     ) || [];
     
@@ -108,6 +144,14 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
     }
     
     console.log(`Completed orders: ${completed.length}`);
+    if (completed.length > 0) {
+      const statusCounts = completed.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log('Completed order status breakdown:', statusCounts);
+    }
+    
     console.log(`Cancelled orders: ${cancelled.length}`);
     console.log(`Available orders: ${available.length}`);
     console.log('----------------------------------------');
@@ -118,7 +162,7 @@ function OrderList({ onOrderClick, handleOrderAction, handleStatusUpdate }: Orde
       cancelled,
       available
     });
-  }, [contextCurrentOrders, contextPastOrders, contextUnacceptedOrders]);
+  }, [activeOrders, pendingOrders, completedOrders, cancelledOrders, contextCurrentOrders, contextPastOrders, contextUnacceptedOrders]);
 
   if (isLoading) {
     return (

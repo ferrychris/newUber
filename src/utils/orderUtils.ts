@@ -1,7 +1,7 @@
 import { Order } from '../types/order';
 import { supabase } from '../lib/supabaseClient';
 import { initiateOrderChat } from './chatUtils';
-import { creditDriverWalletForCompletedOrder } from './walletUtils';
+import { creditDriverWalletForCompletedOrder, debitUserWallet } from './walletUtils';
 
 /**
  * Fetches orders by status
@@ -135,21 +135,84 @@ export async function updateOrderStatus(
     
     console.log(`Successfully updated order ${orderId} status to ${newStatus}`);
     
-    // Credit driver's wallet when order changes from delivered to completed
-    if (newStatus === 'completed' && oldStatus === 'delivered') {
-      try {
-        console.log(`Crediting driver's wallet for completed order ${orderId}`);
-        const { success, error } = await creditDriverWalletForCompletedOrder(orderId);
+    // Handle wallet transactions based on order status changes
+    try {
+      // Get order details including price, customer ID, and driver ID
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('price, user_id, driver_id')
+        .eq('id', orderId)
+        .single();
         
-        if (success) {
-          console.log(`Successfully credited driver's wallet for order ${orderId}`);
-        } else {
-          console.error(`Failed to credit driver's wallet for order ${orderId}:`, error);
+      if (orderError) {
+        console.error(`Error fetching order details for wallet transactions: ${orderId}`, orderError);
+      } else if (orderData) {
+        const { price, user_id: customerId, driver_id: driverId } = orderData;
+        
+        // When order is accepted, debit the customer's wallet
+        if (newStatus === 'accepted' && customerId) {
+          // Check if the customer's wallet has already been debited for this order
+          const { data: existingCustomerTransactions, error: checkCustomerError } = await supabase
+            .from('wallet_transactions')
+            .select('id')
+            .eq('metadata->order_id', orderId)
+            .eq('type', 'payment');
+            
+          if (checkCustomerError) {
+            console.error(`Error checking for existing customer transactions for order ${orderId}:`, checkCustomerError);
+          }
+          
+          // Only debit the wallet if no previous transaction exists for this order
+          if (!existingCustomerTransactions || existingCustomerTransactions.length === 0) {
+            console.log(`Debiting customer's wallet for order ${orderId}`);
+            const { success, error } = await debitUserWallet(
+              customerId,
+              price,
+              `Payment for order #${orderId}`,
+              { order_id: orderId }
+            );
+            
+            if (success) {
+              console.log(`Successfully debited customer's wallet for order ${orderId}`);
+            } else {
+              console.error(`Failed to debit customer's wallet for order ${orderId}:`, error);
+            }
+          } else {
+            console.log(`Customer wallet already debited for order ${orderId}, skipping duplicate payment`);
+          }
         }
-      } catch (walletError) {
-        console.error(`Error crediting driver's wallet for order ${orderId}:`, walletError);
-        // Continue with the order status update even if wallet credit fails
+        
+        // When order is delivered or completed, credit the driver's wallet
+        if ((newStatus === 'delivered' || newStatus === 'completed') && driverId) {
+          // Check if the driver's wallet has already been credited for this order
+          const { data: existingDriverTransactions, error: checkDriverError } = await supabase
+            .from('wallet_transactions')
+            .select('id')
+            .eq('metadata->order_id', orderId)
+            .eq('type', 'earnings');
+            
+          if (checkDriverError) {
+            console.error(`Error checking for existing driver transactions for order ${orderId}:`, checkDriverError);
+          }
+          
+          // Only credit the wallet if no previous transaction exists for this order
+          if (!existingDriverTransactions || existingDriverTransactions.length === 0) {
+            console.log(`Crediting driver's wallet for order ${orderId}`);
+            const { success, error } = await creditDriverWalletForCompletedOrder(orderId);
+            
+            if (success) {
+              console.log(`Successfully credited driver's wallet for order ${orderId}`);
+            } else {
+              console.error(`Failed to credit driver's wallet for order ${orderId}:`, error);
+            }
+          } else {
+            console.log(`Driver wallet already credited for order ${orderId}, skipping duplicate payment`);
+          }
+        }
       }
+    } catch (walletError) {
+      console.error(`Error handling wallet transactions for order ${orderId}:`, walletError);
+      // We don't throw the error here to avoid failing the status update
     }
     
     // If the order status changed to 'accepted', initiate a chat between driver and customer

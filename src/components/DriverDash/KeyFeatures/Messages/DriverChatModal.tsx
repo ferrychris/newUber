@@ -20,23 +20,27 @@ import {
   Button, 
   Paper, 
   CircularProgress, 
+  useTheme, 
+  Switch, 
+  FormControlLabel, 
   IconButton,
-  Avatar,
-  useTheme,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Avatar
 } from '@mui/material';
 import { 
   Close as CloseIcon,
   Send as SendIcon,
-  Phone as PhoneIcon
+  Phone as PhoneIcon,
+  SmartToy as SmartToyIcon
 } from '@mui/icons-material';
 import { useUser } from '@supabase/auth-helpers-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../../../utils/supabaseClient';
 import { fetchUserProfile, getProfileDisplayName, getProfilePhoneNumber, ProfileData } from '../../../../utils/profileUtils';
+import { getAIResponse } from '../../../../utils/aiUtils';
 
 interface Message {
   id: string;
@@ -81,6 +85,8 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [customerProfile, setCustomerProfile] = useState<ProfileData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [conversationMode, setConversationMode] = useState<boolean>(false);
+  const [aiIsTyping, setAiIsTyping] = useState<boolean>(false);
 
   // Fetch messages for this order and customer
   useEffect(() => {
@@ -161,7 +167,17 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
   // Message handler function - defined outside useEffect to avoid recreation
   const handleNewMessage = useCallback(async (payload: any) => {
     const newMsg = payload.new as Message;
-    setMessages(prevMessages => [...prevMessages, newMsg]);
+    
+    // Check if this message already exists in our state to avoid duplicates
+    // This can happen when we send a message and then receive it from the subscription
+    setMessages(prevMessages => {
+      // Check if we already have this message by ID
+      const messageExists = prevMessages.some(msg => msg.id === newMsg.id);
+      if (messageExists) {
+        return prevMessages; // Don't add duplicate
+      }
+      return [...prevMessages, newMsg];
+    });
 
     // Mark as read if we are the receiver
     if (user && newMsg.receiver_id === user.id && !newMsg.read) {
@@ -261,20 +277,103 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
     try {
       setIsSending(true);
       
-      const { error } = await supabase
+      // Store the message being sent
+      const messageToSend = newMessage.trim();
+      
+      // Insert the user's message
+      const { data: messageData, error } = await supabase
         .from('support_messages')
         .insert({
           order_id: orderId,
           sender_id: user.id,
           receiver_id: customerId,
-          message: newMessage.trim(),
+          message: messageToSend,
           read: false,
           is_system_message: false
-        });
+        })
+        .select();
 
       if (error) throw error;
       
+      // Add the message to the state immediately for better UX
+      if (messageData && messageData.length > 0) {
+        setMessages(prevMessages => {
+          // Make sure we don't add duplicates
+          if (prevMessages.some(msg => msg.id === messageData[0].id)) {
+            return prevMessages;
+          }
+          return [...prevMessages, messageData[0]];
+        });
+      }
+      
+      // Clear the input field
       setNewMessage('');
+      
+      // If conversation mode is enabled, get AI response
+      if (conversationMode) {
+        try {
+          // Show AI is typing indicator
+          setAiIsTyping(true);
+          
+          // Prepare conversation history for context
+          const conversationHistory = messages.slice(-5).map(msg => ({
+            sender: msg.sender_id === user?.id ? 'Driver' : 'Customer',
+            message: msg.message
+          }));
+          
+          // Add the message just sent
+          conversationHistory.push({
+            sender: 'Driver', // This is the driver's message, not the customer's
+            message: messageToSend
+          });
+          
+          // Get AI response
+          const aiResponse = await getAIResponse(
+            messageToSend,
+            orderId || '',
+            conversationHistory
+          );
+          
+          if (aiResponse.success) {
+            // Insert AI response as a message from the driver
+            const { data: aiMessageData, error: aiInsertError } = await supabase
+              .from('support_messages')
+              .insert({
+                order_id: orderId,
+                sender_id: user.id, // Send as the driver
+                receiver_id: customerId,
+                message: aiResponse.message,
+                read: false,
+                is_system_message: false,
+                is_ai_generated: true // Mark as AI generated
+              })
+              .select();
+              
+            if (aiInsertError) {
+              console.error('Error inserting AI response:', aiInsertError);
+              setError('Failed to send AI response. Please try again.');
+            } else if (aiMessageData && aiMessageData.length > 0) {
+              // Manually add the AI message to the state to avoid waiting for subscription
+              // This provides immediate feedback to the user
+              setMessages(prevMessages => {
+                // Make sure we don't add duplicates
+                if (prevMessages.some(msg => msg.id === aiMessageData[0].id)) {
+                  return prevMessages;
+                }
+                return [...prevMessages, aiMessageData[0]];
+              });
+            }
+          } else {
+            console.error('AI response error:', aiResponse.error);
+            setError('AI assistant is unavailable. Please try again later.');
+          }
+        } catch (aiErr) {
+          console.error('Error with AI response:', aiErr);
+          setError('Failed to get AI response. Please try again.');
+        } finally {
+          setAiIsTyping(false);
+        }
+      }
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message. Please try again.');
@@ -299,10 +398,17 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
   return (
     <Dialog 
       open={open} 
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      sx={{ '& .MuiDialog-paper': { height: '80vh' } }}
+      onClose={onClose} 
+      fullWidth 
+      maxWidth="sm"
+      PaperProps={{
+        sx: {
+          height: '80vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }
+      }}
     >
       <DialogTitle sx={{ 
         display: 'flex', 
@@ -310,9 +416,11 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
         justifyContent: 'space-between', 
         borderBottom: `1px solid ${theme.palette.divider}`,
         backgroundColor: theme.palette.primary.main,
-        color: 'white'
+        color: 'white',
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: 1
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <Avatar 
             src={customerProfile?.profile_image || undefined}
             alt={customerName}
@@ -337,9 +445,36 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
             )}
           </Box>
         </Box>
-        <IconButton onClick={onClose} sx={{ color: 'white' }}>
-          <CloseIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* AI Conversation Mode Toggle */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={conversationMode}
+                onChange={(e) => setConversationMode(e.target.checked)}
+                color="default"
+                size="small"
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <SmartToyIcon fontSize="small" />
+                <Typography variant="caption" sx={{ color: 'white' }}>
+                  AI Mode
+                </Typography>
+              </Box>
+            }
+            sx={{ 
+              mr: 0,
+              '& .MuiFormControlLabel-label': { 
+                color: 'white',
+              }
+            }}
+          />
+          <IconButton onClick={onClose} sx={{ color: 'white' }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
       </DialogTitle>
 
       {/* Order Info Summary */}
@@ -375,67 +510,99 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
           <Box display="flex" justifyContent="center" p={3}>
             <Typography color="error">{error}</Typography>
           </Box>
-        ) : messages.length === 0 ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-            <Typography color="text.secondary">No messages yet. Start the conversation!</Typography>
-          </Box>
         ) : (
-          messages.map((message) => (
-            <Box
-              key={message.id}
-              sx={{
-                alignSelf: message.sender_id === user?.id ? 'flex-end' : 'flex-start',
-                maxWidth: '70%'
-              }}
-            >
-              <Paper
-                sx={{
-                  p: 2,
-                  backgroundColor: message.sender_id === user?.id 
-                    ? theme.palette.primary.main 
-                    : theme.palette.grey[200],
-                  color: message.sender_id === user?.id 
-                    ? 'white' 
-                    : 'inherit',
-                  borderRadius: message.sender_id === user?.id
-                    ? '20px 20px 5px 20px'
-                    : '20px 20px 20px 5px'
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Empty state */}
+            {messages.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">No messages yet. Start the conversation!</Typography>
+              </Box>
+            )}
+            
+            {/* AI typing indicator */}
+            {aiIsTyping && (
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  p: 1, 
+                  bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                  borderRadius: 2,
+                  maxWidth: '80%',
+                  alignSelf: 'flex-start',
+                  mb: 1
                 }}
               >
-                {message.is_system_message && (
+                <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 24, height: 24 }}>
+                  <SmartToyIcon sx={{ fontSize: 16 }} />
+                </Avatar>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <CircularProgress size={8} />
+                  <CircularProgress size={8} sx={{ animationDelay: '0.2s' }} />
+                  <CircularProgress size={8} sx={{ animationDelay: '0.4s' }} />
+                </Box>
+              </Box>
+            )}
+            
+            {/* Message list */}
+            {messages.map((message) => (
+              <Box
+                key={message.id}
+                sx={{
+                  alignSelf: message.sender_id === user?.id ? 'flex-end' : 'flex-start',
+                  maxWidth: '70%'
+                }}
+              >
+                <Paper
+                  sx={{
+                    p: 2,
+                    backgroundColor: message.sender_id === user?.id 
+                      ? theme.palette.primary.main 
+                      : theme.palette.grey[200],
+                    color: message.sender_id === user?.id 
+                      ? 'white' 
+                      : 'inherit',
+                    borderRadius: message.sender_id === user?.id
+                      ? '20px 20px 5px 20px'
+                      : '20px 20px 20px 5px'
+                  }}
+                >
+                  {message.is_system_message && (
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'block', 
+                        mb: 1,
+                        fontStyle: 'italic',
+                        color: message.sender_id === user?.id 
+                          ? 'rgba(255,255,255,0.7)' 
+                          : 'text.secondary'
+                      }}
+                    >
+                      System Message
+                    </Typography>
+                  )}
+                  <Typography>{message.message}</Typography>
                   <Typography 
                     variant="caption" 
                     sx={{ 
                       display: 'block', 
-                      mb: 1,
-                      fontStyle: 'italic',
+                      mt: 1, 
+                      textAlign: 'right',
                       color: message.sender_id === user?.id 
                         ? 'rgba(255,255,255,0.7)' 
                         : 'text.secondary'
                     }}
                   >
-                    System Message
+                    {formatMessageTime(message.created_at)}
                   </Typography>
-                )}
-                <Typography>{message.message}</Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    display: 'block', 
-                    mt: 1, 
-                    textAlign: 'right',
-                    color: message.sender_id === user?.id 
-                      ? 'rgba(255,255,255,0.7)' 
-                      : 'text.secondary'
-                  }}
-                >
-                  {formatMessageTime(message.created_at)}
-                </Typography>
-              </Paper>
-            </Box>
-          ))
+                </Paper>
+              </Box>
+            ))}
+            <div ref={messagesEndRef} />
+          </Box>
         )}
-        <div ref={messagesEndRef} />
       </DialogContent>
 
       {/* Message Input */}
