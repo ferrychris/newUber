@@ -6,6 +6,22 @@
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css' rel='stylesheet' />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React + TS</title>
+    <!-- Theme initialization script to prevent flickering -->
+    <script>
+      (function() {
+        // Check localStorage for theme preference
+        const theme = localStorage.getItem('theme');
+        // Check if dark mode is preferred by user
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Apply dark class if theme is explicitly 'dark' or if no preference and system prefers dark
+        if (theme === 'dark' || (!theme && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

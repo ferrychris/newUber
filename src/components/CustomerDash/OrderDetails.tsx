@@ -30,9 +30,9 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
   
   // Create a service object for OrderDetailsView
   const service = {
-    id: order.id,
+    id: 'delivery-service',
     name: 'Delivery',
-    type: 'delivery',
+    type: order.id, // Store the order ID in type field for reference
     description: 'Delivery service',
     minPrice: 0,
     image: '',
@@ -86,7 +86,7 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
         <DialogContent sx={{ p: 0 }}>
           <OrderDetailsView 
             order={{
-              id: order.id,
+              id: service.type, // Using service type instead of order ID
               user_id: order.user_id || '',
               service_id: '',
               pickup_location: order.pickup_location,

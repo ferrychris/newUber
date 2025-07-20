@@ -28,18 +28,21 @@ export interface UserInfo {
   is_admin?: boolean;
 }
 
+// Helper function to get current authenticated user (outside of the object to avoid this binding issues)
+const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return user;
+};
+
 // Support Service API
 const supportService = {
   // Get current authenticated user
-  async getCurrentUser() {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    return user;
-  },
+  getCurrentUser,
 
   // Create a new support ticket with initial message
   async createTicket(subject: string, message: string): Promise<SupportTicket> {
-    const user = await this.getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // First create the ticket
@@ -76,7 +79,7 @@ const supportService = {
 
   // Get all tickets for the current user with their messages
   async getUserTickets(): Promise<SupportTicket[]> {
-    const user = await this.getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // Step 1: Get all tickets for the user
@@ -157,7 +160,7 @@ const supportService = {
 
   // Send a reply to an existing ticket
   async sendReply(ticketId: string, message: string): Promise<SupportMessage> {
-    const user = await this.getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // Insert the reply message
@@ -180,7 +183,7 @@ const supportService = {
 
   // Get messages for a specific ticket with sender info
   async getTicketMessages(ticketId: string): Promise<SupportMessage[]> {
-    const user = await this.getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // Fetch messages for the ticket

@@ -349,11 +349,9 @@ export const OrderTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .in('status', [
           'pending',
           'accepted',
-          'active',
           'en_route',
           'arrived',
           'picked_up',
-          'in_transit',
           'delivered'
         ])
         .order('created_at', { ascending: false });

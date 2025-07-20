@@ -14,6 +14,7 @@ import DriverChatModal from './KeyFeatures/Messages/DriverChatModal';
 import ChatSelectionModal from './KeyFeatures/Messages/ChatSelectionModal';
 import MobileMenu from './MobileMenu';
 import MobileWallet from './MobileWallet';
+import SupportFab from '../shared/SupportFab';
 
 export const DriverDashboard = () => {
   const { user } = useAuth();
@@ -515,6 +516,9 @@ export const DriverDashboard = () => {
         isOpen={isMobileWalletOpen}
         onClose={() => setIsMobileWalletOpen(false)}
       />
+      
+      {/* Support FAB - available on all driver screens */}
+      <SupportFab />
     </div>
   );
 };

@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { detectUserLanguage } from '../utils/i18n';
 import MessageComponent from '../components/userDashcomponents/Message';
+import SupportFab from '../components/shared/SupportFab';
 
 interface DebugInfo {
   authLoading: boolean;
@@ -229,7 +230,12 @@ export const UserDash = () => {
         </motion.div>
         
         {/* Mobile Navigation */}
-        <MobileNavigation />
+        <div className="lg:hidden">
+          <MobileNavigation />
+        </div>
+
+        {/* Support Floating Action Button - available on all pages */}
+        <SupportFab />
       </motion.div>
       </div>
     </ErrorBoundary>

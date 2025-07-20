@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FaHeadset, FaSpinner, FaChevronDown, FaChevronUp, 
@@ -9,12 +9,17 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import supportService, { SupportTicket, SupportMessage, UserInfo } from '../../services/supportService';
+import { Paper, Box, Typography, CircularProgress } from '@mui/material';
 
 interface FAQItem {
   question: string;
   answer: string;
 }
 
+/**
+ * Support component for customer support tickets and messaging
+ * Uses a dark theme matching the chat component (#18181B)
+ */
 const Support: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -58,7 +63,7 @@ const Support: React.FC = () => {
       setMessage('');
       
       // Show success message
-      toast.success(t('support.ticketSubmitted'));
+      toast.success(t('Ticket Submitted'));
       
       // Refresh tickets list and switch to existing tickets tab
       queryClient.invalidateQueries({ queryKey: ['supportTickets'] });
@@ -79,7 +84,7 @@ const Support: React.FC = () => {
       setReplyMessage('');
       
       // Show success message
-      toast.success(t('support.replySent'));
+      toast.success(t('Reply sent'));
       
       // Refresh ticket messages
       queryClient.invalidateQueries({ queryKey: ['ticketMessages', variables.ticketId] });
@@ -111,12 +116,12 @@ const Support: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!subject || !message) {
-      toast.error(t('support.fillAllFields'));
+    if (!subject.trim() || !message.trim()) {
+      toast.error(t('fill All Fields'));
       return;
     }
     
-    createTicketMutation.mutate({ subject, message });
+    createTicketMutation.mutate({ subject: subject.trim(), message: message.trim() });
   };
 
   const handleSendReply = async (e: React.FormEvent) => {
@@ -137,6 +142,7 @@ const Support: React.FC = () => {
   };
 
   // Utility functions
+  // Format date to locale-friendly format with time
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -158,29 +164,39 @@ const Support: React.FC = () => {
   // Sample FAQ items
   const faqItems: FAQItem[] = [
     {
-      question: t('support.faq.deliveryTime.question'),
-      answer: t('support.faq.deliveryTime.answer')
+      question: t('Delivery Time'),
+      answer: t('Delivery Time Answer')
     },
     {
-      question: t('support.faq.cancelOrder.question'),
-      answer: t('support.faq.cancelOrder.answer')
+      question: t('Cancel Order'),
+      answer: t('Cancel Order Answer')
     },
     {
-      question: t('support.faq.paymentMethods.question'),
-      answer: t('support.faq.paymentMethods.answer')
+      question: t('Payment Methods'),
+      answer: t('Payment Methods Answer')
     },
     {
-      question: t('support.faq.driverContact.question'),
-      answer: t('support.faq.driverContact.answer')
+      question: t('Driver Contact'),
+      answer: t('Driver Contact Answer')
     },
     {
-      question: t('support.faq.lostItem.question'),
-      answer: t('support.faq.lostItem.answer')
+      question: t('Lost Item'),
+      answer: t('Lost Item Answer')
     }
   ];
 
   return (
-    <div className="container mx-auto pb-8">
+    <Paper 
+      elevation={2}
+      sx={{ 
+        bgcolor: theme => theme.palette.mode === 'dark' ? '#18181B' : '#ffffff', 
+        color: theme => theme.palette.mode === 'dark' ? 'white' : '#18181B',
+        borderRadius: 2,
+        p: 3,
+        mb: 3,
+        width: '100%'
+      }}
+    >
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -188,22 +204,22 @@ const Support: React.FC = () => {
         className="mb-6"
       >
         <div className="flex items-center mb-4">
-          <FaHeadset className="text-xl mr-2 text-indigo-600 dark:text-indigo-400" />
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {t('support.title')}
-          </h1>
+          <FaHeadset className="text-xl mr-2 text-indigo-400" />
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'white' }}>
+            {t('Support')}
+          </Typography>
         </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          {t('support.subtitle')}
-        </p>
+        <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          {t('Create support Tickets')}
+        </Typography>
       </motion.div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3 }}>
         {/* Left Side: Tickets + Form */}
-        <div className="lg:col-span-2">
+        <Box>
           {/* Ticket Tabs */}
-          <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 mb-6">
+          <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, mb: 3, overflow: 'hidden' }}>
             <div className="flex overflow-x-auto">
               <button
                 onClick={() => setActiveTab('new')}
@@ -214,7 +230,7 @@ const Support: React.FC = () => {
                 }`}
               >
                 <FaTicketAlt className="mr-2" />
-                {t('support.newTicket')}
+                {t('New support ticket')}
               </button>
               
               <button
@@ -229,7 +245,7 @@ const Support: React.FC = () => {
                 }`}
               >
                 <FaComments className="mr-2" />
-                {t('support.myTickets')}
+                {t('My Tickets')}
                 {tickets && tickets.length > 0 && (
                   <span className="ml-2 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs rounded-full px-2 py-0.5">
                     {tickets.length}
@@ -237,7 +253,7 @@ const Support: React.FC = () => {
                 )}
               </button>
             </div>
-          </div>
+          </Paper>
 
           {/* New Ticket Form */}
           {activeTab === 'new' && (
@@ -245,56 +261,58 @@ const Support: React.FC = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-6"
             >
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                {t('support.contactUs')}
-              </h2>
+              <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, p: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: 'white', mb: 2 }}>
+                {t('Contact Us')}
+              </Typography>
               
               <form onSubmit={handleSubmit}>              
-                <div className="mb-4">
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('support.subject')}
-                  </label>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
+                    {t('Subject')}
+                  </Typography>
                   <input
                     type="text"
                     id="subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
-                    placeholder={t('support.subjectPlaceholder')}
+                    className="w-full px-3 py-2 border border-gray-500/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#27272A] text-white"
+                    placeholder={t('Subject Placeholder')}
                   />
-                </div>
+                </Box>
                 
-                <div className="mb-4">
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t('support.message')}
-                  </label>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
+                    {t('Message')}
+                  </Typography>
                   <textarea
                     id="message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
-                    placeholder={t('support.messagePlaceholder')}
+                    className="w-full px-3 py-2 border border-gray-500/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#27272A] text-white"
+                    placeholder={t('Message Placeholder')}
+                    style={{ resize: 'vertical' }}
                   ></textarea>
-                </div>
+                </Box>
                 
                 <button
                   type="submit"
-                  disabled={createTicketMutation.isPending}
-                  className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
+                  disabled={createTicketMutation.isPending || !subject.trim() || !message.trim()}
+                  className="w-full py-2 px-4 bg-[#27272A] hover:bg-[#3F3F46] text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
                 >
                   {createTicketMutation.isPending ? (
                     <>
                       <FaSpinner className="animate-spin mr-2" />
-                      {t('support.submitting')}
+                      {t('Submitting')}
                     </>
                   ) : (
-                    t('support.submit')
+                    t('Submit')
                   )}
                 </button>
               </form>
+              </Paper>
             </motion.div>
           )}
 
@@ -307,8 +325,8 @@ const Support: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-6"
                 >
+                  <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, p: 3 }}>
                   {/* Ticket Header */}
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -320,9 +338,9 @@ const Support: React.FC = () => {
                       </div>
                       
                       <div className="flex flex-wrap gap-2 items-center text-sm text-gray-600 dark:text-gray-400">
-                        <span>{t('support.created')}: {formatDate(selectedTicket.created_at)}</span>
+                        <span>{t('Created')}: {formatDate(selectedTicket.created_at)}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedTicket.status)}`}>
-                          {t(`support.status.${selectedTicket.status.toLowerCase()}`)}
+                          {t(`Status.${selectedTicket.status.toLowerCase()}`)}
                         </span>
                       </div>
                     </div>
@@ -423,18 +441,19 @@ const Support: React.FC = () => {
                   {/* Reply Form */}
                   {selectedTicket.status !== 'closed' && (
                     <form onSubmit={handleSendReply} className="mt-4">
-                      <div className="flex items-center space-x-2">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <textarea
                           value={replyMessage}
                           onChange={(e) => setReplyMessage(e.target.value)}
-                          placeholder={t('support.typeReply')}
+                          placeholder={t('Type Reply')}
                           rows={2}
-                          className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-stone-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700 dark:text-white"
+                          className="flex-1 p-2 rounded-lg border border-gray-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-[#27272A] text-white"
+                          style={{ resize: 'vertical' }}
                         />
                         <button
                           type="submit"
                           disabled={!replyMessage.trim() || sendReplyMutation.isPending}
-                          className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="bg-[#27272A] text-white p-3 rounded-lg hover:bg-[#3F3F46] focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {sendReplyMutation.isPending ? (
                             <FaSpinner className="animate-spin h-5 w-5" />
@@ -442,9 +461,10 @@ const Support: React.FC = () => {
                             <FaPaperPlane className="h-5 w-5" />
                           )}
                         </button>
-                      </div>
+                      </Box>
                     </form>
                   )}
+                  </Paper>
                 </motion.div>
               ) : (
                 <motion.div
@@ -452,8 +472,8 @@ const Support: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 overflow-hidden"
                 >
+                  <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, overflow: 'hidden' }}>
                   {isLoadingTickets ? (
                     <div className="p-8 flex justify-center">
                       <FaSpinner className="animate-spin text-indigo-600 dark:text-indigo-400 text-2xl" />
@@ -482,16 +502,16 @@ const Support: React.FC = () => {
                         <FaTicketAlt className="text-indigo-600 dark:text-indigo-400 text-2xl" />
                       </div>
                       <h3 className="font-medium text-gray-900 dark:text-white text-lg mb-2">
-                        {t('support.noTickets')}
+                        {t('No support tickets')}
                       </h3>
                       <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        {t('support.noTicketsDesc')}
+                        {t('No support tickets description')}
                       </p>
                       <button
                         onClick={() => setActiveTab('new')}
                         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-300"
                       >
-                        {t('support.createTicket')}
+                        {t('CreateTicket')}
                       </button>
                     </div>
                   ) : (
@@ -505,7 +525,7 @@ const Support: React.FC = () => {
                           <div className="flex justify-between mb-2">
                             <h3 className="font-medium text-gray-900 dark:text-white">{ticket.subject}</h3>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                              {t(`support.status.${ticket.status.toLowerCase()}`)}
+                              {t(`Status.${ticket.status.toLowerCase()}`)}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-sm">
@@ -519,23 +539,24 @@ const Support: React.FC = () => {
                       ))}
                     </div>
                   )}
+                  </Paper>
                 </motion.div>
               )}
             </AnimatePresence>
           )}
-        </div>
+        </Box>
         
         {/* FAQ and Contact Info */}
-        <div className="lg:col-span-1">
+        <Box>
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-6 mb-6"
           >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              {t('support.faq.title')}
-            </h2>
+            <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, p: 3, mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: 'white', mb: 2 }}>
+              {t('FAQ')}
+            </Typography>
             
             <div className="space-y-3">
               {faqItems.map((item, index) => (
@@ -565,17 +586,18 @@ const Support: React.FC = () => {
                 </div>
               ))}
             </div>
+            </Paper>
           </motion.div>
           
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-midnight-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700/20 p-6"
           >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              {t('support.contactInfo')}
-            </h2>
+            <Paper sx={{ bgcolor: '#1c1c20', borderRadius: 2, p: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: 'white', mb: 2 }}>
+              {t('Contact Info')}
+            </Typography>
             
             <div className="space-y-4">
               <div className="flex items-start">
@@ -583,7 +605,7 @@ const Support: React.FC = () => {
                   <FaEnvelope />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{t('support.email')}</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{t('Email')}</h3>
                   <p className="text-gray-600 dark:text-gray-400">support@drivergo.com</p>
                 </div>
               </div>
@@ -593,7 +615,7 @@ const Support: React.FC = () => {
                   <FaPhone />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{t('support.phone')}</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{t('Phone')}</h3>
                   <p className="text-gray-600 dark:text-gray-400">+33 1 23 45 67 89</p>
                 </div>
               </div>
@@ -603,15 +625,16 @@ const Support: React.FC = () => {
                   <FaQuestion />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{t('support.hours')}</h3>
-                  <p className="text-gray-600 dark:text-gray-400">{t('support.availability')}</p>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{t('Hours')}</h3>
+                  <p className="text-gray-600 dark:text-gray-400">{t('Availability')}</p>
                 </div>
               </div>
             </div>
+            </Paper>
           </motion.div>
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Paper>
   );
 };
 

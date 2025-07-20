@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate } from '../../utils/i18n';
 import { supabase } from '../../utils/supabase';
 import { useState, useEffect } from 'react';
+import { useTheme } from '../../utils/theme';
 import toast from 'react-hot-toast';
 
 // Define interfaces directly instead of importing
@@ -165,6 +166,7 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
   // State for chat modal
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const [customer, setCustomer] = useState<UserProfile | null>(null);
   const [driver, setDriver] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -483,9 +485,9 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
                                 {/* Message button */}
                                 <button
                                   onClick={() => setIsChatModalOpen(true)}
-                                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-midnight-700 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-midnight-600 transition-colors duration-200"
+                                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 text-purple-700 dark:text-purple-300 rounded-lg border border-purple-200 dark:border-purple-800/30 hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30 shadow-sm transition-all duration-200 font-medium"
                                 >
-                                  <FaCommentAlt size={14} />
+                                  <FaCommentAlt size={14} className="text-purple-500 dark:text-purple-400" />
                                   <span>{t('Send Message')}</span>
                                 </button>
                               </div>
@@ -595,13 +597,37 @@ const OrderDetailsView: React.FC<OrderDetailsViewProps> = ({
               fullWidth
               maxWidth="md"
               PaperProps={{
-                style: {
+                sx: {
                   borderRadius: '12px',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  bgcolor: isDark ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)',
+                  backgroundImage: isDark
+                    ? 'linear-gradient(rgba(24, 24, 27, 0.9), rgba(39, 39, 42, 0.9))' 
+                    : 'linear-gradient(rgba(255, 255, 255, 0.9), rgba(249, 250, 251, 0.9))',
+                  boxShadow: isDark 
+                    ? '0 10px 25px -5px rgba(0, 0, 0, 0.3)' 
+                    : '0 10px 25px -5px rgba(0, 0, 0, 0.1)'
                 }
               }}
             >
-              <DialogContent sx={{ p: 0, height: '70vh', overflow: 'hidden' }}>
+              <DialogContent sx={{ 
+                p: 0, 
+                height: '70vh', 
+                overflow: 'hidden',
+                backgroundColor: isDark 
+                  ? 'rgb(24, 24, 27)' 
+                  : 'rgb(255, 255, 255)',
+                '&::-webkit-scrollbar': {
+                  width: '8px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                  borderRadius: '4px'
+                }
+              }}>
                 <Message
                   orderId={order.id}
                   receiverId={order.user_id}

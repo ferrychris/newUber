@@ -360,26 +360,13 @@ const Order: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                                {t(`orders.status.${order.status}`)}
+                                {order.status ? t(order.status.charAt(0).toUpperCase() + order.status.slice(1).replace(/_/g, ' ')) : ''}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex justify-end space-x-3">
                                 {/* Message Button - Show for orders with a driver assigned */}
-                                {order.driver_id && (
-                                  <button
-                                    className="inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md hover:bg-green-200 dark:hover:bg-green-800/40 transition-colors duration-200"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Open chat with driver
-                                      setSelectedChatOrder(order);
-                                      setIsChatModalOpen(true);
-                                    }}
-                                  >
-                                    <FaCommentAlt className="mr-1" />
-                                    {t('Message')}
-                                  </button>
-                                )}
+                               
                                 
                                 {/* Track Order Button - Only show for trackable orders */}
                                 {(order.status === OrderStatus.ACCEPTED || order.status === OrderStatus.IN_TRANSIT || order.status === OrderStatus.PENDING) && (

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../../context/AuthContext';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -34,8 +34,25 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   const { userProfile, isLoading } = useUserProfile();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check for saved preference or system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') return true;
+    if (savedTheme === 'light') return false;
+    // If no saved preference, use system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
+  // Apply theme changes to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const navigate = useNavigate();
   const [notifications] = useState<Notification[]>([
@@ -161,13 +178,16 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
 
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-full transition-colors duration-300"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800/50 rounded-full transition-colors duration-300 relative overflow-hidden"
+                aria-label={isDarkMode ? t('theme.switchToLight') : t('theme.switchToDark')}
+                title={isDarkMode ? t('theme.switchToLight') : t('theme.switchToDark')}
               >
-                {isDarkMode ? (
-                  <FaSun className="text-amber-500 dark:text-sunset" />
-                ) : (
-                  <FaMoon className="text-gray-500 dark:text-stone-400" />
-                )}
+                <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isDarkMode ? 'opacity-100' : 'opacity-0'}`}>
+                  <FaSun className="text-amber-500" />
+                </span>
+                <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isDarkMode ? 'opacity-0' : 'opacity-100'}`}>
+                  <FaMoon className="text-gray-500" />
+                </span>
               </button>
 
               {/* Profile */}

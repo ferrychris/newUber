@@ -107,7 +107,7 @@ const Account: React.FC = () => {
       
     } catch (error) {
       console.error('Error loading user profile:', error);
-      toast.error(t('account.errorLoadingProfile'));
+      toast.error(t('Error Loading Profile'));
     } finally {
       setIsLoading(false);
     }
@@ -146,12 +146,12 @@ const Account: React.FC = () => {
     e.preventDefault();
     
     if (newPassword !== confirmPassword) {
-      toast.error(t('account.passwordsDoNotMatch'));
+      toast.error(t('Passwords Do Not Match'));
       return;
     }
     
     if (newPassword.length < 8) {
-      toast.error(t('account.passwordTooShort'));
+      toast.error(t('Password Too Short'));
       return;
     }
     
@@ -164,7 +164,7 @@ const Account: React.FC = () => {
       
       if (error) throw error;
       
-      toast.success(t('account.passwordUpdated'));
+      toast.success(t('Password Updated'));
       
       // Clear password fields
       setCurrentPassword('');
@@ -172,7 +172,7 @@ const Account: React.FC = () => {
       setConfirmPassword('');
     } catch (error) {
       console.error('Error updating password:', error);
-      toast.error(t('account.errorUpdatingPassword'));
+      toast.error(t('Error Updating Password'));
     } finally {
       setIsSaving(false);
     }
@@ -193,10 +193,10 @@ const Account: React.FC = () => {
         
       if (error) throw error;
       
-      toast.success(t('account.notificationUpdated'));
+      toast.success(t('Notification Updated'));
     } catch (error) {
       console.error('Error updating notification settings:', error);
-      toast.error(t('account.errorUpdatingNotifications'));
+      toast.error(t('Error Updating Notifications'));
     } finally {
       setIsSaving(false);
     }
@@ -502,7 +502,7 @@ const Account: React.FC = () => {
                       onChange={(e) => setProfile({...profile, country: e.target.value})}
                       className="w-full px-3 py-2 text-sm sm:text-base border border-gray-200 dark:border-stone-600/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-purple-500 dark:bg-midnight-700"
                     >
-                      <option value="">-- {t('account.selectCountry')} --</option>
+                      <option value="">-- {t('Select Country')} --</option>
                       <option value="FR">France</option>
                       <option value="DE">Germany</option>
                       <option value="ES">Spain</option>
@@ -544,13 +544,13 @@ const Account: React.FC = () => {
             transition={{ duration: 0.3 }}
           >
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              {t('account.passwordSettings')}
+              {t('Account Password Settings')}
             </h2>
             
             <form onSubmit={handlePasswordUpdate} className="max-w-md space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('account.currentPassword')}
+                  {t('Account Current Password')}
                 </label>
                 <input
                   type="password"
@@ -563,7 +563,7 @@ const Account: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('account.newPassword')}
+                  {t('Account New Password')}
                 </label>
                 <input
                   type="password"
@@ -574,13 +574,13 @@ const Account: React.FC = () => {
                   minLength={8}
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('account.passwordRequirements')}
+                  {t('Account Password Requirements')}
                 </p>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('account.confirmPassword')}
+                  {t('Account Confirm Password')}
                 </label>
                 <input
                   type="password"
@@ -601,12 +601,12 @@ const Account: React.FC = () => {
                   {isSaving ? (
                     <>
                       <FaSpinner className="animate-spin mr-2" />
-                      {t('account.updating')}
+                      {t('Updating')}
                     </>
                   ) : (
                     <>
                       <FaLock className="mr-2" />
-                      {t('account.updatePassword')}
+                      {t('Update Password')}
                     </>
                   )}
                 </button>
@@ -623,7 +623,7 @@ const Account: React.FC = () => {
             transition={{ duration: 0.3 }}
           >
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              {t('account.notificationSettings')}
+              {t('Notification Settings')}
             </h2>
             
             <form onSubmit={handleNotificationUpdate} className="space-y-4 sm:space-y-6">
@@ -631,10 +631,10 @@ const Account: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
-                      {t('account.emailNotifications')}
+                      {t('Email Notifications')}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      {t('account.emailNotificationsDesc')}
+                      {t('Email Notifications Description')}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -664,10 +664,10 @@ const Account: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
-                      {t('account.orderUpdates')}
+                      {t('Order Updates')}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      {t('account.orderUpdatesDesc')}
+                      {t('Order Updates Description')}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -697,10 +697,10 @@ const Account: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
-                      {t('account.marketingEmails')}
+                      {t('Marketing Emails')}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      {t('account.marketingEmailsDesc')}
+                      {t('Marketing Emails Description')}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -730,10 +730,10 @@ const Account: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
-                      {t('account.deliveryReminders')}
+                      {t('Delivery Reminders')}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      {t('account.deliveryRemindersDesc')}
+                      {t('Delivery Reminders Description')}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">

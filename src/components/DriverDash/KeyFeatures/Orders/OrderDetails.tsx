@@ -11,13 +11,12 @@ import {
   Paper,
   Link,
   Box,
-  Grid,
   Stack,
   Skeleton,
   Button,
-  Badge,
   CircularProgress
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import CloseIcon from '@mui/icons-material/Close';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -299,10 +298,10 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
             </Typography>
           </Box>
         ) : (
-        <Grid container spacing={3}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
           {order ? (
             <>
-              <Grid item xs={12} md={6}>
+              <Box>
                 <Stack spacing={3}>
                   {/* Customer Details */}
                   <Paper elevation={1} sx={{ p: 3 }}>
@@ -327,24 +326,7 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                           </Link>
                         </div>
                       )}
-                      <div>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          startIcon={
-                            <Badge badgeContent={unreadCount} color="error" invisible={unreadCount === 0}>
-                              <ChatIcon />
-                            </Badge>
-                          }
-                          onClick={() => {
-                            setIsChatModalOpen(true);
-                          }}
-                          sx={{ mt: 2 }}
-                          fullWidth
-                        >
-                          Chat with Customer {unreadCount > 0 && `(${unreadCount})`}
-                        </Button>
-                      </div>
+
                       {order.base_fare && (
                         <div>
                           <Typography variant="subtitle2" color="textSecondary">
@@ -426,19 +408,19 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                     </Paper>
                   )}
                 </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Box>
+              <Box>
                 <Paper elevation={1} sx={{ height: '400px', overflow: 'hidden' }}>
                   <OrderMap
                     pickupLocation={order.pickup_location}
                     dropoffLocation={order.dropoff_location}
                   />
                 </Paper>
-              </Grid>
+              </Box>
             </>
           ) : (
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+              <Box>
                 <Stack spacing={3}>
                   <Paper elevation={1} sx={{ p: 3 }}>
                     <Skeleton variant="text" width="60%" height={32} />
@@ -450,15 +432,15 @@ export default function OrderDetails({ order, open, onClose }: OrderDetailsProps
                     <Skeleton variant="rectangular" height={100} />
                   </Paper>
                 </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Box>
+              <Box>
                 <Paper elevation={1} sx={{ height: '400px' }}>
                   <Skeleton variant="rectangular" height="100%" />
                 </Paper>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           )}
-        </Grid>
+        </Box>
         )}
       </DialogContent>
     </Dialog>
