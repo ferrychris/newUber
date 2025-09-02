@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Settings, Shield } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../../../context/AuthContext';
 

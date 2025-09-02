@@ -14,7 +14,7 @@ import {
   FaSpinner
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface Notification {
   id: number;
@@ -55,28 +55,11 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
   }, [isDarkMode]);
 
   const navigate = useNavigate();
-  const [notifications] = useState<Notification[]>([
-    {
-      id: 1,
-      message: t('notifications.rideArriving'),
-      time: t('notifications.justNow'),
-      isRead: false,
-    },
-    {
-      id: 2,
-      message: t('notifications.packageDelivered', { id: '1234' }),
-      time: t('notifications.hoursAgo', { count: 2 }),
-      isRead: false,
-    },
-    {
-      id: 3,
-      message: t('notifications.orderConfirmed'),
-      time: t('notifications.hoursAgo', { count: 5 }),
-      isRead: true,
-    },
-  ]);
+  // Use real-time notifications instead of demo data
+  const [notifications] = useState<Notification[]>([]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // For now, we'll use a simple count - in a real implementation, this would come from the notification system
+  const unreadCount = 0;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -111,7 +94,7 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
             {/* Page Title */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Colgroup </h1>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Dashboard </h1>
                 <div className="ml-2 relative">
                  
                 </div>
@@ -149,27 +132,35 @@ const DashNav: React.FC<DashNavProps> = ({ isSidebarOpen = true }) => {
                   <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-stone-600/10 py-2">
                     <div className="px-4 py-2 border-b border-gray-200 dark:border-stone-600/10">
                       <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {t('common.notifications')}
+                        {t('Notifications')}
                       </h3>
                     </div>
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-midnight-700/50 ${
-                          !notification.isRead ? "bg-sunset/10 dark:bg-sunset/5" : ""
-                        } transition-colors duration-300`}
-                      >
-                        <p className="text-sm text-gray-800 dark:text-white">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
-                          {notification.time}
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-midnight-700/50 ${
+                            !notification.isRead ? "bg-sunset/10 dark:bg-sunset/5" : ""
+                          } transition-colors duration-300`}
+                        >
+                          <p className="text-sm text-gray-800 dark:text-white">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
+                            {notification.time}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center">
+                        <p className="text-gray-500 dark:text-stone-400 text-sm">
+                          {t('No Notifications')}
                         </p>
                       </div>
-                    ))}
+                    )}
                     <div className="px-4 py-2 border-t border-gray-200 dark:border-stone-600/10">
                       <button className="text-sunset dark:text-sunset text-sm hover:text-purple-500 dark:hover:text-purple-400 w-full text-center transition-colors duration-300">
-                        {t('notifications.viewAll')}
+                        {t('View All Notifications')}
                       </button>
                     </div>
                   </div>

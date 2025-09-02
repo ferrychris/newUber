@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FaUser, FaLock, FaBell, FaSpinner, FaCheck, 
-  FaTimes, FaUpload, FaTrash, FaCamera 
+  FaTrash, FaCamera 
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { supabase } from '../../utils/supabase';
 
 interface UserProfile {
@@ -63,9 +63,9 @@ const Account: React.FC = () => {
   // Load user data on component mount
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+  }, [fetchUserProfile]);
   
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -111,7 +111,7 @@ const Account: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
   
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();

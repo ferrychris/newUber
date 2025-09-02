@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
+import { useNotifications } from '../../hooks/useNotifications';
+import { NotificationCenter } from './Notifications/NotificationCenter';
 
 interface DriverNavBarProps {
   onToggleSidebar: () => void;
@@ -17,13 +19,19 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
   const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
-  // Handle clicks outside the dropdown to close it
+  // Handle clicks outside the dropdown and notification center to close them
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationOpen(false);
       }
     };
 
@@ -33,9 +41,9 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
 
   // Fetch unread messages count
   useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (!user?.id) return;
-      
+    if (!user?.id) return;
+    
+    const fetchUnreadMessageCount = async () => {
       try {
         const { count, error } = await supabase
           .from('support_messages')
@@ -50,24 +58,7 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
       }
     };
 
-    fetchUnreadCount();
-    
-    // Set up a subscription for new messages
-    const channel = supabase
-      .channel('unread_messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `receiver_id=eq.${user?.id} AND read=eq.false`
-      }, () => {
-        fetchUnreadCount();
-      })
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
+    fetchUnreadMessageCount();
   }, [user?.id]);
 
   const handleLogout = async () => {
@@ -96,36 +87,45 @@ export const DriverNavBar = ({ onToggleSidebar, driverName, onOpenChatModal }: D
           </span>
         </div>
         
-        <div className="flex items-center space-x-2 md:space-x-4">
-          {/* Messages icon with notification badge - only visible on larger screens */}
-          {onOpenChatModal ? (
+        <div className="flex items-center space-x-4">
+          {onOpenChatModal && (
             <button 
-              onClick={() => onOpenChatModal()} 
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex"
-              title="Messages"
+              onClick={() => onOpenChatModal()}
+              className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              aria-label={t('messages.title')}
             >
-              <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
+              <MessageCircle size={20} />
               {unreadMessages > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadMessages}
                 </span>
               )}
             </button>
-          ) : (
-            <Link to="/driver/messages" className="relative p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex">
-              <MessageCircle className="h-6 w-6 text-gray-700 dark:text-stone-300" />
-              {unreadMessages > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadMessages > 9 ? '9+' : unreadMessages}
-                </span>
-              )}
-            </Link>
           )}
           
-          {/* Notifications icon - only visible on larger screens */}
-          <button className="p-2 hover:bg-gray-100 dark:hover:bg-midnight-800 rounded-full hidden md:flex">
-            <Bell className="h-6 w-6 text-gray-700 dark:text-stone-300" />
-          </button>
+          {/* Notification Center */}
+          <div className="relative" ref={notificationRef}>
+            <button 
+              onClick={() => setNotificationOpen(!notificationOpen)}
+              className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-midnight-800 rounded-lg transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+            
+            <NotificationCenter
+              isOpen={notificationOpen}
+              onClose={() => setNotificationOpen(false)}
+              notifications={notifications}
+              onMarkAsRead={markAsRead}
+              onMarkAllAsRead={markAllAsRead}
+            />
+          </div>
           
           {/* Profile dropdown */}
           <div className="relative" ref={dropdownRef}>

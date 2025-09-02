@@ -24,7 +24,7 @@ import { formatCurrency, formatDate } from '../../utils/i18n';
 import { supabase } from '../../utils/supabase';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../utils/theme';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 // Define interfaces directly instead of importing
 interface Order {

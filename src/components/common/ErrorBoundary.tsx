@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface Props {
   children: ReactNode;

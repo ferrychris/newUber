@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../../../context/AuthContext';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Message as MessageType, ReceiverInfo, DebugInfo } from './types';
 import MessageHeader from './MessageHeader';
 import MessageList from './MessageList';

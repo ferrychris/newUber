@@ -16,6 +16,9 @@ interface OrderDetailsProps {
     driver_id?: string;
     created_at: string;
     user_id?: string;
+    estimated_price?: number;
+    actual_price?: number;
+    price?: number;
   };
   open: boolean;
   onClose: () => void;
@@ -92,7 +95,7 @@ export default function CustomerOrderDetails({ order, open, onClose, onConfirmDe
               pickup_location: order.pickup_location,
               dropoff_location: order.dropoff_location,
               status: order.status,
-              price: 0,
+              price: order.actual_price || order.estimated_price || order.price || 0,
               payment_method: 'cash',
               payment_status: 'paid',
               updated_at: order.created_at,

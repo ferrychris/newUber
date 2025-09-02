@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 
@@ -53,10 +53,7 @@ export default function ConfirmEmail() {
         setTokenError(`Verification failed: ${error.message}`);
         toast.error(`Verification failed: ${error.message}`);
       } else {
-        toast.success('Email successfully verified! You can now log in.', {
-          icon: () => <span role="img" aria-label="success">✅</span>,
-          autoClose: 5000
-        });
+        toast.success('Email successfully verified! You can now log in.');
         
         // Redirect to login after successful verification
         setTimeout(() => {
@@ -100,10 +97,7 @@ export default function ConfirmEmail() {
       if (error) {
         toast.error(`Error sending verification email: ${error.message}`);
       } else {
-        toast.success('Verification email sent! Please check your inbox.', {
-          icon: () => <span role="img" aria-label="success">✅</span>,
-          autoClose: 5000
-        });
+        toast.success('Verification email sent! Please check your inbox.');
       }
     } catch (error: any) {
       console.error('Error resending confirmation email:', error);

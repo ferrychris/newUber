@@ -4,7 +4,7 @@ import { FaBug, FaSpinner, FaUser } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 // Import components
 import MessageHeader from './messages/MessageHeader';

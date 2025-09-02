@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Truck, Settings, LogOut, X, Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   isOpen: boolean;

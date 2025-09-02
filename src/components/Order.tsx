@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../utils/supabase";
 import { AnimatePresence } from "framer-motion";
-import { useNavigate, Link, useParams } from "react-router-dom";
-import { toast } from "sonner";
-import { FaSpinner, FaMapMarkerAlt, FaLocationArrow } from "react-icons/fa";
+import { useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import { FaSpinner, FaMapMarkerAlt, FaLocationArrow, FaCommentAlt } from "react-icons/fa";
 import { SERVICES } from "./orders/constants";
 import { getToastConfig, getStatusConfig } from "./orders/utils";
 import { formatCurrency, formatDate } from "../../utils/i18n";
 import ServiceSelectionDialog from "./orders/components/ServiceSelectionDialog";
 import OrderDetailsDialog from "./orders/components/OrderDetailsDialog";
-import { Order as OrderType, Service, OrderStatus } from "./orders/types";
+import { Order as OrderType, Service, OrderFormData, OrderStatus } from "./orders/types";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -21,7 +21,6 @@ import { ValidOrderStatus } from "../../types/order";
 const Order: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { orderId } = useParams<{ orderId?: string }>();
   const [userId, setUserId] = useState<string | null>(null);
   const [orders, setOrders] = useState<OrderType[]>([]);
   const [showServiceDialog, setShowServiceDialog] = useState(false);
@@ -33,6 +32,7 @@ const Order: React.FC = () => {
   
   // State for chat modal
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedChatOrder, setSelectedChatOrder] = useState<OrderType | null>(null);
   
   // State for delivery confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -42,12 +42,7 @@ const Order: React.FC = () => {
   // State for CustomerOrderDetails modal
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<OrderType | null>(null);
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreOrders, setHasMoreOrders] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const pageSize = 10;
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
   useEffect(() => {
     async function fetchCurrentUser() {
@@ -58,14 +53,14 @@ const Order: React.FC = () => {
         const storedUser = localStorage.getItem("userId");
         if (storedUser) {
           setUserId(storedUser);
-          await fetchOrders(storedUser, 1, false);
+          fetchOrders(storedUser);
           return;
         }
         
         const user = await getCurrentUser();
         if (user) {
           setUserId(user.id);
-          await fetchOrders(user.id, 1, false);
+          fetchOrders(user.id);
         } else {
           navigate("/login");
         }
@@ -84,9 +79,9 @@ const Order: React.FC = () => {
   useEffect(() => {
     const subscription = supabase
       .channel('orders_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (_payload) => {
         if (userId) {
-          fetchOrders(userId, 1, false);
+          fetchOrders(userId);
         }
       })
       .subscribe();
@@ -97,56 +92,26 @@ const Order: React.FC = () => {
     };
   }, [userId]);
 
-  // Effect to show order details when orderId parameter is present
-  useEffect(() => {
-    if (orderId && orders.length > 0) {
-      const orderToShow = orders.find(order => order.id === orderId);
-      if (orderToShow) {
-        handleViewOrder(orderToShow);
-      }
-    }
-  }, [orderId, orders]);
-
-  const fetchOrders = async (userId: string, page: number = 1, append: boolean = false) => {
+  const fetchOrders = async (userId: string) => {
     try {
-      if (append) {
-        setIsFetchingMore(true);
-      } else {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
       
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('orders')
-        .select('*', { count: 'exact' })
+        .select('*')
         .or(`user_id.eq.${userId},driver_id.eq.${userId}`)
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .order('created_at', { ascending: false });
       
       if (error) {
         throw error;
       }
       
-      if (append) {
-        setOrders(prevOrders => [...prevOrders, ...(data || [])]);
-      } else {
-        setOrders(data || []);
-      }
-      
-      // Check if there are more orders to load
-      setHasMoreOrders(count ? count > page * pageSize : false);
-      setCurrentPage(page);
+      setOrders(data || []);
     } catch (error) {
       console.error("Error fetching orders:", error);
       setError("Failed to load orders. Please refresh the page.");
     } finally {
-      if (append) {
-        setIsFetchingMore(false);
-      } else {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   };
 
@@ -158,17 +123,34 @@ const Order: React.FC = () => {
     setShowServiceDialog(true);
   };
 
-  const handleLoadMore = () => {
-    if (userId && hasMoreOrders && !isFetchingMore) {
-      fetchOrders(userId, currentPage + 1, true);
-    }
-  };
-
   const handleViewOrder = (order: OrderType) => {
     console.log('Viewing order details:', order);
     // Use CustomerOrderDetails for viewing order details
     setSelectedOrderForDetails(order);
     setShowOrderDetailsModal(true);
+  };
+
+  // This function is currently unused but kept for future implementation of order cancellation
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: OrderStatus.CANCELLED })
+        .eq('id', orderId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("Order cancelled successfully", getToastConfig("success"));
+      
+      if (userId) {
+        fetchOrders(userId);
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error("Failed to cancel order. Please try again.", getToastConfig("error"));
+    }
   };
 
   // Function to open the confirmation dialog
@@ -258,7 +240,7 @@ const Order: React.FC = () => {
       
       // Update the local orders list
       if (userId) {
-        fetchOrders(userId, 1, false);
+        fetchOrders(userId);
       }
     } catch (error) {
       console.error('Error confirming delivery:', error);
@@ -401,7 +383,7 @@ const Order: React.FC = () => {
                                 )}
                                 
                                 {/* Confirm Delivery Button - Only show for delivered or in_transit orders */}
-                                {(order.status === OrderStatus.IN_TRANSIT || order.status === OrderStatus.DELIVERED) && (
+                                {(order.status === OrderStatus.IN_TRANSIT || order.status === 'delivered' as any) && (
                                   <button 
                                     className="text-sunset hover:text-purple-600 transition-colors duration-200"
                                     onClick={(e) => {
@@ -423,26 +405,6 @@ const Order: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          {/* Load More Button */}
-          {hasMoreOrders && orders.length > 0 && (
-            <div className="flex justify-center mt-6">
-              <button
-                onClick={handleLoadMore}
-                disabled={isFetchingMore}
-                className="px-4 py-2 bg-sunset text-white rounded-md hover:bg-sunset-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sunset disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isFetchingMore ? (
-                  <>
-                    <FaSpinner className="animate-spin mr-2" />
-                    {t('Loading...')}
-                  </>
-                ) : (
-                  t('Load More')
-                )}
-              </button>
-            </div>
-          )}
         </>
       )}
 
@@ -469,7 +431,7 @@ const Order: React.FC = () => {
             service={selectedService}
             order={selectedOrder}
             viewOnly={!!selectedOrder.id}
-            onSubmit={async () => {
+            onSubmit={async (_: OrderFormData) => {
               // Using underscore to indicate intentionally unused parameter
               
               try {
@@ -520,9 +482,7 @@ const Order: React.FC = () => {
             driver_id: selectedOrderForDetails.driver_id,
             created_at: selectedOrderForDetails.created_at,
             user_id: selectedOrderForDetails.user_id,
-            estimated_price: selectedOrderForDetails.estimated_price,
-            actual_price: selectedOrderForDetails.actual_price,
-            price: selectedOrderForDetails.price
+            // Removed service_id and estimated_price as they don't exist in the interface
           }}
           open={showOrderDetailsModal}
           onClose={() => {

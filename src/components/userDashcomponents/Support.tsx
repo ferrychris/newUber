@@ -6,7 +6,7 @@ import {
   FaReply, FaComments, FaTimes, FaPaperPlane, FaUser
 } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import supportService, { SupportTicket, SupportMessage, UserInfo } from '../../services/supportService';
 import { Paper, Box, Typography, CircularProgress } from '@mui/material';

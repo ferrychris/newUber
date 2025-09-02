@@ -15,7 +15,6 @@ import {
   FaWallet, 
   FaMoneyBillWave, 
   FaExchangeAlt, 
-  FaArrowUp,
   FaArrowDown
 } from 'react-icons/fa';
 import { useAuth } from '../../../../context/AuthContext';
@@ -182,6 +181,8 @@ const DriverWallet: React.FC = () => {
       let query = supabase
         .from('wallet_transactions')
         .select('*')
+        .eq('type', 'deposit')
+        .or('type.eq.earnings,type.eq.earning')
         .order('created_at', { ascending: false })
         .limit(20);
       
@@ -217,8 +218,6 @@ const DriverWallet: React.FC = () => {
     switch (type) {
       case 'deposit':
         return <FaArrowDown className="text-green-500" />;
-      case 'withdrawal':
-        return <FaArrowUp className="text-red-500" />;
       case 'earnings':
         return <FaMoneyBillWave className="text-blue-500" />;
       case 'earning': // Handle both singular and plural forms
@@ -331,22 +330,13 @@ const DriverWallet: React.FC = () => {
           {/* Quick Actions */}
           <Paper elevation={2} sx={{ p: 2 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>Quick Actions</Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Button 
-                variant="outlined" 
-                startIcon={<FaArrowDown />}
-                sx={{ flex: 1, mr: 1 }}
-              >
-                Deposit
-              </Button>
-              <Button 
-                variant="outlined" 
-                startIcon={<FaArrowUp />}
-                sx={{ flex: 1 }}
-              >
-                Withdraw
-              </Button>
-            </Box>
+            <Button 
+              variant="outlined" 
+              startIcon={<FaArrowDown />}
+              sx={{ width: '100%' }}
+            >
+              Deposit
+            </Button>
           </Paper>
         </>
       )}

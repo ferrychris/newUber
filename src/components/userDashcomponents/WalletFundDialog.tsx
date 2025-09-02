@@ -1,57 +1,92 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FaCreditCard, FaMoneyBillWave, FaTimes, FaLock } from 'react-icons/fa';
-import { useTranslation } from 'react-i18next';
+import { FaTimes, FaSpinner } from 'react-icons/fa';
 import { supabase } from '../../utils/supabase';
-import { toast } from 'react-toastify';
-import { createPaymentIntent, processSuccessfulPayment, stripePromise } from '../../utils/stripe';
-import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
+import { toast } from 'sonner';
+
+// Type for Stripe
+declare global {
+  interface Window {
+    Stripe: {
+      (publishableKey: string): {
+        redirectToCheckout: (params: { sessionId: string }) => Promise<{ error?: Error }>;
+      };
+    };
+  }
+}
 
 interface WalletFundDialogProps {
   isOpen: boolean;
   onClose: () => void;
   walletId: string;
-  onSuccess: () => void;
-  currentBalance: number;
   userId: string;
 }
 
-// Styling for the Stripe Card Element
-const cardStyle = {
-  style: {
-    base: {
-      color: '#32325d',
-      fontFamily: 'Arial, sans-serif',
-      fontSmoothing: 'antialiased',
-      fontSize: '16px',
-      '::placeholder': {
-        color: '#aab7c4'
-      },
-    },
-    invalid: {
-      color: '#fa755a',
-      iconColor: '#fa755a'
+// Function to create a Stripe checkout session
+const createCheckoutSession = async (amount: number, userId: string, walletId: string) => {
+  const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+    body: { 
+      amount: amount * 100, // Convert to cents
+      currency: 'usd',
+      userId,
+      walletId,
+      type: 'wallet_topup'
     }
+  });
+  
+  if (error) {
+    throw error;
   }
+  
+  return data;
 };
 
-const WalletFundDialogContent: React.FC<WalletFundDialogProps> = ({
+const WalletFundDialog: React.FC<WalletFundDialogProps> = ({
   isOpen,
   onClose,
   walletId,
-  onSuccess,
-  currentBalance,
   userId
 }) => {
-  const { t } = useTranslation();
   const [amount, setAmount] = useState<number>(50);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank'>('card');
-  const [loading, setLoading] = useState(false);
-  const [processingPayment, setProcessingPayment] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  // Stripe hooks
-  const stripe = useStripe();
-  const elements = useElements();
+  // Handle Stripe Checkout
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    try {
+      setIsProcessing(true);
+      
+      // Create a checkout session
+      const { sessionId } = await createCheckoutSession(amount, userId, walletId);
+      
+      // Initialize Stripe
+      if (!window.Stripe) {
+        throw new Error('Stripe.js not loaded');
+      }
+      
+      const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+      
+      // Redirect to Stripe Checkout
+      const { error } = await stripe.redirectToCheckout({
+        sessionId
+      });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error: unknown) {
+      console.error('Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error(errorMessage);
+      setIsProcessing(false);
+    }
+  };
   
   if (!isOpen) return null;
 
@@ -66,338 +101,102 @@ const WalletFundDialogContent: React.FC<WalletFundDialogProps> = ({
     setAmount(value);
   };
 
-  const handleManualUpdate = async () => {
-    if (amount <= 0) {
-      toast.error(t('wallet.invalidAmount'));
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      
-      // Manual update without payment processing (for bank transfer)
-      const { error: updateError } = await supabase
-        .from('wallets')
-        .update({ 
-          balance: currentBalance + amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', walletId);
-      
-      if (updateError) {
-        throw new Error(`Failed to update wallet: ${updateError.message}`);
-      }
-      
-      // Create transaction record
-      await createTransactionRecord();
-      
-      toast.success(t('wallet.fundsAdded'));
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Error adding funds:', error);
-      toast.error(t('wallet.addFundsError'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStripePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (amount <= 0) {
-      toast.error(t('wallet.invalidAmount'));
-      return;
-    }
-    
-    if (!stripe || !elements) {
-      // Stripe.js has not loaded yet
-      toast.error(t('payment.stripeNotLoaded'));
-      return;
-    }
-    
-    const cardElement = elements.getElement(CardElement);
-    
-    if (!cardElement) {
-      toast.error(t('payment.cardElementMissing'));
-      return;
-    }
-    
-    try {
-      setProcessingPayment(true);
-      
-      // Create a payment intent
-      const clientSecret = await createPaymentIntent(amount * 100, userId);
-      
-      // Confirm the payment
-      const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: 'Anonymous User',
-          },
-        }
-      });
-      
-      if (paymentError) {
-        throw new Error(paymentError.message);
-      }
-      
-      if (paymentIntent.status === 'succeeded') {
-        // Process the successful payment
-        await processSuccessfulPayment(paymentIntent.id, walletId, amount);
-        
-        // Create transaction record
-        await createTransactionRecord();
-        
-        toast.success(t('wallet.fundsAdded'));
-        onSuccess();
-        onClose();
-      } else {
-        throw new Error(`Payment failed: ${paymentIntent.status}`);
-      }
-    } catch (error: any) {
-      console.error('Payment failed:', error);
-      toast.error(error.message || t('payment.processingError'));
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  const createTransactionRecord = async () => {
-    try {
-      // Create transaction record
-      const { error: transactionError } = await supabase
-        .from('wallet_transaction')
-        .insert({
-          wallet_id: walletId,
-          amount: amount,
-          type: 'deposit',
-          status: 'completed',
-          description: t('wallet.fundDepositDesc'),
-          payment_method: paymentMethod,
-          created_at: new Date().toISOString()
-        })
-        .select();
-      
-      if (transactionError) {
-        // If the wallet_transaction table doesn't exist, try wallet_transactions
-        if (transactionError.code === '42P01') {
-          const { error: txError2 } = await supabase
-            .from('wallet_transactions')
-            .insert({
-              wallet_id: walletId,
-              amount: amount,
-              type: 'deposit',
-              status: 'completed',
-              description: t('wallet.fundDepositDesc'),
-              payment_method: paymentMethod,
-              created_at: new Date().toISOString()
-            });
-            
-          if (txError2 && txError2.code === '42P01') {
-            // Try one more table name
-            const { error: txError3 } = await supabase
-              .from('transactions')
-              .insert({
-                wallet_id: walletId,
-                amount: amount,
-                type: 'deposit',
-                status: 'completed',
-                description: t('wallet.fundDepositDesc'),
-                payment_method: paymentMethod,
-                created_at: new Date().toISOString()
-              });
-              
-            if (txError3) {
-              console.error('Failed to record transaction in any table:', txError3);
-            }
-          }
-        } else {
-          console.error('Transaction record failed:', transactionError);
-        }
-      }
-    } catch (error) {
-      console.error('Error recording transaction:', error);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (paymentMethod === 'card') {
-      handleStripePayment(e);
-    } else {
-      handleManualUpdate();
-    }
-  };
-
-  if (processingPayment) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white dark:bg-midnight-800 rounded-xl shadow-xl max-w-md w-full p-8 text-center"
-        >
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('wallet.processingPayment')}</h3>
-            <p className="text-gray-500 dark:text-stone-400">{t('wallet.doNotClose')}</p>
-          </div>
-        </motion.div>
-      </motion.div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white dark:bg-midnight-800 rounded-xl shadow-xl max-w-md w-full overflow-hidden"
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <motion.div 
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transition-colors duration-200"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
       >
-        <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-stone-700/20">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{t('wallet.addFunds')}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-          >
-            <FaTimes />
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-5">
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
-              {t('wallet.selectAmount')}
-            </label>
-            <div className="flex items-center border-2 border-gray-300 dark:border-stone-600 rounded-lg overflow-hidden focus-within:border-purple-500 dark:focus-within:border-purple-400">
-              <span className="px-3 py-2 bg-gray-100 dark:bg-midnight-700 text-gray-500 dark:text-stone-400">$</span>
-              <input
-                type="number"
-                value={amount}
-                onChange={handleAmountChange}
-                className="w-full p-2 outline-none bg-white dark:bg-midnight-800 text-gray-900 dark:text-white"
-                min="1"
-                step="0.01"
-              />
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() => handleQuickAmount(10)}
-                className="p-2 bg-gray-100 dark:bg-midnight-700 rounded-md text-sm font-medium text-gray-700 dark:text-stone-300 hover:bg-gray-200 dark:hover:bg-midnight-600"
-              >
-                $10
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAmount(50)}
-                className="p-2 bg-gray-100 dark:bg-midnight-700 rounded-md text-sm font-medium text-gray-700 dark:text-stone-300 hover:bg-gray-200 dark:hover:bg-midnight-600"
-              >
-                $50
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAmount(100)}
-                className="p-2 bg-gray-100 dark:bg-midnight-700 rounded-md text-sm font-medium text-gray-700 dark:text-stone-300 hover:bg-gray-200 dark:hover:bg-midnight-600"
-              >
-                $100
-              </button>
-            </div>
-          </div>
-          
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
-              {t('wallet.paymentMethod')}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card')}
-                className={`p-3 rounded-lg flex items-center gap-3 border-2 ${
-                  paymentMethod === 'card'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
-                    : 'border-gray-300 dark:border-stone-600 hover:bg-gray-50 dark:hover:bg-midnight-700'
-                }`}
-              >
-                <FaCreditCard className={paymentMethod === 'card' ? 'text-purple-500' : 'text-gray-500 dark:text-stone-400'} />
-                <span className="font-medium">{t('wallet.creditCard')}</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('bank')}
-                className={`p-3 rounded-lg flex items-center gap-3 border-2 ${
-                  paymentMethod === 'bank'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
-                    : 'border-gray-300 dark:border-stone-600 hover:bg-gray-50 dark:hover:bg-midnight-700'
-                }`}
-              >
-                <FaMoneyBillWave className={paymentMethod === 'bank' ? 'text-purple-500' : 'text-gray-500 dark:text-stone-400'} />
-                <span className="font-medium">{t('wallet.bankTransfer')}</span>
-              </button>
-            </div>
-          </div>
-          
-          {paymentMethod === 'card' && (
-            <div className="mb-5">
-              <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-2">
-                {t('wallet.cardDetails')}
-              </label>
-              <div className="border-2 border-gray-300 dark:border-stone-600 rounded-lg p-3 bg-white dark:bg-midnight-800">
-                <CardElement options={cardStyle} />
-              </div>
-              <div className="flex items-center text-xs text-gray-500 dark:text-stone-400 mt-2">
-                <FaLock className="mr-1" />
-                <span>{t('wallet.securePayment')}</span>
-              </div>
-            </div>
-          )}
-          
-          <div className="pt-3 border-t border-gray-200 dark:border-stone-700/20">
-            <button
-              type="submit"
-              disabled={loading || amount <= 0 || (paymentMethod === 'card' && (!stripe || !elements))}
-              className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add Funds</h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
+              disabled={isProcessing}
             >
-              {loading ? (
-                <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-              ) : null}
-              {loading 
-                ? t('common.processing') 
-                : (paymentMethod === 'card' ? t('wallet.confirmPayment') : t('wallet.confirmDeposit'))}
+              <FaTimes className="h-6 w-6" />
             </button>
           </div>
-        </form>
+          
+          <form onSubmit={handlePayment}>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Amount to Add
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 dark:text-gray-400 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  value={amount || ''}
+                  onChange={handleAmountChange}
+                  className="focus:ring-purple-500 focus:border-purple-500 dark:focus:ring-purple-400 dark:focus:border-purple-400 block w-full pl-7 pr-12 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md py-3 border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="0.00"
+                  min="1"
+                  step="0.01"
+                  disabled={isProcessing}
+                  required
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                  <span className="text-gray-500 dark:text-gray-400 sm:text-sm">USD</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                {[10, 25, 50, 100, 200, 500].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => handleQuickAmount(value)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      amount === value
+                        ? 'bg-purple-600 dark:bg-purple-700 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    disabled={isProcessing}
+                  >
+                    ${value}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <svg className="h-5 w-5 text-green-500 dark:text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Secure payment powered by Stripe</span>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                isProcessing
+                  ? 'bg-purple-400 dark:bg-purple-500 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:focus:ring-offset-gray-800 transition-colors`}
+            >
+              {isProcessing ? (
+                <>
+                  <FaSpinner className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Processing...
+                </>
+              ) : (
+                `Add $${amount.toFixed(2)} to Wallet`
+              )}
+            </button>
+          </form>
+        </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };
 
-// Wrapper component that provides Stripe context
-const WalletFundDialog: React.FC<Omit<WalletFundDialogProps, 'userId'> & { userId: string }> = (props) => {
-  if (!props.isOpen) return null;
-  
-  return (
-    <Elements stripe={stripePromise}>
-      <WalletFundDialogContent {...props} />
-    </Elements>
-  );
-};
+
 
 export default WalletFundDialog; 

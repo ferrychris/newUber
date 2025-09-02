@@ -14,7 +14,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { useTranslation } from 'react-i18next';
 import supportService from '../../services/supportService';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface SupportTicketModalProps {
   open: boolean;

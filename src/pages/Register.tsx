@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { FaEye, FaEyeSlash, FaUser, FaEnvelope, FaPhone, FaLock, FaCar } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
@@ -143,11 +143,7 @@ export default function Register() {
   };
 
   const manualRegistration = async (sanitizedEmail: string, sanitizedPhone: string, sanitizedName: string) => {
-    const loadingToastId = toast.loading('Creating your account...', {
-      position: 'top-center',
-      autoClose: false,
-      hideProgressBar: false
-    });
+    const loadingToastId = toast.loading('Creating your account...');
 
     try {
       // Check if user already exists
@@ -158,12 +154,8 @@ export default function Register() {
         .single();
 
       if (existingUser) {
-        toast.update(loadingToastId, {
-          render: 'A user with this email already exists',
-          type: 'error',
-          isLoading: false,
-          autoClose: 5000
-        });
+        toast.dismiss(loadingToastId);
+        toast.error('A user with this email already exists');
         throw new Error('A user with this email already exists');
       }
 
@@ -184,23 +176,15 @@ export default function Register() {
       // We'll move the sign-in step to after all the error checking
 
       if (authError) {
-        toast.update(loadingToastId, {
-          render: authError.message,
-          type: 'error',
-          isLoading: false,
-          autoClose: 5000
-        });
+        toast.dismiss(loadingToastId);
+        toast.error(authError.message);
         throw new Error(authError.message);
       }
 
       const userId = authData?.user?.id;
       if (!userId) {
-        toast.update(loadingToastId, {
-          render: 'Failed to create user account',
-          type: 'error',
-          isLoading: false,
-          autoClose: 5000
-        });
+        toast.dismiss(loadingToastId);
+        toast.error('Failed to create user account');
         throw new Error('Failed to create user account');
       }
       
@@ -237,12 +221,8 @@ export default function Register() {
       }
       
       if (!profileCreated) {
-        toast.update(loadingToastId, {
-          render: 'Account created but profile setup incomplete. Please contact support.',
-          type: 'warning',
-          isLoading: false,
-          autoClose: 5000
-        });
+        toast.dismiss(loadingToastId);
+        toast.warning('Account created but profile setup incomplete. Please contact support.');
         console.error('Profile creation could not be verified after multiple attempts');
         // Continue anyway to try wallet creation
       }
@@ -275,12 +255,8 @@ export default function Register() {
       // If user is a driver, create driver profile
       if (formData.role === 'driver') {
         if (!formData.vehicle_type) {
-          toast.update(loadingToastId, {
-            render: 'Vehicle type is required for drivers',
-            type: 'error',
-            isLoading: false,
-            autoClose: 5000
-          });
+          toast.dismiss(loadingToastId);
+          toast.error('Vehicle type is required for drivers');
           throw new Error('Vehicle type is required for drivers');
         }
         
@@ -295,7 +271,7 @@ export default function Register() {
         const tempLicenseNumber = `TEMP_${Date.now()}_${userId.slice(-6)}`;
         
         // First try creating with proper RLS (as the logged-in user)
-        let { error: driverError } = await supabase
+        const { error: driverError } = await supabase
           .from('driver_profiles')
           .insert({
             id: userId,
@@ -310,12 +286,8 @@ export default function Register() {
         }
       }
     
-      toast.update(loadingToastId, {
-        render: 'Account created successfully! Please check your email to verify your account.',
-        type: 'success',
-        isLoading: false,
-        autoClose: 5000
-      });
+      toast.dismiss(loadingToastId);
+      toast.success('Account created successfully! Please check your email to verify your account.');
       navigate('/login');
     } catch (error) {
       console.error('Registration error:', error);

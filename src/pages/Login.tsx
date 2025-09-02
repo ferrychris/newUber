@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaApple, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
@@ -130,12 +130,7 @@ export default function Login() {
         // Check if this is an unverified email error
         if (result.error?.toLowerCase().includes('email') && result.error?.toLowerCase().includes('verify')) {
           toast.error('Please verify your email address before logging in.', {
-            icon: () => (
-              <svg className="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            ),
-            autoClose: 8000
+            duration: 8000
           });
           
           // Show the resend section
@@ -195,15 +190,12 @@ export default function Login() {
         toast.error(`Error sending confirmation email: ${error.message}`);
       } else {
         toast.success('Confirmation email sent! Please check your inbox.', {
-          icon: () => (
-            <span role="img" aria-label="success">✅</span>
-          ),
-          autoClose: 5000
+          duration: 5000
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in resend email:', error);
-      toast.error(`Failed to send email: ${error?.message || 'Unknown error'}`);
+      toast.error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setResendingEmail(false);
     }

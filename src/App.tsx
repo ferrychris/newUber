@@ -2,6 +2,7 @@ import './index.css';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { useEffect } from 'react';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { Toaster } from 'sonner';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ConfirmEmail from './pages/ConfirmEmail';
@@ -45,6 +46,22 @@ function App() {
           <div className="min-h-screen bg-white dark:bg-midnight-900 text-gray-900 dark:text-white transition-colors duration-500">
             <BrowserRouter>
               <SessionChecker />
+              <Toaster 
+                position="top-center"
+                richColors
+                closeButton
+                expand
+                visibleToasts={4}
+                toastOptions={{
+                  style: {
+                    background: 'white',
+                    border: '1px solid #e5e7eb',
+                    color: '#374151'
+                  },
+                  className: 'sonner-toast',
+                  duration: 4000
+                }}
+              />
               <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />

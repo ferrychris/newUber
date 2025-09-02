@@ -81,7 +81,7 @@ export const UserDash = () => {
       authLoading,
       user: user ? { id: user.id, role: user.role } : null
     }));
-  }, [isLoading, isSidebarOpen, i18n.isInitialized, user, authLoading]);
+  }, [isLoading, isSidebarOpen, i18n.isInitialized, user, authLoading, i18n.language]);
 
   useEffect(() => {
     const initializeLanguage = async () => {
@@ -189,6 +189,11 @@ export const UserDash = () => {
                   </motion.div>
                 } />
                 <Route path="orders" element={
+                  <motion.div {...pageTransition}>
+                    <Order />
+                  </motion.div>
+                } />
+                <Route path="orders/:orderId" element={
                   <motion.div {...pageTransition}>
                     <Order />
                   </motion.div>

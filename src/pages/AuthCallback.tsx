@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -31,10 +31,7 @@ export default function AuthCallback() {
 
         if (hashParams.type === 'signup' && hashParams.access_token) {
           // Successful verification
-          toast.success('Email successfully verified! You can now log in.', {
-            icon: () => <span role="img" aria-label="success">✅</span>,
-            autoClose: 5000
-          });
+          toast.success('Email successfully verified! You can now log in.');
           
           // Extract the user's email from the state, if available
           const email = hashParams.email;
