@@ -38,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useUser } from '@supabase/auth-helpers-react';
 import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '../../../../utils/supabaseClient';
+import { supabase } from '../../../../utils/supabase';
 import { fetchUserProfile, getProfileDisplayName, getProfilePhoneNumber, ProfileData } from '../../../../utils/profileUtils';
 import { getAIResponse } from '../../../../utils/aiUtils';
 
@@ -99,7 +99,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
 
         // Fetch messages for this order
         const { data: messagesData, error } = await supabase
-          .from('support_messages')
+          .from('messages')
           .select('*')
           .eq('order_id', orderId)
           .order('created_at', { ascending: true });
@@ -117,7 +117,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
 
           if (unreadMessages.length > 0) {
             await supabase
-              .from('support_messages')
+              .from('messages')
               .update({ read: true })
               .eq('order_id', orderId)
               .eq('receiver_id', user.id)
@@ -161,7 +161,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
   
   // Create a unique channel name for this subscription
   const channelName = useMemo(() => {
-    return orderId && user ? `public:support_messages:order_id=eq.${orderId}` : null;
+    return orderId && user ? `public:messages:order_id=eq.${orderId}` : null;
   }, [orderId, user]);
 
   // Message handler function - defined outside useEffect to avoid recreation
@@ -182,7 +182,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
     // Mark as read if we are the receiver
     if (user && newMsg.receiver_id === user.id && !newMsg.read) {
       await supabase
-        .from('support_messages')
+        .from('messages')
         .update({ read: true })
         .eq('id', newMsg.id);
     }
@@ -212,7 +212,7 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'support_messages',
+            table: 'messages',
             filter: `order_id=eq.${orderId}`
           },
           handleNewMessage
@@ -280,31 +280,14 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
       // Store the message being sent
       const messageToSend = newMessage.trim();
       
-      // Insert the user's message
-      const { data: messageData, error } = await supabase
-        .from('support_messages')
-        .insert({
-          order_id: orderId,
-          sender_id: user.id,
-          receiver_id: customerId,
-          message: messageToSend,
-          read: false,
-          is_system_message: false
-        })
-        .select();
+      // Send via RPC to enforce server-side authorization
+      const { error } = await supabase.rpc('send_message', {
+        p_order_id: orderId,
+        p_receiver_id: customerId,
+        p_content: messageToSend
+      });
 
       if (error) throw error;
-      
-      // Add the message to the state immediately for better UX
-      if (messageData && messageData.length > 0) {
-        setMessages(prevMessages => {
-          // Make sure we don't add duplicates
-          if (prevMessages.some(msg => msg.id === messageData[0].id)) {
-            return prevMessages;
-          }
-          return [...prevMessages, messageData[0]];
-        });
-      }
       
       // Clear the input field
       setNewMessage('');
@@ -335,33 +318,15 @@ const DriverChatModal: React.FC<DriverChatModalProps> = ({
           );
           
           if (aiResponse.success) {
-            // Insert AI response as a message from the driver
-            const { data: aiMessageData, error: aiInsertError } = await supabase
-              .from('support_messages')
-              .insert({
-                order_id: orderId,
-                sender_id: user.id, // Send as the driver
-                receiver_id: customerId,
-                message: aiResponse.message,
-                read: false,
-                is_system_message: false,
-                is_ai_generated: true // Mark as AI generated
-              })
-              .select();
-              
+            // Send AI response via RPC as the driver
+            const { error: aiInsertError } = await supabase.rpc('send_message', {
+              p_order_id: orderId,
+              p_receiver_id: customerId,
+              p_content: aiResponse.message
+            });
             if (aiInsertError) {
               console.error('Error inserting AI response:', aiInsertError);
               setError('Failed to send AI response. Please try again.');
-            } else if (aiMessageData && aiMessageData.length > 0) {
-              // Manually add the AI message to the state to avoid waiting for subscription
-              // This provides immediate feedback to the user
-              setMessages(prevMessages => {
-                // Make sure we don't add duplicates
-                if (prevMessages.some(msg => msg.id === aiMessageData[0].id)) {
-                  return prevMessages;
-                }
-                return [...prevMessages, aiMessageData[0]];
-              });
             }
           } else {
             console.error('AI response error:', aiResponse.error);

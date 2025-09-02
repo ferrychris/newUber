@@ -16,7 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useUser } from '@supabase/auth-helpers-react';
 import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '../../../../utils/supabaseClient';
+import { supabase } from '../../../../utils/supabase';
 
 interface Message {
   id: string;
@@ -74,7 +74,7 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
 
         // Fetch messages for this order
         const { data: messagesData, error } = await supabase
-          .from('support_messages')
+          .from('messages')
           .select('*')
           .eq('order_id', orderId)
           .order('created_at', { ascending: true });
@@ -92,7 +92,7 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
 
           if (unreadMessages.length > 0) {
             await supabase
-              .from('support_messages')
+              .from('messages')
               .update({ read: true })
               .eq('order_id', orderId)
               .eq('receiver_id', user.id)
@@ -124,13 +124,13 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
 
     // Set up real-time subscription
     const subscription = supabase
-      .channel(`support-messages-${orderId}`)
+      .channel(`messages-${orderId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'support_messages',
+          table: 'messages',
           filter: `order_id=eq.${orderId}`
         },
         async (payload) => {
@@ -140,7 +140,7 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
           // Mark as read if we are the receiver
           if (newMsg.receiver_id === user.id && !newMsg.read) {
             await supabase
-              .from('support_messages')
+              .from('messages')
               .update({ read: true })
               .eq('id', newMsg.id);
           }
@@ -164,16 +164,12 @@ const DashboardChat: React.FC<DashboardChatProps> = ({
     try {
       setIsSending(true);
       
-      const { error } = await supabase
-        .from('support_messages')
-        .insert({
-          order_id: orderId,
-          sender_id: user.id,
-          receiver_id: customerId,
-          message: newMessage.trim(),
-          read: false,
-          is_system_message: false
-        });
+      // Use RPC to enforce server-side authorization and defaults
+      const { error } = await supabase.rpc('send_message', {
+        p_order_id: orderId,
+        p_receiver_id: customerId,
+        p_content: newMessage.trim()
+      });
 
       if (error) throw error;
       

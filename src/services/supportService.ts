@@ -66,7 +66,7 @@ const supportService = {
       .insert([
         {
           ticket_id: ticketData[0].id,
-          sender_id: user.id,
+          // sender_id will be set by DB default auth.uid()
           message
         }
       ]);
@@ -169,7 +169,7 @@ const supportService = {
       .insert([
         {
           ticket_id: ticketId,
-          sender_id: user.id,
+          // sender_id will be set by DB default auth.uid()
           message: message.trim()
         }
       ])

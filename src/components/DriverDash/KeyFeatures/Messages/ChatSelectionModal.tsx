@@ -22,7 +22,7 @@ import {
   LocationOn as LocationIcon,
   Circle as StatusIcon
 } from '@mui/icons-material';
-import { supabase } from '../../../../lib/supabaseClient';
+import { supabase } from '../../../../utils/supabase';
 import { useUser } from '@supabase/auth-helpers-react';
 
 interface ChatSelectionModalProps {
@@ -85,7 +85,7 @@ const ChatSelectionModal: React.FC<ChatSelectionModalProps> = ({
 
         // Get unread messages
         const { data: unreadMessagesData } = await supabase
-          .from('support_messages')
+          .from('messages')
           .select('order_id')
           .eq('receiver_id', user.id)
           .eq('read', false);

@@ -12,7 +12,7 @@ import {
   Typography
 } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
-import { supabase } from '../../../../utils/supabaseClient';
+import { supabase } from '../../../../utils/supabase';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { updateOrderStatus } from '../../../../utils/orderUtils';
 import type { ValidOrderStatus, StatusConfig } from '../../../../types/order';
@@ -150,7 +150,7 @@ export default function OrderStatusControl({ orderId, currentStatus: initialStat
       
       try {
         const { count } = await supabase
-          .from('support_messages')
+          .from('messages')
           .select('id', { count: 'exact' })
           .eq('order_id', orderId)
           .eq('receiver_id', user.id)
@@ -172,7 +172,7 @@ export default function OrderStatusControl({ orderId, currentStatus: initialStat
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
-          table: 'order_messages',
+          table: 'messages',
           filter: `order_id=eq.${orderId}`,
         }, () => {
           fetchUnreadCount();
@@ -224,7 +224,7 @@ export default function OrderStatusControl({ orderId, currentStatus: initialStat
     if (unreadCount > 0 && user?.id) {
       try {
         await supabase
-          .from('support_messages')
+          .from('messages')
           .update({ read: true })
           .eq('order_id', orderId)
           .eq('receiver_id', user.id)
